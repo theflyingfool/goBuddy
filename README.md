@@ -22,14 +22,47 @@ tables (your catch/shiny/lucky/shadow data) are never touched by that sync
 and carry their own schema-version + migration runner
 (`src/db/migrations.ts`).
 
+## Prerequisites
+
+- Node.js — Vite 6 requires `^18.19.0` or `>=20.0.0`.
+- Nothing else to install for the desktop web app; native builds have their
+  own prerequisites (see "Building the Android app" below).
+
 ## Running it
 
 ```
+git clone <this repo>
+cd GoBuddy
 npm install
 npm run dev
 ```
 
-Opens the app at `http://localhost:5173` (or whatever port Vite picks).
+Opens the app at `http://localhost:5173` (or whatever port Vite picks). All
+data is stored locally (IndexedDB via `sql.js`/`jeep-sqlite` in this mode) —
+nothing leaves the browser.
+
+## Features
+
+- **Pokédex grid** — every species/form, with tri-state (off/include/exclude)
+  filters across region, rarity, gender, Dynamax/Gigantamax/Mega capability,
+  and any personal achievement flags you pin as grid badges (Settings →
+  "Grid badges").
+- **Species detail / data entry** — fast toggle-based entry per form for
+  catches, shiny, lucky, shadow, Dynamax (and their floor/4★/shundo
+  variants). Toggle groups that don't apply to a given form (e.g. Shadow on
+  a species that's never been made Shadow-available) are hidden rather than
+  shown as dead options.
+- **Stats page** — completion percentage by region or species, across
+  multiple lenses (registered, form-complete, costume-complete, or any
+  boolean achievement column) with a drill-down list of what's missing.
+- **Settings** — grid badge selection, gender-form display collapsing, and
+  cross-device Export/Import (see below).
+- **Coverage report** (dev tool) — a view of which species are missing key
+  reference fields (types, region, availability flags), since the bundled
+  dataset is filled in incrementally.
+
+Not yet built (see `TODO.md`'s backlog): the tri-state search-string
+builder and the auto-declutter engine.
 
 ## Building the Android app
 
