@@ -1,0 +1,17 @@
+node_modules/
+dist/
+tsconfig.tsbuildinfo
+dummy.sqlite
+scripts/ingest/.cache/
+data-authoring/reference-export.csv
+
+# Loose reference material (old Obsidian vault exports, full-size sprite
+# images) already mined into src/data/reference.json and public/sprites/ —
+# ~245MB, not worth version-controlling.
+Refs from Obsidian/
+
+# Editor lock files
+.~lock.*
+
+# Local Claude Code harness config/state — machine-specific, not shared project config
+.claude/
