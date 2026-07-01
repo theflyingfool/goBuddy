@@ -12,7 +12,8 @@
     "ingest:build": "tsx scripts/ingest/build-reference.ts",
     "ingest:csv:export": "tsx scripts/ingest/csv-authoring.ts export",
     "ingest:csv:template": "tsx scripts/ingest/csv-authoring.ts template",
-    "ingest:csv:import": "tsx scripts/ingest/csv-authoring.ts import"
+    "ingest:csv:import": "tsx scripts/ingest/csv-authoring.ts import",
+    "ingest:events": "tsx scripts/ingest/parse-event-pokemon.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

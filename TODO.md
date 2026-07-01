@@ -52,6 +52,29 @@ one gets identified — don't let it go stale.
   `npx playwright install chromium`, not project-vendored) against the
   **full real dataset** — all 9 regions, grid filters, Unown's 29 forms,
   prev/next/jump-search, coverage report, settings cap — no console errors.
+- **Unown's spurious "Standard" form fixed.** Its 28 letter forms (A–Z, !, ?)
+  are the entire catchable set — the species header row isn't an independent
+  29th "Standard" Unown. Fixed via a small `NO_STANDARD_FORM_NAMES` exception
+  set in `scripts/ingest/pokemon-facts.ts` (consulted from
+  `parse-forms-csv.ts`), not a generic parser rewrite. Unown now has exactly
+  28 forms.
+- **Bulbapedia Event Pokémon (GO) ingestion** — costumes were entirely
+  unmodeled before this (zero forms had `costumeName` set, despite the schema
+  supporting it). `scripts/ingest/parse-event-pokemon.ts` parses a raw
+  wikitext snapshot of Bulbapedia's Event Pokémon page (committed at
+  `scripts/ingest/sources/event-pokemon-go.wikitext`) into CSV rows merged
+  through the existing `csv-authoring.ts import` workflow. Result: **601 new
+  costume form rows across 123 species**. Fixed a real slug-collision bug
+  found along the way: `formSlug()` didn't account for `costumeName`, so any
+  costume on a species' base form would have collided with its plain
+  "Standard" slug — extended (backward-compatibly) to include the costume
+  when present.
+- **Species detail page reworked for high-form-count species.** Pikachu alone
+  has 188 forms post-costume-ingestion; the old always-expanded fieldset stack
+  was unusable at that scale. Form groups are now collapsed-by-default
+  `<details>` blocks, plus a compact overview grid at the top of the page
+  (tinted per group when caught, click-to-expand-and-scroll-to that group).
+  Verified via Playwright against Pikachu (188 forms) and Unown (28 forms).
 
 ## Real data-quality findings from ingestion (worth your attention)
 
@@ -101,14 +124,80 @@ choices, not silently "fixed" — see Coverage Report in-app):
 
 ## Backlog (not started)
 
-- Features 1–3 from CLAUDE.md: completion/progress stats, the merged
-  search-string-builder + auto-declutter "Search Tools" page, and their
-  underlying parameterized scope/lens SQL queries.
-- Real on-device storage: wiring capacitor-community/sqlite +
-  jeep-sqlite (web dev shim) as the actual runtime backend, replacing the
-  in-memory dummy repository. Capacitor/Android project scaffolding
-  (`npx cap add android`) hasn't been done yet at all.
-- Personal-schema migration runner (schema_version-driven).
+Agreed sequence as of 2026-07-01 (reasoning inline per item):
+
+### A. Real persistent storage (next up)
+
+Swap `dummy-repository.ts` for a real `@capacitor-community/sqlite`-backed
+repository satisfying the existing `Repository` interface
+(`src/data/repository.ts`) — confirmed the plugin's `jeep-sqlite` component
+(sql.js-backed, storing into IndexedDB) runs fine under Vite with no native
+Android project required yet. This is a **dev-time convenience shim only** —
+production still ships native SQLite via Capacitor's Android bridge; this
+doesn't revive the IndexedDB/browser-storage approach CLAUDE.md ruled out for
+the shipped app. Bundle in with this milestone (same "permanent data"
+concern):
+
+- **Personal-schema migration runner** (`schema_version`-driven, per
+  `src/db/schema.ts`'s `CURRENT_PERSONAL_SCHEMA_VERSION`) — schema exists,
+  runner logic doesn't yet.
+- **Slug-rename/alias mechanism** — a real gap surfaced 2026-07-01:
+  `formSlug()` (`scripts/ingest/slug.ts`) recomputes a form's slug from
+  current display data (name/costume/gender) every ingestion run rather than
+  treating it as assigned-once. This bit us for real: fixing a mis-parsed
+  costume name from "character" to "Detective Pikachu" changed its slug
+  (`pikachu-standard-character-male` → `...-detective-pikachu-male`), which
+  would silently orphan any personal data already keyed to the old slug.
+  CLAUDE.md's stated intent ("permanent, immutable... generated once and
+  never reused") already promises the fix needed; it isn't implemented yet.
+  Belongs with the migration runner: an explicit, logged remap step applied
+  to personal data when reference tables get replaced. Decided **not** to
+  switch to UUID primary keys instead — human-readable slugs are a deliberate
+  CLAUDE.md design choice (SQLite-browser/CSV-authoring ergonomics), and the
+  actual bug is narrower than the ID type.
+
+### B. Pokedex grid filter upgrade
+
+Small, independent of A — can land before/after/alongside it. The grid's
+filter bar (`src/features/data-entry/species-grid.ts`) currently only has
+All/Caught/Uncaught. Promote the user's chosen indicator fields (already
+selected in Settings via `getIndicatorSelection()`/`MAX_GRID_INDICATORS`,
+currently badge-only) into real filter chips alongside All/Caught/Uncaught,
+plus a "More" expansion exposing filters for the rest of the achievement
+fields — the default 4 don't always match what the user wants to filter by
+in the moment.
+
+### C. Stats / completion tracking
+
+Once A removes the "is this real data" doubt about building against dummy
+data. Per CLAUDE.md this is the primary feature; the scope×lens query design
+is already spec'd there. Concrete shape from the user (2026-07-01):
+
+- Filters/selectables at the top; default view grouped by Region.
+- Default lens: **Registered**, counted by **species**, not forms (e.g.
+  "Kanto: 148 of 151" — not inflated by per-form/costume counts), shown with
+  a progress bar/line and % complete.
+- Lucky (and likely other achievement-column lenses) selectable the same way,
+  also defaulting to a by-region breakdown.
+- Ideally any tracked stat/lens is selectable, matching CLAUDE.md's
+  parameterized scope×lens design (not one hardcoded view per region).
+- **Open UX detail, not resolved yet**: the user wants form-complete/
+  costume-complete and achievement-column lenses selectable via checkboxes,
+  which reads as wanting to view multiple lenses at once rather than one
+  radio-selected lens at a time — confirm with them directly when this
+  milestone starts.
+
+### D. Native Capacitor/Android scaffolding + APK packaging (deferred)
+
+Only once A–C are proven against the web-shim backend does it make sense to
+invest in `npx cap add android` and real device packaging — no point
+scaffolding a native shell before the data layer and primary feature are
+validated.
+
+### Lower priority (unchanged from CLAUDE.md's own ranking)
+
+- Search Tools (tri-state PoGo search-string builder) + the auto-declutter
+  engine — CLAUDE.md explicitly ranks these below Stats.
 - Background-linking UI (schema supports `form_background_personal`
   scoped per achievement variant; no picker UI built yet).
 - Real GO cosmetic background data — none exists in any source yet; only
@@ -117,25 +206,28 @@ choices, not silently "fixed" — see Coverage Report in-app):
 - The `001-Bulbasaur/Standard.md` question from the Obsidian refs — it
   looks like it might contain real personal progress data rather than
   just a structural example. Unresolved; ask before assuming either way.
-- Bundle size: `reference.json` (1024 species/2213 forms) is now bundled
-  directly into the JS chunk (~977KB), past Vite's 500KB warning
-  threshold. Not a functional problem yet, but worth lazy-loading or
-  fetching as a separate asset instead of a static import before this
-  goes much bigger.
+- Bundle size: `reference.json` (now 1024 species/2813 forms after costume
+  ingestion) is bundled directly into the JS chunk, past Vite's 500KB
+  warning threshold. Not a functional problem yet, but worth lazy-loading or
+  fetching as a separate asset instead of a static import before this goes
+  much bigger.
 - 282 forms have placeholder ("missing-types") typing — mostly costumes/
   letters/formes/less-common regional variants my PokeAPI variety-name
   guessing couldn't confidently match. Real values exist in PokeAPI: this
   needs a smarter matching pass (e.g. resolving via each variety's
   `pokemon-form` data) or manual correction via the CSV authoring tool.
+- 27 costume names (Cosplay Pikachu variants, Pumpkaboo/Gourgeist sizes,
+  T-shirt colors, etc.) fall back to a raw Bulbapedia sprite code since the
+  source reuses one Form label across multiple rows for these — flagged to
+  console by `parse-event-pokemon.ts`, not silently guessed. Worth a manual
+  friendly-naming pass.
 
 ## Known issues / accepted tradeoffs
 
-- The per-form toggle grid on the species detail page requires a lot of
-  scrolling per variant (Standard/Lucky/Shadow/Dynamax/Lucky Dynamax ×
-  each gender). User flagged this as "kind of a pain" but OK for now —
-  worth revisiting (e.g. tabs per branch, collapsible sections) now that
-  the real dataset makes the pain concrete (Furfrou alone has 11 costumes
-  × 2 genders = 22 form groups).
+- ~~The per-form toggle grid on the species detail page requires a lot of
+  scrolling per variant~~ — **resolved 2026-07-01**: form groups are now
+  collapsed-by-default `<details>` blocks with a compact overview grid at
+  the top of the page (see Done above).
 - Gender availability (has_male/has_female) and legendary/mythical
   classification come from PokeAPI's `gender_rate`/`is_legendary`/
   `is_mythical` — trusted directly rather than double-checked by hand

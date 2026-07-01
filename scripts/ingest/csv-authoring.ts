@@ -186,7 +186,7 @@ function runImport(path: string) {
     }
 
     const gender = (row.gender || "unknown") as Gender;
-    const fSlug = row.form_slug.trim() || buildFormSlug(speciesSlug, row.form_name || null, gender);
+    const fSlug = row.form_slug.trim() || buildFormSlug(speciesSlug, row.form_name || null, gender, row.costume_name || null);
 
     const newForm: Form = {
       slug: fSlug,

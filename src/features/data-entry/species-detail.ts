@@ -28,6 +28,22 @@ function groupForms(forms: Form[], collapseGender: boolean): FormGroup[] {
   return [...groups.values()];
 }
 
+function groupIsCaught(group: FormGroup, formPersonalBySlug: Map<string, FormPersonal>): boolean {
+  return group.forms.every((f) => formPersonalBySlug.get(f.slug)?.caught);
+}
+
+function domId(key: string): string {
+  return `form-group-${key.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
+}
+
+// A species with many costumes/letters/formes (e.g. Pikachu's 188) can't
+// reasonably show every form group expanded at once — groups render as
+// collapsed-by-default <details>. This tracks which ones the user has
+// opened, keyed by species, so a toggle-triggered re-render (this module
+// re-renders the whole page on every checkbox change) doesn't re-collapse
+// sections the user just opened.
+const openGroupKeysBySpecies = new Map<string, Set<string>>();
+
 export function renderSpeciesDetail(container: HTMLElement, repo: Repository, speciesSlug: string, onBack: () => void) {
   clear(container);
 
@@ -60,15 +76,52 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     );
   }
 
-  const formsContainer = el("div", { class: "forms-container" });
   const formPersonalBySlug = new Map<string, FormPersonal>(forms.map((f) => [f.form.slug, f.personal]));
   const groups = groupForms(
     forms.map((f) => f.form),
     collapseGender,
   );
 
+  let openKeys = openGroupKeysBySpecies.get(speciesSlug);
+  if (!openKeys) {
+    openKeys = new Set();
+    openGroupKeysBySpecies.set(speciesSlug, openKeys);
+  }
+  const openKeysForRender = openKeys;
+
+  const rerender = () => renderSpeciesDetail(container, repo, speciesSlug, onBack);
+
+  // Compact overview grid: quick-scan caught status across every form group,
+  // and a shortcut to open/jump to one instead of scrolling past everything
+  // else in a long collapsed list.
+  const overview = el("div", { class: "form-overview-grid" });
   for (const group of groups) {
-    const groupEl = el("div", { class: "form-group" }, [el("h3", {}, [group.label])]);
+    const caught = groupIsCaught(group, formPersonalBySlug);
+    const tile = el("button", { type: "button", class: `form-overview-tile${caught ? " caught" : ""}` }, [group.label]);
+    tile.addEventListener("click", () => {
+      openKeysForRender.add(group.key);
+      rerender();
+      document.getElementById(domId(group.key))?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+    overview.append(tile);
+  }
+
+  const formsContainer = el("div", { class: "forms-container" });
+  for (const group of groups) {
+    const caught = groupIsCaught(group, formPersonalBySlug);
+    const details = el("details", { id: domId(group.key), class: "form-group" }) as HTMLDetailsElement;
+    details.open = openKeysForRender.has(group.key);
+    details.addEventListener("toggle", () => {
+      if (details.open) openKeysForRender.add(group.key);
+      else openKeysForRender.delete(group.key);
+    });
+
+    const summary = el("summary", {}, [
+      el("span", { class: "form-group-label" }, [group.label]),
+      el("span", { class: `form-group-status${caught ? " caught" : ""}` }, [caught ? "✓" : ""]),
+    ]);
+    details.append(summary);
+
     for (const { title, fields } of FORM_FIELD_GROUPS) {
       const fieldset = el("fieldset", {}, [el("legend", {}, [title])]);
       for (const { field, label } of fields) {
@@ -78,14 +131,14 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
             for (const form of group.forms) {
               repo.setFormPersonalField(form.slug, field, checked);
             }
-            renderSpeciesDetail(container, repo, speciesSlug, onBack);
+            rerender();
           }),
         );
       }
-      groupEl.append(fieldset);
+      details.append(fieldset);
     }
-    formsContainer.append(groupEl);
+    formsContainer.append(details);
   }
 
-  container.append(header, speciesFieldset, formsContainer);
+  container.append(header, speciesFieldset, overview, formsContainer);
 }

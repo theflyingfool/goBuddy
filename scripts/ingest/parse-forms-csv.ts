@@ -22,6 +22,9 @@
 
 import { readFileSync } from "node:fs";
 
+import { NO_STANDARD_FORM_NAMES } from "./pokemon-facts";
+import { slugify } from "./slug";
+
 const REGION_HEADERS = new Set([
   "KANTO",
   "JOHTO",
@@ -127,7 +130,9 @@ export function parseFormsCsv(filePath: string): ParsedSpecies[] {
         shadowAvailable: isAvailable(cells[COL.SHADOW]),
         forms: [],
       };
-      current.forms.push({ formToken: null, shinyAvailable: isAvailable(cells[COL.SHINY]) });
+      if (!NO_STANDARD_FORM_NAMES.has(slugify(name))) {
+        current.forms.push({ formToken: null, shinyAvailable: isAvailable(cells[COL.SHINY]) });
+      }
       continue;
     }
 

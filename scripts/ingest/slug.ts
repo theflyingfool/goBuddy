@@ -20,9 +20,14 @@ const PUNCTUATION_FORM_NAMES: Record<string, string> = {
   "?": "question",
 };
 
-export function formSlug(speciesSlug: string, formToken: string | null, gender: string): string {
+export function formSlug(speciesSlug: string, formToken: string | null, gender: string, costumeName?: string | null): string {
   const token = formToken ? slugify(PUNCTUATION_FORM_NAMES[formToken] ?? formToken) : "standard";
-  return `${speciesSlug}-${token}-${gender}`;
+  // Costume is appended (not substituted) because a costume always decorates
+  // some underlying form/gender — without it, every costume on a species'
+  // base form would collide on the same "-standard-<gender>" slug as the
+  // plain uncostumed form.
+  const costumePart = costumeName ? `-${slugify(costumeName)}` : "";
+  return `${speciesSlug}-${token}${costumePart}-${gender}`;
 }
 
 export function megaVariantSlug(speciesSlug: string, variant: "X" | "Y" | "Primal" | null): string {

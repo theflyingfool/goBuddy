@@ -283,10 +283,54 @@ fieldset {
   border-radius: 8px;
 }
 
+.form-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
+.form-overview-tile {
+  padding: 0.4rem 0.3rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-align: center;
+  background: none;
+  border: 1px solid #8883;
+  border-radius: 8px;
+  opacity: 0.6;
+}
+
+.form-overview-tile.caught {
+  opacity: 1;
+  border-color: #2563eb;
+  background: #2563eb22;
+}
+
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
   border-top: 2px solid #8886;
-  padding-top: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.form-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.25rem;
+  font-size: 1.05rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.form-group-status {
+  font-size: 0.9rem;
+  color: #8888;
+}
+
+.form-group-status.caught {
+  color: #2563eb;
 }
 
 .toggle-row {
