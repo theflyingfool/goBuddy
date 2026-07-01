@@ -19,6 +19,7 @@ import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormPer
 import { getDb, persistDb } from "../db/sqlite-client";
 import { runPersonalMigrations } from "../db/migrations";
 import { syncReferenceData } from "../db/reference-sync";
+import { getCompletionStatsSql } from "./completion-stats-sql";
 import referenceDataJson from "./reference.json";
 import { createInMemoryRepository, type PersonalState } from "./in-memory-store";
 import type { Repository } from "./repository";
@@ -96,7 +97,7 @@ export async function createSqliteRepository(): Promise<Repository> {
     writeQueue = writeQueue.then(fn).catch((err) => console.error("SQLite write-through failed:", err));
   }
 
-  return createInMemoryRepository(referenceData, state, {
+  const repo = createInMemoryRepository(referenceData, state, {
     onSpeciesPersonalChanged(speciesSlug, personal) {
       enqueueWrite(async () => {
         await db.run(
@@ -120,4 +121,17 @@ export async function createSqliteRepository(): Promise<Repository> {
       });
     },
   });
+
+  return {
+    ...repo,
+    // Overrides the in-memory-store default with real parameterized SQL
+    // (CLAUDE.md explicitly asks for this, not just an in-memory scan) — the
+    // in-memory version stays as the dummy backend's implementation. Flushes
+    // the write queue first so a stat computed right after a toggle can't
+    // read a connection that's still mid-write.
+    async getCompletionStats(scope, lenses) {
+      await writeQueue;
+      return getCompletionStatsSql(db, scope, lenses);
+    },
+  };
 }

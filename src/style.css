@@ -391,3 +391,67 @@ fieldset {
   font-size: 0.85rem;
   color: #888;
 }
+
+/* ---- Stats ---- */
+
+.stats-table-wrap {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+
+.stats-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.stats-table th,
+.stats-table td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid #8883;
+}
+
+.stats-row-label {
+  font-weight: bold;
+}
+
+.stats-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.2rem 0;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.stats-cell-bar {
+  width: 80px;
+  height: 6px;
+  background: #8883;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stats-cell-fill {
+  height: 100%;
+  background: #2563eb;
+}
+
+.stats-detail {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.stats-missing-list {
+  color: #888;
+}
+
+.stats-more-lenses summary {
+  padding: 0.4rem 0.25rem;
+  font-size: 0.9rem;
+  color: #888;
+  cursor: pointer;
+}

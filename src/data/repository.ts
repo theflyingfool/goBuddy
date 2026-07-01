@@ -37,6 +37,32 @@ export interface SpeciesFilter {
   fieldFilters?: Partial<Record<GridFilterField, "include" | "exclude">>;
 }
 
+// CLAUDE.md's completion-stats feature: scope (what set of species) and lens
+// (what "complete" means) are independent axes, so a single parameterized
+// query handles every region/species-column combination rather than
+// hand-rolled one-offs per region or per achievement field.
+export type CompletionScope = { kind: "region"; regionSlug: string } | { kind: "species"; speciesSlug: string } | { kind: "global" };
+
+export type CompletionLens =
+  | { kind: "registered" }
+  | { kind: "formComplete" }
+  | { kind: "costumeComplete" }
+  | { kind: "achievement"; field: FormPersonalBooleanField };
+
+export interface CompletionMissingSpecies {
+  slug: string;
+  name: string;
+  dexNumber: number;
+}
+
+export interface CompletionLensResult {
+  lens: CompletionLens;
+  complete: number;
+  total: number;
+  /** Species in scope that don't satisfy this lens — drill-down list. */
+  missingSpecies: CompletionMissingSpecies[];
+}
+
 export interface Repository {
   listRegions(): Region[];
   listSpeciesByRegion(regionSlug: string): Species[];
@@ -58,6 +84,9 @@ export interface Repository {
   /** Which achievement fields show as grid badges, capped at MAX_GRID_INDICATORS. */
   getIndicatorSelection(): FormPersonalBooleanField[];
   setIndicatorSelection(fields: FormPersonalBooleanField[]): void;
+
+  /** %-complete (+ missing-species drill-down) for each requested lens, within one scope. */
+  getCompletionStats(scope: CompletionScope, lenses: CompletionLens[]): Promise<CompletionLensResult[]>;
 }
 
 export const MAX_GRID_INDICATORS = 4;

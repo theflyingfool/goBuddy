@@ -7,7 +7,8 @@ import { renderSpeciesDetail } from "./features/data-entry/species-detail";
 import { renderSpeciesGrid, type GridState } from "./features/data-entry/species-grid";
 import { renderCoverageReportPage } from "./features/coverage-report/coverage-report-page";
 import { renderSettingsPage } from "./features/settings/settings-page";
-import { renderAchievementsPage, renderSearchToolsPage, renderStatsPage, renderXpAssistantPage } from "./features/stubs";
+import { renderStatsPage } from "./features/stats/stats-page";
+import { renderAchievementsPage, renderSearchToolsPage, renderXpAssistantPage } from "./features/stubs";
 import { el } from "./ui/dom";
 
 const app = document.getElementById("app")!;
@@ -113,7 +114,7 @@ function bootstrap(repo: Repository) {
       renderHeader(headerEl, { kind: "none" }, () => setDrawerOpen(!drawerOpen));
       switch (route.name) {
         case "stats":
-          renderStatsPage(contentEl);
+          renderStatsPage(contentEl, repo);
           break;
         case "search-tools":
           renderSearchToolsPage(contentEl);

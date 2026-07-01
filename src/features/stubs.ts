@@ -5,10 +5,6 @@ function renderStub(container: HTMLElement, title: string, message: string) {
   container.append(el("h2", {}, [title]), el("p", { class: "stub-message" }, [message]));
 }
 
-export function renderStatsPage(container: HTMLElement) {
-  renderStub(container, "Stats", "Completion/progress stats aren't built yet — coming in a future update.");
-}
-
 export function renderSearchToolsPage(container: HTMLElement) {
   renderStub(
     container,

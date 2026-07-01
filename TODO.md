@@ -118,6 +118,38 @@ one gets identified — don't let it go stale.
     page, coverage report) against the new backend with zero console errors.
     Also verified `npm run build` + `vite preview` (production build, not
     just dev server).
+- **Milestone C: Stats / completion tracking.** CLAUDE.md's primary feature.
+  `src/data/repository.ts` adds `CompletionScope`/`CompletionLens`/
+  `getCompletionStats()` — one parameterized query per lens *kind*
+  (Registered, Form-complete, Costume-complete, Achievement-by-column),
+  taking scope (region/species/global) as a parameter, not hand-rolled
+  queries per region or per achievement column. Two implementations, per the
+  established split: `src/data/completion-stats-sql.ts` is real parameterized
+  SQL against the SQLite connection (what the app actually runs, per
+  CLAUDE.md's explicit ask); `src/data/in-memory-store.ts` has an equivalent
+  computed in plain JS for the dummy-backend fallback. `sqlite-repository.ts`
+  flushes its pending write queue before querying so a stat computed right
+  after a toggle can't read a stale connection.
+  - UI (`src/features/stats/stats-page.ts`): region-grouped table, one column
+    per **checked** lens (multi-select checkboxes, per the user — not a
+    single-select picker), plus an "All regions" summary row. Each cell shows
+    a mini progress bar + `complete/total (pct%)`; clicking one shows a
+    missing-species drill-down below the table. Registered/Form-complete/
+    Costume-complete stay always visible; the 24 achievement-column lenses
+    (Shiny, Lucky, Shundo, ...) collapse under a "More lenses" `<details>` by
+    default (auto-opens if one inside is checked) — same
+    collapsed-by-default language as the grid's "More filters" and the forms
+    page, now that a flat 27-checkbox list was confirmed too tall on mobile.
+  - Default checked lenses: Registered + Lucky, per the user's own example.
+  - Real modeling decision made here, not explicit in CLAUDE.md: Costume-
+    complete's denominator only counts species that actually have ≥1 costume
+    form — otherwise the ~900 species with zero costumes would count as
+    trivially "complete" and inflate the stat into something meaningless.
+  - Verified via Playwright: toggled Bulbasaur's Registered + Standard
+    Caught + Lucky, confirmed Kanto shows 1/151 for both Registered and Lucky
+    columns, and the missing-species drill-down correctly excludes Bulbasaur.
+    Full regression pass across every route (grid, detail, stats, coverage
+    report, settings, stubs) — zero console errors. Production build verified.
 
 ## Real data-quality findings from ingestion (worth your attention)
 
@@ -175,29 +207,8 @@ choices, not silently "fixed" — see Coverage Report in-app):
 
 ## Backlog (not started)
 
-Agreed sequence as of 2026-07-01 (reasoning inline per item). Milestones A
-and B are done (see Done section above) — C is next up.
-
-### C. Stats / completion tracking
-
-Now unblocked — real persistent storage (milestone A) removed the "is this
-real data" doubt about building against dummy data. Per CLAUDE.md this is the
-primary feature; the scope×lens query design is already spec'd there.
-Concrete shape from the user (2026-07-01):
-
-- Filters/selectables at the top; default view grouped by Region.
-- Default lens: **Registered**, counted by **species**, not forms (e.g.
-  "Kanto: 148 of 151" — not inflated by per-form/costume counts), shown with
-  a progress bar/line and % complete.
-- Lucky (and likely other achievement-column lenses) selectable the same way,
-  also defaulting to a by-region breakdown.
-- Ideally any tracked stat/lens is selectable, matching CLAUDE.md's
-  parameterized scope×lens design (not one hardcoded view per region).
-- **Open UX detail, not resolved yet**: the user wants form-complete/
-  costume-complete and achievement-column lenses selectable via checkboxes,
-  which reads as wanting to view multiple lenses at once rather than one
-  radio-selected lens at a time — confirm with them directly when this
-  milestone starts.
+Agreed sequence as of 2026-07-01 (reasoning inline per item). Milestones A, B,
+and C are done (see Done section above) — D is next up.
 
 ### D. Native Capacitor/Android scaffolding + APK packaging (deferred)
 
