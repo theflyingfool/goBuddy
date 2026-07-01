@@ -133,5 +133,14 @@ export async function createSqliteRepository(): Promise<Repository> {
       await writeQueue;
       return getCompletionStatsSql(db, scope, lenses);
     },
+    // Overrides the in-memory-store default to also wait for the writes it
+    // just queued (via the onXChanged hooks above) to actually land in
+    // SQLite + IndexedDB — callers that reload the page right after
+    // importing need the real backing store updated first, not just the
+    // in-memory cache.
+    async importPersonalData(data) {
+      await repo.importPersonalData(data);
+      await writeQueue;
+    },
   };
 }

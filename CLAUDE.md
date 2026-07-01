@@ -59,6 +59,36 @@ per-species boolean, since it won't be.
   data, so future additions to the personal schema can run a one-time
   migration on load without touching reference data.
 
+### Versioning policy — two separate mechanisms, don't conflate them
+There are two independent version numbers in this codebase. Bumping the
+wrong one (or neither) when the underlying thing changes is the failure
+mode to avoid:
+
+- **`CURRENT_PERSONAL_SCHEMA_VERSION`** (`src/db/schema.ts`) — covers the
+  *structure* of the personal tables (`species_personal`, `form_personal`,
+  etc.), not their contents. Bump this by hand, and append a matching
+  `{ version, up }` entry to `MIGRATIONS` in `src/db/migrations.ts`,
+  **whenever a personal-table column is added, removed, renamed, or its
+  meaning changes** (e.g. adding a new achievement boolean like
+  `four_star_dynamax`). This is also the version number stamped into
+  Settings → Export files and checked on Import (see
+  `src/data/repository.ts`'s `PersonalDataExport`), so an out-of-date bump
+  here would let a structurally-mismatched export get imported without
+  warning.
+- **`reference_data_version`** (`src/db/reference-sync.ts`) — covers the
+  *contents* of `src/data/reference.json` (new species, new forms, new
+  costumes, corrected flags, etc.). This one is **automatic** — it's a
+  content hash of the whole file, recomputed and compared on every app
+  start, and triggers a reference-table wipe-and-reload whenever the file
+  changes. **Nothing to bump by hand here**: adding new Pokémon or editing
+  existing reference data (via the ingestion pipeline or CSV tools) is
+  enough on its own; the version updates itself.
+
+In short: touching `reference.json` (new Pokémon, new forms/costumes, data
+corrections) needs no manual version bump. Touching the *shape* of a
+personal table in `schema.ts` needs both a `CURRENT_PERSONAL_SCHEMA_VERSION`
+bump and a migration entry.
+
 ## Suggested schema (starting point, not a mandate)
 
 This is a reasoned proposal reflecting how the game's mechanics actually

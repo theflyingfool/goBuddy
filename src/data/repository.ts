@@ -73,6 +73,21 @@ export interface CompletionLensResult {
   missingSpecies: CompletionMissingSpecies[];
 }
 
+// Manual cross-device transfer of personal data — export a file, move it
+// wherever (Drive, email, USB), import it on another install. Reference
+// data (species/forms/etc.) is deliberately excluded: it's already
+// wholesale-replaceable from the bundled reference.json, so exporting it
+// would be redundant and risks a version mismatch if an old export gets
+// loaded into a newer app build.
+export interface PersonalDataExport {
+  exportedAt: string;
+  /** CURRENT_PERSONAL_SCHEMA_VERSION at export time — compared on import so a version drift is surfaced, not silently applied. */
+  schemaVersion: number;
+  speciesPersonal: Record<string, SpeciesPersonal>;
+  formPersonal: Record<string, FormPersonal>;
+  appSettings: Record<string, string>;
+}
+
 export interface Repository {
   listRegions(): Region[];
   listSpeciesByRegion(regionSlug: string): Species[];
@@ -97,6 +112,17 @@ export interface Repository {
 
   /** %-complete (+ missing-species drill-down) for each requested lens, within one scope. */
   getCompletionStats(scope: CompletionScope, lenses: CompletionLens[]): Promise<CompletionLensResult[]>;
+
+  /** Snapshot of all personal data (not reference data) for manual cross-device transfer. */
+  exportPersonalData(): PersonalDataExport;
+  /**
+   * Writes every entry in the export through the same paths setSpeciesPersonalField/etc. use —
+   * overwrites matching entries, leaves anything not present in the file untouched. Resolves only
+   * once the write-through to the real backing store has actually completed — callers that reload
+   * the page right after importing (as Settings does) need that guarantee, not just that the
+   * in-memory cache was updated.
+   */
+  importPersonalData(data: PersonalDataExport): Promise<void>;
 }
 
 export const MAX_GRID_INDICATORS = 4;

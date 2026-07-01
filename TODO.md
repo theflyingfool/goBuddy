@@ -254,6 +254,68 @@ one gets identified — don't let it go stale.
     Wormadam, stats, coverage report, settings, stubs) — zero console errors.
     `npx tsc -b --noEmit` clean. `npm run android:build` succeeds end-to-end
     with all of the above included.
+- **Manual export/import for cross-device personal data + form-toggle
+  availability gating.** After the app ran cleanly on an emulator, the user
+  wanted to edit their data from a computer too, without hosting a database.
+  Researched two live-sync options first — a Google Drive-synced file (real
+  corruption risk: no coordination between browser file writes and Drive's
+  sync engine, Chromium-only via the File System Access API) and the phone
+  hosting a local HTTP server (needs a genuine native Android Foreground
+  Service + embedded HTTP server, and Android 15 caps `dataSync`-type
+  foreground services at 6 hours of runtime per rolling 24h window — a real
+  risk for long play sessions, the whole reason for wanting it). The user
+  chose a third, explicitly manual option instead: safety over convenience.
+  - `Repository.exportPersonalData()`/`importPersonalData()`
+    (`src/data/repository.ts`, implemented once in
+    `src/data/in-memory-store.ts` so both backends get it for free) —
+    **personal data only**, not reference data (already wholesale-
+    replaceable from the bundled `reference.json`; re-exporting it would be
+    redundant and risks a version mismatch). Exports are stamped with
+    `CURRENT_PERSONAL_SCHEMA_VERSION`; import compares versions and warns
+    (doesn't block — there's no real migration-of-export-data logic yet,
+    since only version 1 has ever existed) before proceeding.
+  - v1 import semantics: overwrites entries present in the file, leaves
+    anything not in the file untouched (not a full wipe-then-reload) —
+    stated plainly in the confirmation dialog, not a silent surprise.
+  - Platform-specific file I/O in `src/features/settings/personal-data-
+    transfer.ts`: phone uses `@capacitor/filesystem` + `@capacitor/share`
+    (opens Android's native share sheet — "Save to Drive", email, etc. — the
+    app never talks to Google directly); desktop (the already-standalone
+    "non-wrapped" web build) uses `showSaveFilePicker` with a plain
+    Blob-download fallback for older browsers, and a plain
+    `<input type="file">` for import on both platforms. Same JSON shape on
+    both sides, so a file exported from the phone imports fine on desktop
+    and vice versa.
+  - **Real bug caught by testing, not just code review**: the first version
+    called `window.location.reload()` immediately after
+    `importPersonalData()`, but the SQLite backend's writes are queued
+    asynchronously (`enqueueWrite`) — the reload was racing the write queue
+    and loading stale pre-import data. Fixed by making `importPersonalData`
+    return a `Promise` that the SQLite backend overrides to await its
+    pending write queue before resolving (same pattern
+    `getCompletionStats` already used to avoid reading a stale connection).
+    Caught by an actual round-trip Playwright test (import → reload → check
+    the toggled values), not by inspection.
+  - **Separate real bug, found by inspection while reviewing this plan**:
+    `src/features/data-entry/species-detail.ts` rendered all 5
+    `FORM_FIELD_GROUPS` (Standard/Lucky/Shadow/Dynamax/Lucky Dynamax)
+    unconditionally for every form, regardless of
+    `form.shadowAvailable`/`dynamaxAvailable` — a species that can never be
+    Shadow or Dynamaxed still showed those as toggleable options. Same root
+    pattern as the grid Dynamax-filter bug fixed earlier this session
+    (reference *availability* not being consulted), just in a different
+    place. Fixed via an `availableWhen?: (form: Form) => boolean` on each
+    `FORM_FIELD_GROUPS` entry (`field-groups.ts`), skipping the fieldset
+    entirely when no form in the group satisfies it. Verified: Simisear (no
+    Shadow/Dynamax) shows only Standard/Lucky; Nuzleaf (Shadow-available)
+    still shows Shadow.
+  - Verified end-to-end: export → real downloaded JSON with the exact
+    toggled values; import with a schema-version mismatch → confirmation
+    dialog shows both version numbers, accepting it actually applies the
+    file's data (checked via a fresh import, not just that the dialog
+    appeared); full Playwright route regression, zero console errors;
+    `npx tsc -b --noEmit` clean; `npm run android:build` succeeds with
+    `@capacitor/filesystem`/`@capacitor/share` correctly linked.
 
 ## Real data-quality findings from ingestion (worth your attention)
 

@@ -8,6 +8,7 @@
 
 import { emptyFormPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
+import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormPersonal, type FormPersonalBooleanField, type Region, type Species, type SpeciesPersonal } from "../db/types";
 import {
   MAX_GRID_INDICATORS,
@@ -16,6 +17,7 @@ import {
   type CompletionMissingSpecies,
   type CompletionScope,
   type GridFilterField,
+  type PersonalDataExport,
   type Repository,
   type SpeciesFilter,
   type SpeciesSummary,
@@ -240,6 +242,33 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
     async getCompletionStats(scope: CompletionScope, lenses: CompletionLens[]): Promise<CompletionLensResult[]> {
       const scoped = speciesInScope(scope);
       return lenses.map((lens) => computeLens(lens, scoped));
+    },
+
+    exportPersonalData(): PersonalDataExport {
+      return {
+        exportedAt: new Date().toISOString(),
+        schemaVersion: CURRENT_PERSONAL_SCHEMA_VERSION,
+        speciesPersonal: { ...state.speciesPersonal },
+        formPersonal: { ...state.formPersonal },
+        appSettings: { ...state.appSettings },
+      };
+    },
+
+    async importPersonalData(data: PersonalDataExport): Promise<void> {
+      for (const [slug, personal] of Object.entries(data.speciesPersonal)) {
+        state.speciesPersonal[slug] = personal;
+        hooks.onSpeciesPersonalChanged(slug, personal);
+      }
+      for (const [slug, personal] of Object.entries(data.formPersonal)) {
+        state.formPersonal[slug] = personal;
+        hooks.onFormPersonalChanged(slug, personal);
+      }
+      for (const [key, value] of Object.entries(data.appSettings)) {
+        setAppSetting(key, value);
+      }
+      // Base implementation has nothing async to wait for (the dummy
+      // backend's localStorage write is synchronous) — sqlite-repository.ts
+      // overrides this to also await its pending write queue.
     },
   };
 }

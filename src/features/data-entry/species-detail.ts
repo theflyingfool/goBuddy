@@ -122,7 +122,8 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     ]);
     details.append(summary);
 
-    for (const { title, fields } of FORM_FIELD_GROUPS) {
+    for (const { title, fields, availableWhen } of FORM_FIELD_GROUPS) {
+      if (availableWhen && !group.forms.some(availableWhen)) continue;
       const fieldset = el("fieldset", {}, [el("legend", {}, [title])]);
       for (const { field, label } of fields) {
         const allChecked = group.forms.every((f) => formPersonalBySlug.get(f.slug)?.[field]);
