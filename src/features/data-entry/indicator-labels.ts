@@ -1,5 +1,5 @@
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type FormPersonalBooleanField } from "../../db/types";
-import type { GridFilterField, RarityFilterField, SpeciesBooleanField } from "../../data/repository";
+import type { AvailabilityFilterField, GridFilterField, RarityFilterField, SpeciesBooleanField } from "../../data/repository";
 
 export const INDICATOR_LABELS: Record<FormPersonalBooleanField, { badge: string; full: string }> = {
   caught: { badge: "●", full: "Caught" },
@@ -17,7 +17,11 @@ export const INDICATOR_LABELS: Record<FormPersonalBooleanField, { badge: string;
   shadowFloor: { badge: "☾0", full: "Shadow floor IV" },
   shadowFourStar: { badge: "☾★", full: "Shadow 4★" },
   shadowShundo: { badge: "☾💎", full: "Shadow shundo" },
-  dynamax: { badge: "D", full: "Dynamax" },
+  // "Dynamaxed" (achieved), not "Dynamax" — sits right next to the new
+  // reference-availability "Can Dynamax" filter on the grid, and the two are
+  // easy to conflate (that conflation is exactly what made "Uncaught +
+  // Dynamax" return nothing before this fix).
+  dynamax: { badge: "D", full: "Dynamaxed" },
   dynamaxFloor: { badge: "D0", full: "Dynamax floor IV" },
   dynamaxShiny: { badge: "D✨", full: "Dynamax shiny" },
   dynamaxFourStar: { badge: "D★", full: "Dynamax 4★" },
@@ -51,14 +55,33 @@ export const SPECIES_FILTER_LABELS: Record<SpeciesBooleanField, { badge: string;
   purified: { badge: "P", full: "Purified" },
 };
 
+// Reference-data availability ("can this ever be Mega Evolved/Dynamaxed/
+// Gigantamaxed") — grouped with rarity below as "species classification",
+// not mixed into the achievement filter list it used to share a "Dynamax"
+// label with.
+export const AVAILABILITY_FILTER_LABELS: Record<AvailabilityFilterField, { badge: string; full: string }> = {
+  megaCapable: { badge: "Mega", full: "Mega-capable" },
+  dynamaxCapable: { badge: "D?", full: "Can Dynamax" },
+  gigantamaxCapable: { badge: "G?", full: "Can Gigantamax" },
+};
+
 export const RARITY_FILTER_OPTIONS: RarityFilterField[] = ["legendary", "mythical", "ultraBeast"];
 export const SPECIES_FILTER_OPTIONS: SpeciesBooleanField[] = ["xxl", "xxs", "purified"];
+export const AVAILABILITY_FILTER_OPTIONS: AvailabilityFilterField[] = ["megaCapable", "dynamaxCapable", "gigantamaxCapable"];
 
-/** Every filterable grid field, in a stable display order: form achievements, then rarity, then species facts. */
-export const ALL_GRID_FILTER_FIELDS: GridFilterField[] = [...INDICATOR_OPTIONS, ...RARITY_FILTER_OPTIONS, ...SPECIES_FILTER_OPTIONS];
+// Species classification — reference data (rarity + what a species/form can
+// ever be), always visible on the grid rather than tucked into "More
+// filters": per the user, this is a primary-ish dimension they expect to
+// combine directly with Caught/Uncaught, not buried alongside personal
+// achievement toggles like Shiny/Lucky/Shundo.
+export const CLASSIFICATION_FIELDS: GridFilterField[] = [...RARITY_FILTER_OPTIONS, ...AVAILABILITY_FILTER_OPTIONS];
+
+/** Fields shown in the grid's collapsed "More filters" section: every achievement field plus XXL/XXS/Purified. Rarity/availability live in CLASSIFICATION_FIELDS instead. */
+export const MORE_FILTER_FIELDS: GridFilterField[] = [...INDICATOR_OPTIONS, ...SPECIES_FILTER_OPTIONS];
 
 export function gridFilterFieldLabel(field: GridFilterField): { badge: string; full: string } {
   if (field in RARITY_FILTER_LABELS) return RARITY_FILTER_LABELS[field as RarityFilterField];
   if (field in SPECIES_FILTER_LABELS) return SPECIES_FILTER_LABELS[field as SpeciesBooleanField];
+  if (field in AVAILABILITY_FILTER_LABELS) return AVAILABILITY_FILTER_LABELS[field as AvailabilityFilterField];
   return INDICATOR_LABELS[field as FormPersonalBooleanField];
 }

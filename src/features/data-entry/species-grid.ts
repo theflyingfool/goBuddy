@@ -1,7 +1,7 @@
 import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repository";
 import { clear, el } from "../../ui/dom";
 import { speciesSpritePath } from "../../ui/sprites";
-import { ALL_GRID_FILTER_FIELDS, INDICATOR_LABELS, gridFilterFieldLabel } from "./indicator-labels";
+import { CLASSIFICATION_FIELDS, INDICATOR_LABELS, MORE_FILTER_FIELDS, gridFilterFieldLabel } from "./indicator-labels";
 
 export type FieldFilterState = "include" | "exclude";
 
@@ -60,8 +60,18 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
   }
   container.append(filterBar);
 
+  // Species classification (rarity + Mega/Dynamax/Gigantamax-capable) — its
+  // own always-visible row, not folded into the achievement chips above or
+  // the collapsed "More filters" below. Small, fixed-size set (6 fields),
+  // and expected to combine directly with Caught/Uncaught.
+  const classificationBar = el("div", { class: "filter-bar" });
+  for (const field of CLASSIFICATION_FIELDS) {
+    classificationBar.append(fieldFilterChip(field, state, callbacks));
+  }
+  container.append(classificationBar);
+
   const indicatorSelectionSet = new Set<string>(indicatorSelection);
-  const moreFields = ALL_GRID_FILTER_FIELDS.filter((f) => !indicatorSelectionSet.has(f));
+  const moreFields = MORE_FILTER_FIELDS.filter((f) => !indicatorSelectionSet.has(f));
   const moreToggle = el("button", { type: "button", class: "more-filters-toggle" }, [
     `${state.moreFiltersOpen ? "▾" : "▸"} More filters (${moreFields.length})`,
   ]);

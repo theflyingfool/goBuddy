@@ -69,6 +69,12 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       case "xxs":
       case "purified":
         return personal[field];
+      case "megaCapable":
+        return species.canMegaEvolve;
+      case "dynamaxCapable":
+        return (formsBySpecies.get(species.slug) ?? []).some((f) => f.dynamaxAvailable);
+      case "gigantamaxCapable":
+        return (formsBySpecies.get(species.slug) ?? []).some((f) => f.gigantamaxAvailable);
       default:
         return indicators[field];
     }

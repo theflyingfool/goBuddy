@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { fetchPokeApi } from "./pokeapi-client";
 import { parseFormsCsv } from "./parse-forms-csv";
 import { parseTypesCsv } from "./parse-types-csv";
-import { formSlug, megaVariantSlug, slugify } from "./slug";
+import { PUNCTUATION_FORM_NAMES, formSlug, megaVariantSlug, slugify } from "./slug";
 import { generationForDex, ULTRA_BEAST_NAMES } from "./pokemon-facts";
 import type { Form, Gender, MegaVariant, Rarity, Species } from "../../src/db/types";
 import type { ReferenceData, ReferenceGap } from "../../src/db/reference-data";
@@ -69,6 +69,28 @@ function guessVarietyName(pokeApiBaseName: string, formToken: string): { name: s
   return null;
 }
 
+// Non-regional form tokens (letters, formes like Deoxys' Attack/Defense/
+// Speed or Rotom's Heat/Wash, Alcremie flavors, ...) previously never got a
+// match attempt at all — guessVarietyName only recognizes the four regional
+// prefixes, so anything else fell straight through to a "missing-types" gap.
+// PokeAPI's own variety names for these are near-always
+// "${species}-${slugified-token}", but not always a byte-for-byte match —
+// e.g. the Forms CSV's "Sandy Cloak" token slugifies to "sandy-cloak" while
+// PokeAPI's actual variety is just "wormadam-sandy". Match bidirectionally:
+// either the token or the variety's own suffix may be a prefix of the other.
+function findVarietyByToken(pokeApiBaseName: string, formToken: string, varieties: PokeSpecies["varieties"]): string | null {
+  const tokenSlug = slugify(PUNCTUATION_FORM_NAMES[formToken] ?? formToken);
+  const prefix = `${pokeApiBaseName}-`;
+  for (const v of varieties) {
+    if (!v.pokemon.name.startsWith(prefix)) continue;
+    const suffix = v.pokemon.name.slice(prefix.length);
+    if (suffix === tokenSlug || tokenSlug.startsWith(`${suffix}-`) || suffix.startsWith(`${tokenSlug}-`)) {
+      return v.pokemon.name;
+    }
+  }
+  return null;
+}
+
 async function findFormTypes(
   baseName: string,
   baseTypes: string[],
@@ -87,6 +109,14 @@ async function findFormTypes(
       const pokemon = await fetchPokeApi<PokePokemon>("pokemon", guess.name);
       return pokemon.types.map((t) => t.type.name);
     }
+  } else {
+    // No regional prefix matched — try the generic token-based match
+    // instead of giving up immediately.
+    const matched = findVarietyByToken(baseName, formToken, species.varieties);
+    if (matched) {
+      const pokemon = await fetchPokeApi<PokePokemon>("pokemon", matched);
+      return pokemon.types.map((t) => t.type.name);
+    }
   }
 
   // If PokeAPI doesn't list ANY variety in the same regional family (e.g.
@@ -94,7 +124,9 @@ async function findFormTypes(
   // species, the CSV row is more likely a data-entry error (e.g. a
   // copy-paste artifact from an adjacent species row) than a real form we
   // just couldn't name-match — worth flagging distinctly so it doesn't get
-  // lost among ordinary "couldn't guess the exact variety name" gaps.
+  // lost among ordinary "couldn't guess the exact variety name" gaps. Only
+  // applies to the regional case — a non-regional token with no PokeAPI
+  // match is just an ordinary missing-types gap, not evidence of a bogus row.
   const hasMatchingRegionalVariety = guess && species.varieties.some((v) => v.pokemon.name.includes(guess.suffix));
   if (guess && !hasMatchingRegionalVariety) {
     gaps.push({

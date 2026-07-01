@@ -15,7 +15,10 @@ export function slugify(text: string): string {
 
 // Punctuation-only form tokens (Unown's "!" and "?" forms) slugify to an
 // empty string and would otherwise collide with each other — spell them out.
-const PUNCTUATION_FORM_NAMES: Record<string, string> = {
+// Exported so PokeAPI variety-name matching (build-reference.ts) can apply
+// the same translation — PokeAPI's own Unown varieties are named
+// "unown-exclamation"/"unown-question", not "unown-!"/"unown-?".
+export const PUNCTUATION_FORM_NAMES: Record<string, string> = {
   "!": "exclamation",
   "?": "question",
 };

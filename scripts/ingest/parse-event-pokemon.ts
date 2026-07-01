@@ -227,6 +227,14 @@ const EXACT_CODE_SUFFIX: Record<string, string> = {
   Po: "Pop Star",
   Ro: "Rock Star",
   PhD: "Ph.D.",
+  // Gem crown's codes are already the real gem names, not abbreviations —
+  // listed explicitly (identity mapping) so they're treated as confirmed,
+  // not flagged as an unresolved guess.
+  Amethyst: "Amethyst",
+  Quartz: "Quartz",
+  Pyrite: "Pyrite",
+  Malachite: "Malachite",
+  Aquamarine: "Aquamarine",
 };
 
 function resolveCostumeSuffix(code: string, siblingCodes: string[]): { label: string; guessed: boolean } {
@@ -234,6 +242,14 @@ function resolveCostumeSuffix(code: string, siblingCodes: string[]): { label: st
   if (code.startsWith("Sm")) return { label: "Small", guessed: false };
   if (code.startsWith("La")) return { label: "Large", guessed: false };
   if (code.startsWith("Su")) return { label: "Super", guessed: false };
+  // Mechanical, not a guess: "WCS<year>" -> just the year — the enclosing
+  // costume name is already "World Championships (<label>)", so repeating
+  // "World Championships" in the label itself would read redundantly.
+  const wcsMatch = code.match(/^WCS(\d{4})$/);
+  if (wcsMatch) return { label: wcsMatch[1], guessed: false };
+  // Mechanical: "TShirt<Color>" is just "<Color>" without the prefix.
+  const tShirtMatch = code.match(/^TShirt([A-Za-z]+)$/);
+  if (tShirtMatch) return { label: tShirtMatch[1], guessed: false };
   const hasSizeSibling = siblingCodes.some((c) => /^(Sm|La|Su)/.test(c));
   if (hasSizeSibling) return { label: "Average", guessed: false };
   return { label: code || "Variant", guessed: true };

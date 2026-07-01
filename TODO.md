@@ -167,15 +167,11 @@ one gets identified — don't let it go stale.
   on this machine's default JDK 26 ("Unsupported class file major version
   70"); rebuilt after the platform-aware fix to confirm it's actually in the
   shipped build, not just compiled once before the fix existed.
-  - **Not yet done**: never installed/run on a real device or emulator — no
-    AVD exists yet and no physical device was attached this session. Building
-    the debug APK is real proof the native project is wired correctly, but
-    isn't the same as confirming SQLite/jeep-sqlite-vs-native behavior on an
-    actual Android runtime. Worth doing before trusting this fully.
-  - App icon and splash screen are Capacitor's **generic default placeholders**
-    (the default Capacitor logo/blank splash) — not customized to GoBuddy at
-    all. Cosmetic, but worth fixing before this ever gets installed somewhere
-    you'd actually look at it.
+  - ~~Not yet done: never installed/run on a real device or emulator~~ —
+    **resolved 2026-07-01**: ran cleanly on an emulator. Still not tested on
+    a real physical device (see Backlog).
+  - ~~App icon and splash screen are Capacitor's generic default
+    placeholders~~ — **resolved 2026-07-01**, see the icon/splash entry below.
   - **Correction to an earlier prediction**: the bundle-size backlog note
     below previously said the jeep-sqlite chunk "will shrink or disappear
     once milestone D adds a native build" — that was wrong. Capacitor ships
@@ -184,6 +180,80 @@ one gets identified — don't let it go stale.
     *bundled* into the APK's web assets. Actually shrinking the native build
     would need real code-splitting (dynamic `import()` gated on
     `Capacitor.getPlatform()`), not just adding the native project.
+- **Post-emulator cleanup pass (2026-07-01)**: ran cleanly on an emulator;
+  before sideloading onto a real phone, fixed the grid Dynamax filter bug
+  and did a data-quality/branding pass. Not new features (deliberately, per
+  the user) — bug fixes and polish on what already existed.
+  - **Grid: new "species classification" filter group.** Root cause of the
+    "Uncaught + Dynamax found nothing" bug: `GridFilterField`
+    (`src/data/repository.ts`) only covered personal achievement fields
+    (`form_personal.dynamax` = "have I caught one") and rarity — no filter
+    existed for reference *availability*
+    (`form.dynamaxAvailable`/`gigantamaxAvailable`, `species.canMegaEvolve`
+    = "can this ever be Dynamaxed/Mega-evolved"). Added
+    `AvailabilityFilterField` (`megaCapable`/`dynamaxCapable`/
+    `gigantamaxCapable`) alongside the existing rarity fields, and — per the
+    user's explicit ask, not just "another checkbox in the same list" — gave
+    Legendary/Mythical/Ultra Beast/Mega-capable/Can Dynamax/Can Gigantamax
+    their own always-visible row (`CLASSIFICATION_FIELDS` in
+    `indicator-labels.ts`) between Caught/Uncaught and the collapsed
+    "More filters" achievement list, not mixed into either. Renamed the
+    existing personal-achievement label from "Dynamax" to "Dynamaxed" so it's
+    not confusable with the new "Can Dynamax" sitting next to it. **Verified**
+    the exact bug is fixed: Uncaught + Can-Dynamax now returns 153 species,
+    matching an independent count of species with ≥1 dynamax-available form.
+  - **Deliberately not done**: adding a personal `gigantamax` achievement
+    field (see Backlog) — a schema/feature question, out of scope for a bug
+    fix, called out rather than silently skipped.
+  - **Missing-types matching pass** (`scripts/ingest/build-reference.ts`):
+    `findFormTypes` previously only attempted a PokeAPI variety match for
+    regional-prefix tokens (Alolan/Galarian/Hisuian/Paldean) — every other
+    form token (letters, formes, cloaks, ...) skipped straight to a
+    "missing-types" gap without trying at all. Added a generic fallback
+    (`findVarietyByToken`) that bidirectionally matches the form token
+    against each variety's name suffix, handling cases like "Sandy Cloak"
+    (CSV token) vs. PokeAPI's actual `wormadam-sandy` (no "cloak" suffix).
+    **Result: 282 → 183 missing-types gaps (99 forms fixed, verified real)**
+    — confirmed Rotom's formes now have genuinely different per-forme types
+    (Heat = electric/fire, not the base electric/ghost) and Wormadam's Sandy/
+    Trash Cloaks went from silently-wrong-by-coincidence (base bug/grass
+    placeholder) to correctly flagged-until-fixed to actually fixed.
+    **Real remaining limitation found, correcting an earlier assumption**:
+    PokeAPI does not model Unown's 28 letters (or Vivillon's ~40 patterns,
+    Spinda's spot patterns, etc.) as species `varieties` at all — checked the
+    cache directly (`pokemon-species/201.json` only lists variety `"unown"`,
+    nothing per-letter). My earlier plan assumed these would resolve; they
+    don't, and won't without a deeper PokeAPI `pokemon-form` traversal this
+    pass didn't attempt. Unown's types still *display* correctly by
+    coincidence (single-type species, so the missing-types placeholder value
+    happens to match), but the gap is honestly still flagged, not silently
+    hidden.
+  - **Costume-suffix naming** (`scripts/ingest/parse-event-pokemon.ts`):
+    added mechanical (non-guessed) transforms — `WCS<year>` → the year alone
+    (e.g. "World Championships (2022)", not the redundant "World
+    Championships (World Championships 2022)"), `TShirt<Color>` → `<Color>`,
+    and stopped flagging Gem crown's already-legible gem names (Amethyst/
+    Quartz/Pyrite/Malachite/Aquamarine) as unresolved guesses. **23 → 11
+    guessed-costume-name gaps.** Remaining 11 need real player knowledge, not
+    mechanical transforms (see Backlog).
+  - **Custom app icon + splash**: generated a Poké-Ball-style geometric badge
+    (red top / white bottom / black band / white-and-black center circle —
+    generic ball shape, not a reproduction of Nintendo's trademarked logo
+    art) as hand-authored SVG, rasterized via `rsvg-convert`, run through
+    `@capacitor/assets generate --android` (installed as a devDependency) to
+    replace all of Capacitor's generic default mipmap/splash resources.
+    Source files committed at `assets/` for regenerating later if a real
+    logo shows up. **Verified the new icon is actually inside the compiled
+    APK** (extracted `ic_launcher.png` straight from `app-debug.apk` and
+    confirmed it's the new badge, not just checking the loose generated
+    files on disk).
+  - Also added `.idea/` to `.gitignore` (root pattern, catches both a
+    repo-root `.idea/` and `android/.idea/`) — IDE-local project files that
+    showed up as untracked and don't belong in the repo.
+  - Verified: full Playwright route regression (grid, detail incl. Rotom/
+    Wormadam, stats, coverage report, settings, stubs) — zero console errors.
+    `npx tsc -b --noEmit` clean. `npm run android:build` succeeds end-to-end
+    with all of the above included.
 
 ## Real data-quality findings from ingestion (worth your attention)
 
@@ -264,54 +334,35 @@ choices, not silently "fixed" — see Coverage Report in-app):
 ## Backlog (not started)
 
 Agreed sequence as of 2026-07-01 (reasoning inline per item). Milestones A, B,
-C, and D are all done (see Done section above) — nothing next-in-sequence has
-been agreed yet; the two items below were reported directly by the user
-during D and are the most concrete known next work.
+C, and D are all done (see Done section above), and so is the post-emulator
+cleanup pass (grid filter redesign, data-quality improvements, custom icon —
+see Done above) — nothing next-in-sequence has been agreed yet.
 
 ### Install/run the real APK on a device or emulator
 
-Milestone D only verified `./gradlew assembleDebug` succeeds — never actually
-installed or ran the app on a real Android runtime (no AVD, no physical
-device attached this session). Worth doing before trusting the native
-SQLite/jeep-sqlite platform split is actually correct in practice, not just
-in code review.
+Ran cleanly on an emulator (confirmed 2026-07-01) — still never installed on
+a real physical device. Worth doing before fully trusting the native
+SQLite/jeep-sqlite platform split in practice, not just in an emulator.
 
-### Custom app icon + splash screen
+### Decide whether Gigantamax needs its own personal-achievement field
 
-Currently Capacitor's generic default placeholders from `cap add android`.
-Cosmetic, but should get a real GoBuddy icon before this is something you'd
-actually want installed and looked at on your phone.
+Surfaced while fixing the grid filter bug: CLAUDE.md's original schema only
+gave the Dynamax branch (and its lucky/shiny/floor/4★/shundo variants) a
+`form_personal` column; Gigantamax never got its own. Not a bug — the new
+"Can Gigantamax" grid filter (reference availability) works fine regardless —
+just confirms there's currently no way to track "have I gotten a Gigantamax
+individual" as a distinct personal fact, separate from a regular Dynamax
+catch. Deliberately left out of the grid-filter fix (a schema/feature
+question, not a bug fix) — ask before adding it.
 
-### Pokedex grid: filter by reference availability (Dynamax/Gigantamax/Mega), not just personal achievement
+### ~11 costume names still show a raw Bulbapedia sprite code
 
-User-reported 2026-07-01: tried to filter the grid for "uncaught species that
-*can* be Dynamaxed" using Uncaught + the green "Dynamax" chip, and it didn't
-work. Root cause: the grid's field filters (`GridFilterField` in
-`src/data/repository.ts`) only expose **personal achievement** fields
-(`form_personal.dynamax` — "have I already caught a Dynamax individual of
-this") and rarity (`legendary`/`mythical`/`ultraBeast`, derived from
-`species.rarity`). There's no filter at all for **reference availability**
-(`form.dynamaxAvailable`/`gigantamaxAvailable`/`species.canMegaEvolve` — "can
-this species/form ever be Dynamaxed/Mega-evolved in-game"). Combining
-Uncaught with the existing "Dynamax" chip is close to a logical
-impossibility — a species you haven't caught can't have any personal
-achievement flag true — which is exactly why it produced nothing useful.
-
-Also flagged: **there's no personal `gigantamax` achievement field at all** —
-CLAUDE.md's original schema only gave the Dynamax branch (and its
-lucky/shiny/floor/4★/shundo variants) a `form_personal` column; Gigantamax
-was never given its own. Not a bug in this session's code — just confirms
-there's currently no way to track "have I gotten a Gigantamax individual" as
-a distinct fact, separate from a regular Dynamax catch. Worth asking the user
-whether that's intentional or a schema gap to close.
-
-Per the user, the fix isn't just "add more checkboxes to the same list" —
-they expect Caught/Uncaught to stay the primary/orthogonal filter, with
-Dynamax/Legendary/Ultra Beast/Mythical/Gigantamax/Mega-capable grouped
-together as their *own* filter dimension (closer to how CLAUDE.md's Feature 2
-tri-state search-string builder already treats these same categories) rather
-than mixed into the same tri-state chip list as personal achievement fields
-like Shiny/Lucky/Shundo. Needs a design pass, not just a data-layer add.
+Down from 27 (see Done above) after mechanical fixes for World Championships
+years, T-shirt colors, and Gem crown's already-legible gem names. What's left
+needs real player knowledge, not mechanical transforms: Cap Pikachu's "O"/"W"
+codes, and Flying Pikachu's Fly/Fly5/FlyOkinawa/FlyGreen/FlyPurple/FlyOrange/
+FlyRed variants. Worth asking the user directly — real event trivia isn't
+something to guess at.
 
 ### Stats page: region drill-down + clickable species
 
@@ -348,16 +399,13 @@ missing-species list in `stats-page.ts` is plain text, not links.
   Actually dropping it from the native build would need real code-splitting
   (`import()` gated on `Capacitor.getPlatform()`), not just adding the
   native project.
-- 282 forms have placeholder ("missing-types") typing — mostly costumes/
-  letters/formes/less-common regional variants my PokeAPI variety-name
-  guessing couldn't confidently match. Real values exist in PokeAPI: this
-  needs a smarter matching pass (e.g. resolving via each variety's
-  `pokemon-form` data) or manual correction via the CSV authoring tool.
-- 27 costume names (Cosplay Pikachu variants, Pumpkaboo/Gourgeist sizes,
-  T-shirt colors, etc.) fall back to a raw Bulbapedia sprite code since the
-  source reuses one Form label across multiple rows for these — flagged to
-  console by `parse-event-pokemon.ts`, not silently guessed. Worth a manual
-  friendly-naming pass.
+- 183 forms still have placeholder ("missing-types") typing (down from 282,
+  see the 2026-07-01 cleanup pass above) — mostly Unown/Vivillon/Spinda-style
+  pattern variants that PokeAPI genuinely doesn't model as `varieties` at all
+  (confirmed via the cache directly, not just a name-matching miss). Real
+  values likely still exist in PokeAPI via each variety's `pokemon-form`
+  sub-resource — that traversal wasn't attempted this pass. Real fix needs
+  that deeper traversal, or manual correction via the CSV authoring tool.
 
 ## Known issues / accepted tradeoffs
 

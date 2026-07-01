@@ -325,22 +325,22 @@ snorlax,,,,,,,,,,snorlax-standard-cowboy-hat-male,Standard,Cowboy hat,male,false
 snorlax,,,,,,,,,,snorlax-standard-cowboy-hat-female,Standard,Cowboy hat,female,false,true,false,false,false,false,,normal
 pikachu,,,,,,,,,,pikachu-standard-cake-costume-male,Standard,Cake costume,male,false,true,false,false,false,false,,electric
 pikachu,,,,,,,,,,pikachu-standard-cake-costume-female,Standard,Cake costume,female,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-world-championships-wcs2022-male,Standard,World Championships (WCS2022),male,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-world-championships-wcs2022-female,Standard,World Championships (WCS2022),female,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-world-championships-wcs2023-male,Standard,World Championships (WCS2023),male,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-world-championships-wcs2023-female,Standard,World Championships (WCS2023),female,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-world-championships-wcs2024-male,Standard,World Championships (WCS2024),male,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-world-championships-wcs2024-female,Standard,World Championships (WCS2024),female,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-world-championships-2022-male,Standard,World Championships (2022),male,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-world-championships-2022-female,Standard,World Championships (2022),female,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-world-championships-2023-male,Standard,World Championships (2023),male,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-world-championships-2023-female,Standard,World Championships (2023),female,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-world-championships-2024-male,Standard,World Championships (2024),male,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-world-championships-2024-female,Standard,World Championships (2024),female,false,true,false,false,false,false,,electric
 pikachu,,,,,,,,,,pikachu-standard-shaymin-scarf-male,Standard,Shaymin scarf,male,false,true,false,false,false,false,,electric
 pikachu,,,,,,,,,,pikachu-standard-shaymin-scarf-female,Standard,Shaymin scarf,female,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtgreen-male,Standard,T-shirt (TShirtGreen),male,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtgreen-female,Standard,T-shirt (TShirtGreen),female,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtpurple-male,Standard,T-shirt (TShirtPurple),male,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtpurple-female,Standard,T-shirt (TShirtPurple),female,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtblue-male,Standard,T-shirt (TShirtBlue),male,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtblue-female,Standard,T-shirt (TShirtBlue),female,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtbatik-male,Standard,T-shirt (TShirtBatik),male,false,true,false,false,false,false,,electric
-pikachu,,,,,,,,,,pikachu-standard-t-shirt-tshirtbatik-female,Standard,T-shirt (TShirtBatik),female,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-green-male,Standard,T-shirt (Green),male,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-green-female,Standard,T-shirt (Green),female,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-purple-male,Standard,T-shirt (Purple),male,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-purple-female,Standard,T-shirt (Purple),female,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-blue-male,Standard,T-shirt (Blue),male,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-blue-female,Standard,T-shirt (Blue),female,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-batik-male,Standard,T-shirt (Batik),male,false,true,false,false,false,false,,electric
+pikachu,,,,,,,,,,pikachu-standard-t-shirt-batik-female,Standard,T-shirt (Batik),female,false,true,false,false,false,false,,electric
 vulpix,,,,,,,,,,vulpix-standard-spooky-festival-male,Standard,Spooky Festival,male,true,true,false,false,false,false,,fire
 vulpix,,,,,,,,,,vulpix-standard-spooky-festival-female,Standard,Spooky Festival,female,true,true,false,false,false,false,,fire
 ninetales,,,,,,,,,,ninetales-standard-spooky-festival-male,Standard,Spooky Festival,male,false,true,false,false,false,false,,fire

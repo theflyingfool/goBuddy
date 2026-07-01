@@ -15,3 +15,9 @@ Refs from Obsidian/
 
 # Local Claude Code harness config/state — machine-specific, not shared project config
 .claude/
+
+# IDE project files (Android Studio/IntelliJ) — machine-local, not shared
+# config. Matches both a root .idea/ (opening the whole repo) and
+# android/.idea/ (opening just the native project) since this pattern has no
+# leading slash.
+.idea/

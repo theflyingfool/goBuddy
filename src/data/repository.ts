@@ -27,7 +27,17 @@ export type RarityFilterField = "legendary" | "mythical" | "ultraBeast";
 // real tracked data, just not part of the form-level indicator/badge system.
 export type SpeciesBooleanField = "xxl" | "xxs" | "purified";
 
-export type GridFilterField = FormPersonalBooleanField | SpeciesBooleanField | RarityFilterField;
+// Reference-data *availability* — "can this species/form ever be Mega
+// Evolved/Dynamaxed/Gigantamaxed", derived from species.canMegaEvolve /
+// form.dynamaxAvailable / form.gigantamaxAvailable. Distinct from the
+// same-named personal achievement fields (e.g. form_personal.dynamax = "have
+// I already caught one") — conflating the two is exactly what made
+// "Uncaught + Dynamax" return nothing (a species you haven't caught can't
+// have any personal achievement true). Grouped with rarity as "species
+// classification" in the UI, not mixed into the achievement filter list.
+export type AvailabilityFilterField = "megaCapable" | "dynamaxCapable" | "gigantamaxCapable";
+
+export type GridFilterField = FormPersonalBooleanField | SpeciesBooleanField | RarityFilterField | AvailabilityFilterField;
 
 export interface SpeciesFilter {
   region?: string;
