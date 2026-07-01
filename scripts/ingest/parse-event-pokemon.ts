@@ -44,18 +44,19 @@
 //   falls back to the raw code and is flagged for a human to give it a
 //   proper name.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { formSlug, slugify } from "./slug";
-import type { ReferenceData } from "../../src/db/reference-data";
+import type { ReferenceData, ReferenceGap } from "../../src/db/reference-data";
 import type { Gender } from "../../src/db/types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../..");
 const WIKITEXT_PATH = resolve(__dirname, "sources/event-pokemon-go.wikitext");
 const REFERENCE_PATH = resolve(REPO_ROOT, "src/data/reference.json");
+const GAPS_PATH = resolve(REPO_ROOT, "src/data/reference-gaps.json");
 const OUT_CSV = resolve(REPO_ROOT, "data-authoring/event-pokemon.csv");
 
 const COLUMNS = [
@@ -281,7 +282,7 @@ function main() {
   }
 
   const rows: string[][] = [];
-  const guessedSuffixNotes: string[] = [];
+  const costumeGaps: ReferenceGap[] = [];
   let genderRowCount = 0;
 
   for (const group of groups.values()) {
@@ -291,7 +292,13 @@ function main() {
       if (group.entries.length === 1) return cleanedGroup;
       const siblingCodes = group.entries.filter((e) => e !== entry).map((e) => e.code);
       const { label, guessed } = resolveCostumeSuffix(entry.code, siblingCodes);
-      if (guessed) guessedSuffixNotes.push(`${species.name} / "${cleanedGroup}" (code "${entry.code}") — couldn't map to a friendly costume name, using the raw sprite code`);
+      if (guessed) {
+        costumeGaps.push({
+          kind: "guessed-costume-name",
+          speciesSlug: species.slug,
+          note: `Bulbapedia reuses the Form label "${cleanedGroup}" across multiple costumes for this species; couldn't map sprite code "${entry.code}" to a friendly name ("${cleanedGroup} (${label})"), so the raw code is used instead. Verify/rename manually.`,
+        });
+      }
       return `${cleanedGroup} (${label})`;
     };
 
@@ -332,15 +339,25 @@ function main() {
     }
   }
 
-  if (guessedSuffixNotes.length > 0) {
-    console.log(`  ${guessedSuffixNotes.length} costume-suffix name(s) had to be guessed from a raw sprite code — verify manually:`);
-    for (const note of guessedSuffixNotes) console.log(`    - ${note}`);
+  if (costumeGaps.length > 0) {
+    console.log(`  ${costumeGaps.length} costume-suffix name(s) had to be guessed from a raw sprite code — verify manually:`);
+    for (const gap of costumeGaps) console.log(`    - ${gap.speciesSlug}: ${gap.note}`);
   }
 
   const content = [COLUMNS.join(","), ...rows.map((r) => r.map(csvEscape).join(","))].join("\n") + "\n";
   writeFileSync(OUT_CSV, content);
   console.log(`Wrote ${genderRowCount} form row(s) (${groups.size} distinct species/costume combos) to ${OUT_CSV}`);
   console.log(`Review it, then run: npm run ingest:csv:import -- ${OUT_CSV.replace(REPO_ROOT + "/", "")}`);
+
+  // Merge into reference-gaps.json (the Coverage Report's data source) so
+  // these show up in-app instead of only in this script's console output —
+  // build-reference.ts's own gaps never see anything from this pipeline
+  // otherwise, since costumes are merged in separately via csv-authoring.ts.
+  // Replace only this run's own gap kind, not anything build-reference.ts wrote.
+  const existingGaps: ReferenceGap[] = existsSync(GAPS_PATH) ? JSON.parse(readFileSync(GAPS_PATH, "utf-8")) : [];
+  const keptGaps = existingGaps.filter((g) => g.kind !== "guessed-costume-name");
+  writeFileSync(GAPS_PATH, JSON.stringify([...keptGaps, ...costumeGaps]));
+  console.log(`Updated ${GAPS_PATH.replace(REPO_ROOT + "/", "")}: ${keptGaps.length} kept + ${costumeGaps.length} guessed-costume-name gap(s).`);
 }
 
 main();

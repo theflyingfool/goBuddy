@@ -150,6 +150,40 @@ one gets identified — don't let it go stale.
     columns, and the missing-species drill-down correctly excludes Bulbasaur.
     Full regression pass across every route (grid, detail, stats, coverage
     report, settings, stubs) — zero console errors. Production build verified.
+- **Milestone D: native Capacitor/Android scaffolding.** `capacitor.config.ts`
+  (appId `com.theflyingfool.pogobuddy` — a placeholder reverse-domain string,
+  fine since this never publishes to the Play Store; **change it now if you
+  want your own convention**, since it becomes the Java package structure and
+  is annoying to rename later) + `npx cap add android` generated the
+  `android/` native project, auto-detecting and linking
+  `@capacitor-community/sqlite`. Made `src/db/sqlite-client.ts`
+  platform-aware (`Capacitor.getPlatform() === "web"` guards) — it was
+  unconditionally bootstrapping the Web-only jeep-sqlite shim before; native
+  Android talks to real on-device SQLite directly and must skip that
+  entirely. Verified for real, not just "files got scaffolded": built the
+  actual debug APK end-to-end (`./gradlew assembleDebug`, 37.7MB
+  `app-debug.apk`) — required pointing `JAVA_HOME` at Android Studio's
+  bundled JBR (`/opt/android-studio/jbr`, JDK 21) since Gradle 8.14 can't run
+  on this machine's default JDK 26 ("Unsupported class file major version
+  70"); rebuilt after the platform-aware fix to confirm it's actually in the
+  shipped build, not just compiled once before the fix existed.
+  - **Not yet done**: never installed/run on a real device or emulator — no
+    AVD exists yet and no physical device was attached this session. Building
+    the debug APK is real proof the native project is wired correctly, but
+    isn't the same as confirming SQLite/jeep-sqlite-vs-native behavior on an
+    actual Android runtime. Worth doing before trusting this fully.
+  - App icon and splash screen are Capacitor's **generic default placeholders**
+    (the default Capacitor logo/blank splash) — not customized to GoBuddy at
+    all. Cosmetic, but worth fixing before this ever gets installed somewhere
+    you'd actually look at it.
+  - **Correction to an earlier prediction**: the bundle-size backlog note
+    below previously said the jeep-sqlite chunk "will shrink or disappear
+    once milestone D adds a native build" — that was wrong. Capacitor ships
+    one universal web bundle to both platforms; the platform-aware guard
+    means jeep-sqlite/sql.js code won't *run* on native, but it's still
+    *bundled* into the APK's web assets. Actually shrinking the native build
+    would need real code-splitting (dynamic `import()` gated on
+    `Capacitor.getPlatform()`), not just adding the native project.
 
 ## Real data-quality findings from ingestion (worth your attention)
 
@@ -204,18 +238,90 @@ choices, not silently "fixed" — see Coverage Report in-app):
   `package.json`'s `sql.js` to exactly `1.11.0` (no caret — see
   `src/db/sqlite-client.ts`'s header comment). Don't bump sql.js without
   re-verifying the app still boots.
+- **Coverage Report was stale, not factually wrong.** Verified: nothing in
+  `coverage-report-page.ts` or `reference-gaps.json` was hardcoded (checked
+  for orphaned slug references, hardcoded counts, everything traced back to
+  real ingestion output) — but `reference-gaps.json` is only written by
+  `npm run ingest:build` (the Forms-CSV/PokeAPI pipeline). The costume CSV
+  import (`csv-authoring.ts import`) never touched it, so the report reflected
+  a snapshot from *before* the 601 Bulbapedia costume forms existed, and the
+  23 "guessed a costume name from a raw sprite code" cases
+  (`parse-event-pokemon.ts` flagged these, see the Bulbapedia ingestion entry
+  above) were only ever visible in that script's console output — never in
+  the actual in-app Coverage Report a user would check. Fixed: added a new
+  `ReferenceGap` kind (`guessed-costume-name`), `parse-event-pokemon.ts` now
+  merges these into `reference-gaps.json` itself (replacing only its own
+  kind, so `ingest:build`'s Forms-CSV gaps survive), and re-ran the full
+  pipeline (`ingest:build` → `ingest:events` → `ingest:csv:import`) in the
+  correct order to bring both files back in sync. Verified in-app: "Guessed
+  costume name (23)" now shows up in Coverage Report.
+  - **Standing gap, not fully closed**: this pipeline is still not a single
+    atomic step — anyone adding data through `csv-authoring.ts import`
+    directly (not through `parse-event-pokemon.ts`) still won't get any gap
+    checking at all. Worth revisiting if manual CSV authoring becomes more
+    frequent than the costume-ingestion case that prompted this fix.
 
 ## Backlog (not started)
 
 Agreed sequence as of 2026-07-01 (reasoning inline per item). Milestones A, B,
-and C are done (see Done section above) — D is next up.
+C, and D are all done (see Done section above) — nothing next-in-sequence has
+been agreed yet; the two items below were reported directly by the user
+during D and are the most concrete known next work.
 
-### D. Native Capacitor/Android scaffolding + APK packaging (deferred)
+### Install/run the real APK on a device or emulator
 
-Only once A–C are proven against the web-shim backend does it make sense to
-invest in `npx cap add android` and real device packaging — no point
-scaffolding a native shell before the data layer and primary feature are
-validated.
+Milestone D only verified `./gradlew assembleDebug` succeeds — never actually
+installed or ran the app on a real Android runtime (no AVD, no physical
+device attached this session). Worth doing before trusting the native
+SQLite/jeep-sqlite platform split is actually correct in practice, not just
+in code review.
+
+### Custom app icon + splash screen
+
+Currently Capacitor's generic default placeholders from `cap add android`.
+Cosmetic, but should get a real GoBuddy icon before this is something you'd
+actually want installed and looked at on your phone.
+
+### Pokedex grid: filter by reference availability (Dynamax/Gigantamax/Mega), not just personal achievement
+
+User-reported 2026-07-01: tried to filter the grid for "uncaught species that
+*can* be Dynamaxed" using Uncaught + the green "Dynamax" chip, and it didn't
+work. Root cause: the grid's field filters (`GridFilterField` in
+`src/data/repository.ts`) only expose **personal achievement** fields
+(`form_personal.dynamax` — "have I already caught a Dynamax individual of
+this") and rarity (`legendary`/`mythical`/`ultraBeast`, derived from
+`species.rarity`). There's no filter at all for **reference availability**
+(`form.dynamaxAvailable`/`gigantamaxAvailable`/`species.canMegaEvolve` — "can
+this species/form ever be Dynamaxed/Mega-evolved in-game"). Combining
+Uncaught with the existing "Dynamax" chip is close to a logical
+impossibility — a species you haven't caught can't have any personal
+achievement flag true — which is exactly why it produced nothing useful.
+
+Also flagged: **there's no personal `gigantamax` achievement field at all** —
+CLAUDE.md's original schema only gave the Dynamax branch (and its
+lucky/shiny/floor/4★/shundo variants) a `form_personal` column; Gigantamax
+was never given its own. Not a bug in this session's code — just confirms
+there's currently no way to track "have I gotten a Gigantamax individual" as
+a distinct fact, separate from a regular Dynamax catch. Worth asking the user
+whether that's intentional or a schema gap to close.
+
+Per the user, the fix isn't just "add more checkboxes to the same list" —
+they expect Caught/Uncaught to stay the primary/orthogonal filter, with
+Dynamax/Legendary/Ultra Beast/Mythical/Gigantamax/Mega-capable grouped
+together as their *own* filter dimension (closer to how CLAUDE.md's Feature 2
+tri-state search-string builder already treats these same categories) rather
+than mixed into the same tri-state chip list as personal achievement fields
+like Shiny/Lucky/Shundo. Needs a design pass, not just a data-layer add.
+
+### Stats page: region drill-down + clickable species
+
+User-requested 2026-07-01: clicking a **region** (not just a specific
+lens cell) should expand to show the full per-species detail for that region
+(right now only clicking a lens *cell* shows a missing-species list for that
+one lens — there's no "show me everything for this region" view). And within
+that expanded view, clicking an individual species should navigate straight
+to that species' Pokedex detail page (`speciesDetailPath`) — right now the
+missing-species list in `stats-page.ts` is plain text, not links.
 
 ### Lower priority (unchanged from CLAUDE.md's own ranking)
 
@@ -231,13 +337,17 @@ validated.
   just a structural example. Unresolved; ask before assuming either way.
 - Bundle size: `reference.json` (now 1024 species/2813 forms after costume
   ingestion) is bundled directly into the JS chunk, past Vite's 500KB
-  warning threshold — main JS chunk is now ~1.46MB (103KB gzipped) plus a
-  separate ~300KB `jeep-sqlite.entry` chunk (84KB gzipped) after milestone A.
-  Not a functional problem yet, but worth lazy-loading reference.json or
-  fetching it as a separate asset instead of a static import before this goes
-  much bigger. The jeep-sqlite chunk specifically will shrink or disappear
-  once milestone D adds a native Android build (native SQLite doesn't need
-  the sql.js/jeep-sqlite web shim at all).
+  warning threshold — main JS chunk is now ~1.48MB (106KB gzipped) plus a
+  separate ~300KB `jeep-sqlite.entry` chunk (84KB gzipped). Not a functional
+  problem yet, but worth lazy-loading reference.json or fetching it as a
+  separate asset instead of a static import before this goes much bigger.
+  **Correcting an earlier prediction here**: milestone D's native Android
+  build does *not* shrink the jeep-sqlite chunk — Capacitor ships one
+  universal web bundle to every platform, so that code is still bundled into
+  the APK even though `sqlite-client.ts` now skips *running* it on native.
+  Actually dropping it from the native build would need real code-splitting
+  (`import()` gated on `Capacitor.getPlatform()`), not just adding the
+  native project.
 - 282 forms have placeholder ("missing-types") typing — mostly costumes/
   letters/formes/less-common regional variants my PokeAPI variety-name
   guessing couldn't confidently match. Real values exist in PokeAPI: this

@@ -13,9 +13,12 @@
     "ingest:csv:export": "tsx scripts/ingest/csv-authoring.ts export",
     "ingest:csv:template": "tsx scripts/ingest/csv-authoring.ts template",
     "ingest:csv:import": "tsx scripts/ingest/csv-authoring.ts import",
-    "ingest:events": "tsx scripts/ingest/parse-event-pokemon.ts"
+    "ingest:events": "tsx scripts/ingest/parse-event-pokemon.ts",
+    "android:sync": "vite build && npx cap sync android",
+    "android:build": "npm run android:sync && cd android && ./gradlew assembleDebug"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
@@ -23,6 +26,7 @@
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/android": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "jeep-sqlite": "^2.8.0",
     "sql.js": "1.11.0"

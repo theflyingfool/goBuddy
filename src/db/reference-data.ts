@@ -17,7 +17,7 @@ export interface ReferenceData {
 // Side file (reference-gaps.json) the Coverage Report reads — things worth
 // a human double-checking, not hard ingestion failures.
 export interface ReferenceGap {
-  kind: "mega-discrepancy" | "unverified-gender" | "missing-types" | "inherited-availability" | "possible-bogus-form";
+  kind: "mega-discrepancy" | "unverified-gender" | "missing-types" | "inherited-availability" | "possible-bogus-form" | "guessed-costume-name";
   speciesSlug: string;
   formSlug?: string;
   note: string;

@@ -10,6 +10,7 @@ const KIND_LABELS: Record<ReferenceGap["kind"], string> = {
   "missing-types": "Missing/placeholder types",
   "inherited-availability": "Inherited (not per-form) availability",
   "possible-bogus-form": "Possibly bogus source-CSV row",
+  "guessed-costume-name": "Guessed costume name",
 };
 
 // This one fires for basically every non-base form (by design — the

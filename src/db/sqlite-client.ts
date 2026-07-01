@@ -1,12 +1,13 @@
-// Bootstraps the real @capacitor-community/sqlite connection. Runs against
-// the plugin's Web implementation (jeep-sqlite, backed by sql.js + IndexedDB
-// via localforage) — a genuine, persistent SQLite database, just running in
-// the browser for now since there's no native Android project yet (see
-// TODO.md milestone A). This is a *dev/no-native-project* shim, not a
-// browser-storage design choice: production will run the exact same
-// SQL-through-this-module code path against the plugin's native Android
-// implementation once `npx cap add android` happens (milestone D) — nothing
-// here is Android-incompatible.
+// Bootstraps the real @capacitor-community/sqlite connection. On native
+// Android (milestone D: `android/`, added via `npx cap add android`), the
+// plugin talks straight to real on-device SQLite — no extra setup needed. On
+// Web (no native project, or just running `npm run dev`), the same plugin
+// instead runs its Web implementation: jeep-sqlite, backed by sql.js +
+// IndexedDB via localforage — a genuine, persistent SQLite database, just
+// running in the browser. Every call in this module is guarded by
+// `Capacitor.getPlatform()` so the jeep-sqlite/sql.js setup only ever runs on
+// Web; getDb()/persistDb()'s callers (src/data/sqlite-repository.ts) don't
+// need to know or care which platform they're on.
 //
 // package.json pins `sql.js` to exactly 1.11.0, not a caret range: jeep-sqlite
 // vendors its own compiled sql.js glue JS (matching the ~1.11 line it was
@@ -15,8 +16,10 @@
 // sql.js 1.14.1's wasm binary against jeep-sqlite's glue throws
 // "WebAssembly.instantiate(): ... function import requires a callable" and
 // the app never gets past "Loading your dex…". Don't bump sql.js without
-// re-verifying the app still boots.
+// re-verifying the app still boots. This only matters on Web — native builds
+// never touch sql.js/jeep-sqlite at all.
 
+import { Capacitor } from "@capacitor/core";
 import { defineCustomElements as defineJeepSqliteElements } from "jeep-sqlite/loader";
 import { CapacitorSQLite, SQLiteConnection, type SQLiteDBConnection } from "@capacitor-community/sqlite";
 
@@ -37,8 +40,10 @@ async function ensureJeepSqliteElement(): Promise<void> {
 export function getDb(): Promise<SQLiteDBConnection> {
   if (!connectionPromise) {
     connectionPromise = (async () => {
-      await ensureJeepSqliteElement();
-      await sqlite.initWebStore();
+      if (Capacitor.getPlatform() === "web") {
+        await ensureJeepSqliteElement();
+        await sqlite.initWebStore();
+      }
 
       const alreadyOpen = (await sqlite.isConnection(DB_NAME, false)).result;
       const db = alreadyOpen ? await sqlite.retrieveConnection(DB_NAME, false) : await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
@@ -49,7 +54,9 @@ export function getDb(): Promise<SQLiteDBConnection> {
   return connectionPromise;
 }
 
-/** Persists the in-memory (sql.js) database out to its IndexedDB store — required on Web for writes to survive a reload. */
+/** Persists the in-memory (sql.js) database out to its IndexedDB store — a Web-only concept; native SQLite already writes straight to disk. */
 export async function persistDb(): Promise<void> {
-  await sqlite.saveToStore(DB_NAME);
+  if (Capacitor.getPlatform() === "web") {
+    await sqlite.saveToStore(DB_NAME);
+  }
 }
