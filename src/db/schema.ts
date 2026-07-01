@@ -5,22 +5,22 @@
 // TS mirror used by application code.
 
 export const REFERENCE_SCHEMA_SQL = `
-CREATE TABLE regions (
+CREATE TABLE IF NOT EXISTS regions (
   slug TEXT PRIMARY KEY,
   name TEXT NOT NULL
 );
 
-CREATE TABLE types (
+CREATE TABLE IF NOT EXISTS types (
   slug TEXT PRIMARY KEY,
   name TEXT NOT NULL
 );
 
-CREATE TABLE backgrounds (
+CREATE TABLE IF NOT EXISTS backgrounds (
   slug TEXT PRIMARY KEY,
   name TEXT NOT NULL
 );
 
-CREATE TABLE species (
+CREATE TABLE IF NOT EXISTS species (
   slug TEXT PRIMARY KEY,
   dex_number INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE species (
   can_mega_evolve INTEGER NOT NULL CHECK (can_mega_evolve IN (0, 1))
 );
 
-CREATE TABLE form (
+CREATE TABLE IF NOT EXISTS form (
   slug TEXT PRIMARY KEY,
   species_slug TEXT NOT NULL REFERENCES species(slug),
   form_name TEXT NOT NULL,
@@ -48,13 +48,13 @@ CREATE TABLE form (
   image_ref TEXT
 );
 
-CREATE TABLE form_types (
+CREATE TABLE IF NOT EXISTS form_types (
   form_slug TEXT NOT NULL REFERENCES form(slug),
   type_slug TEXT NOT NULL REFERENCES types(slug),
   PRIMARY KEY (form_slug, type_slug)
 );
 
-CREATE TABLE mega_variant (
+CREATE TABLE IF NOT EXISTS mega_variant (
   slug TEXT PRIMARY KEY,
   species_slug TEXT NOT NULL REFERENCES species(slug),
   variant TEXT CHECK (variant IN ('X', 'Y', 'Primal'))
@@ -62,16 +62,16 @@ CREATE TABLE mega_variant (
 `;
 
 export const PERSONAL_SCHEMA_SQL = `
-CREATE TABLE schema_version (
+CREATE TABLE IF NOT EXISTS schema_version (
   version INTEGER NOT NULL
 );
 
-CREATE TABLE app_settings (
+CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
 
-CREATE TABLE species_personal (
+CREATE TABLE IF NOT EXISTS species_personal (
   species_slug TEXT PRIMARY KEY REFERENCES species(slug),
   registered INTEGER NOT NULL DEFAULT 0 CHECK (registered IN (0, 1)),
   xxl INTEGER NOT NULL DEFAULT 0 CHECK (xxl IN (0, 1)),
@@ -79,7 +79,7 @@ CREATE TABLE species_personal (
   purified INTEGER NOT NULL DEFAULT 0 CHECK (purified IN (0, 1))
 );
 
-CREATE TABLE form_personal (
+CREATE TABLE IF NOT EXISTS form_personal (
   form_slug TEXT PRIMARY KEY REFERENCES form(slug),
 
   caught INTEGER NOT NULL DEFAULT 0 CHECK (caught IN (0, 1)),
@@ -122,14 +122,14 @@ CREATE TABLE form_personal (
 -- 'caught', 'lucky', 'shiny', 'shadow_shundo') since each variant represents
 -- a distinct individually-owned Pokémon that can carry its own background.
 -- Always optional: no row means no background recorded for that variant.
-CREATE TABLE form_background_personal (
+CREATE TABLE IF NOT EXISTS form_background_personal (
   form_slug TEXT NOT NULL REFERENCES form(slug),
   achievement_field TEXT NOT NULL,
   background_slug TEXT NOT NULL REFERENCES backgrounds(slug),
   PRIMARY KEY (form_slug, achievement_field, background_slug)
 );
 
-CREATE TABLE mega_personal (
+CREATE TABLE IF NOT EXISTS mega_personal (
   mega_variant_slug TEXT PRIMARY KEY REFERENCES mega_variant(slug),
   evolved INTEGER NOT NULL DEFAULT 0 CHECK (evolved IN (0, 1)),
   shiny_evolved INTEGER NOT NULL DEFAULT 0 CHECK (shiny_evolved IN (0, 1))

@@ -1,4 +1,5 @@
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type FormPersonalBooleanField } from "../../db/types";
+import type { GridFilterField, RarityFilterField, SpeciesBooleanField } from "../../data/repository";
 
 export const INDICATOR_LABELS: Record<FormPersonalBooleanField, { badge: string; full: string }> = {
   caught: { badge: "●", full: "Caught" },
@@ -33,3 +34,31 @@ export const INDICATOR_LABELS: Record<FormPersonalBooleanField, { badge: string;
 export const INDICATOR_OPTIONS: FormPersonalBooleanField[] = FORM_PERSONAL_BOOLEAN_FIELDS.filter(
   (f) => f !== "caught",
 );
+
+// Rarity and species-level fields aren't part of the Settings-configurable
+// badge system (they're not per-form achievement toggles), but they're real
+// tracked/reference data worth quick-filtering the grid by — surfaced under
+// the grid's "More filters" expansion instead.
+export const RARITY_FILTER_LABELS: Record<RarityFilterField, { badge: string; full: string }> = {
+  legendary: { badge: "L", full: "Legendary" },
+  mythical: { badge: "M", full: "Mythical" },
+  ultraBeast: { badge: "UB", full: "Ultra Beast" },
+};
+
+export const SPECIES_FILTER_LABELS: Record<SpeciesBooleanField, { badge: string; full: string }> = {
+  xxl: { badge: "XXL", full: "XXL" },
+  xxs: { badge: "XXS", full: "XXS" },
+  purified: { badge: "P", full: "Purified" },
+};
+
+export const RARITY_FILTER_OPTIONS: RarityFilterField[] = ["legendary", "mythical", "ultraBeast"];
+export const SPECIES_FILTER_OPTIONS: SpeciesBooleanField[] = ["xxl", "xxs", "purified"];
+
+/** Every filterable grid field, in a stable display order: form achievements, then rarity, then species facts. */
+export const ALL_GRID_FILTER_FIELDS: GridFilterField[] = [...INDICATOR_OPTIONS, ...RARITY_FILTER_OPTIONS, ...SPECIES_FILTER_OPTIONS];
+
+export function gridFilterFieldLabel(field: GridFilterField): { badge: string; full: string } {
+  if (field in RARITY_FILTER_LABELS) return RARITY_FILTER_LABELS[field as RarityFilterField];
+  if (field in SPECIES_FILTER_LABELS) return SPECIES_FILTER_LABELS[field as SpeciesBooleanField];
+  return INDICATOR_LABELS[field as FormPersonalBooleanField];
+}

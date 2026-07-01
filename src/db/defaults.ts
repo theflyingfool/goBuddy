@@ -1,5 +1,14 @@
 import type { FormPersonal, SpeciesPersonal } from "./types";
 
+// Real, sensible defaults for a brand-new install — not demo data (see
+// personal-demo-seed.ts for that). Both backends seed app_settings with
+// these when none exist yet, so a fresh install isn't left with zero grid
+// badges/filters until a user visits Settings.
+export const DEFAULT_APP_SETTINGS: Record<string, string> = {
+  collapse_gender_forms: "0",
+  grid_indicators: JSON.stringify(["shiny", "lucky", "fourStar"]),
+};
+
 export function emptySpeciesPersonal(speciesSlug: string): SpeciesPersonal {
   return { speciesSlug, registered: false, xxl: false, xxs: false, purified: false };
 }

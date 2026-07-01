@@ -18,10 +18,23 @@ export interface SpeciesSummary {
   indicators: Record<FormPersonalBooleanField, boolean>;
 }
 
+// Derived from Species.rarity, not a stored boolean — but worth filtering by
+// on the grid same as any tracked achievement field, and (per the user)
+// deliberately *not* one of the Settings-configurable indicator badges.
+export type RarityFilterField = "legendary" | "mythical" | "ultraBeast";
+
+// Species-level personal facts, same reasoning as the rarity fields above:
+// real tracked data, just not part of the form-level indicator/badge system.
+export type SpeciesBooleanField = "xxl" | "xxs" | "purified";
+
+export type GridFilterField = FormPersonalBooleanField | SpeciesBooleanField | RarityFilterField;
+
 export interface SpeciesFilter {
   region?: string;
   search?: string;
   caught?: "all" | "caught" | "uncaught";
+  /** Tri-state quick filters beyond All/Caught/Uncaught — omitted fields apply no filter. */
+  fieldFilters?: Partial<Record<GridFilterField, "include" | "exclude">>;
 }
 
 export interface Repository {

@@ -2,7 +2,11 @@
 // progress data anywhere (confirmed: the source CSVs are blank trackers).
 // This just seeds a handful of toggles on real species/forms (now sourced
 // from the real ingested src/data/reference.json) so the UI has something
-// to demonstrate against on first load.
+// to demonstrate against on first load. Used only by dummy-repository.ts —
+// a fresh real (SQLite-backed) install should never see fake progress like
+// "Bulbasaur caught" or "Charizard shiny", so sqlite-repository.ts doesn't
+// import any of this except DEFAULT_APP_SETTINGS (re-exported from
+// db/defaults.ts, since app-setting defaults are real config, not demo data).
 
 import { emptyFormPersonal } from "../db/defaults";
 import type { FormBackgroundPersonal, FormPersonal, MegaPersonal, SpeciesPersonal } from "../db/types";
@@ -30,8 +34,3 @@ export const formBackgroundPersonal: FormBackgroundPersonal[] = [
 export const megaPersonal: MegaPersonal[] = [
   { megaVariantSlug: "charizard-mega-x", evolved: true, shinyEvolved: false },
 ];
-
-export const defaultAppSettings: Record<string, string> = {
-  collapse_gender_forms: "0",
-  grid_indicators: JSON.stringify(["shiny", "lucky", "fourStar"]),
-};

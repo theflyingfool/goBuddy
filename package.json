@@ -17,8 +17,14 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0",
-    "tsx": "^4.19.0"
+    "vite": "^6.0.0"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/core": "^8.4.1",
+    "jeep-sqlite": "^2.8.0",
+    "sql.js": "1.11.0"
   }
 }

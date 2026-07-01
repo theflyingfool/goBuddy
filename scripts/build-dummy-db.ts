@@ -9,10 +9,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 import { PERSONAL_SCHEMA_SQL, REFERENCE_SCHEMA_SQL, CURRENT_PERSONAL_SCHEMA_VERSION } from "../src/db/schema";
+import { DEFAULT_APP_SETTINGS } from "../src/db/defaults";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS } from "../src/db/types";
 import type { ReferenceData } from "../src/db/reference-data";
 import referenceDataJson from "../src/data/reference.json";
-import { defaultAppSettings, formBackgroundPersonal, formPersonal, megaPersonal, speciesPersonal } from "../src/data/personal-demo-seed";
+import { formBackgroundPersonal, formPersonal, megaPersonal, speciesPersonal } from "../src/data/personal-demo-seed";
 
 const { regions, types, backgrounds, species, forms, formTypes, megaVariants } = referenceDataJson as unknown as ReferenceData;
 
@@ -129,7 +130,7 @@ db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(CURRENT_PERSON
 insertAll(
   "app_settings",
   ["key", "value"],
-  Object.entries(defaultAppSettings).map(([key, value]) => ({ key, value })),
+  Object.entries(DEFAULT_APP_SETTINGS).map(([key, value]) => ({ key, value })),
 );
 
 insertAll(

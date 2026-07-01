@@ -156,7 +156,8 @@ body {
 }
 
 .empty-state,
-.stub-message {
+.stub-message,
+.app-loading {
   color: #888;
   padding: 1rem 0.5rem;
 }
@@ -165,6 +166,7 @@ body {
 
 .filter-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   padding: 0.25rem 0 0.75rem;
 }
@@ -181,6 +183,27 @@ body {
   background: #2563eb;
   color: white;
   border-color: #2563eb;
+}
+
+.filter-chip-include {
+  background: #16a34a;
+  color: white;
+  border-color: #16a34a;
+}
+
+.filter-chip-exclude {
+  background: #dc2626;
+  color: white;
+  border-color: #dc2626;
+}
+
+.more-filters-toggle {
+  display: block;
+  padding: 0.3rem 0.25rem;
+  font-size: 0.85rem;
+  color: #888;
+  background: none;
+  border: none;
 }
 
 .region-header {

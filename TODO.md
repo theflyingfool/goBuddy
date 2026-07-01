@@ -75,6 +75,49 @@ one gets identified — don't let it go stale.
   `<details>` blocks, plus a compact overview grid at the top of the page
   (tinted per group when caught, click-to-expand-and-scroll-to that group).
   Verified via Playwright against Pikachu (188 forms) and Unown (28 forms).
+- **Milestone B: Pokedex grid filter upgrade.** The grid's filter bar
+  (`src/features/data-entry/species-grid.ts`) now promotes the user's chosen
+  indicator fields (`getIndicatorSelection()`) into tri-state (off → include
+  → exclude → off) filter chips alongside All/Caught/Uncaught, plus a "More
+  filters" expansion covering every other achievement field and — per the
+  user, since they're real tracked data but deliberately not one of the
+  Settings-configurable badges — Legendary/Mythical/Ultra Beast and
+  XXL/XXS/Purified (`RarityFilterField`/`SpeciesBooleanField` in
+  `src/data/repository.ts`). Verified: Kanto's legendary filter narrows to
+  exactly Articuno/Zapdos/Moltres/Mewtwo.
+- **Milestone A: real persistent storage.** `src/data/sqlite-repository.ts`
+  replaces the dummy backend as what `main.ts` actually uses — a genuine
+  `@capacitor-community/sqlite` database via the `jeep-sqlite` web dev shim
+  (sql.js + IndexedDB; no native Android project needed yet, see
+  `src/db/sqlite-client.ts`'s header comment for why this isn't a
+  browser-storage design change). Reads are served from an in-memory cache
+  loaded once at boot (extracted the dummy backend's query/filter logic into
+  `src/data/in-memory-store.ts` so both backends share it); writes go through
+  to real SQLite. Also shipped, bundled into this milestone as agreed:
+  - **Personal-schema migration runner** (`src/db/migrations.ts`) —
+    versioned, currently empty (v1 is the fresh-install baseline) but ready
+    for future schema changes.
+  - **Slug-rename/alias mechanism** (`src/db/slug-renames.ts`,
+    `src/db/reference-sync.ts`) — applies hand-registered slug renames to
+    `form_personal`/`form_background_personal` before old reference rows get
+    replaced, so a future display-name correction (like this session's
+    Detective Pikachu one) can't silently orphan personal data. Registry is
+    empty for now since nothing has shipped to a real device yet.
+  - Reference-table refresh-on-change (content-hash versioned, per
+    CLAUDE.md's "wipe and reload reference tables, leave personal alone"
+    design) — `src/db/reference-sync.ts`.
+  - Split `personal-demo-seed.ts`'s `defaultAppSettings` out into
+    `db/defaults.ts`'s `DEFAULT_APP_SETTINGS` — real config defaults (e.g.
+    which 3 badges show by default) a fresh SQLite install should get, unlike
+    the fake demo *progress* (Bulbasaur caught, Charizard shiny, ...) which
+    must never appear on a real install.
+  - Verified end-to-end via Playwright: toggle a form as caught, **full page
+    reload**, toggle survives (confirms real IndexedDB persistence, not just
+    in-memory state); same for a Settings change. Re-ran the full existing
+    regression set (Pikachu 188 forms, Unown 28, legendary filter, settings
+    page, coverage report) against the new backend with zero console errors.
+    Also verified `npm run build` + `vite preview` (production build, not
+    just dev server).
 
 ## Real data-quality findings from ingestion (worth your attention)
 
@@ -121,57 +164,26 @@ choices, not silently "fixed" — see Coverage Report in-app):
   is wrong) because the file pads cells with spaces for alignment and the
   parser wasn't trimming before comparing to `"-"`. Fixed in
   `scripts/ingest/parse-forms-csv.ts`'s `isAvailable()`.
+- **`sql.js@1.14.1`'s wasm binary doesn't work with `jeep-sqlite`'s bundled
+  glue JS** — app hung forever on "Loading your dex…" with a console error
+  (`WebAssembly.instantiate(): ... function import requires a callable`).
+  jeep-sqlite vendors compiled sql.js glue matching the ~1.11 line it was
+  built against; a newer wasm binary doesn't match that ABI. Pinned
+  `package.json`'s `sql.js` to exactly `1.11.0` (no caret — see
+  `src/db/sqlite-client.ts`'s header comment). Don't bump sql.js without
+  re-verifying the app still boots.
 
 ## Backlog (not started)
 
-Agreed sequence as of 2026-07-01 (reasoning inline per item):
-
-### A. Real persistent storage (next up)
-
-Swap `dummy-repository.ts` for a real `@capacitor-community/sqlite`-backed
-repository satisfying the existing `Repository` interface
-(`src/data/repository.ts`) — confirmed the plugin's `jeep-sqlite` component
-(sql.js-backed, storing into IndexedDB) runs fine under Vite with no native
-Android project required yet. This is a **dev-time convenience shim only** —
-production still ships native SQLite via Capacitor's Android bridge; this
-doesn't revive the IndexedDB/browser-storage approach CLAUDE.md ruled out for
-the shipped app. Bundle in with this milestone (same "permanent data"
-concern):
-
-- **Personal-schema migration runner** (`schema_version`-driven, per
-  `src/db/schema.ts`'s `CURRENT_PERSONAL_SCHEMA_VERSION`) — schema exists,
-  runner logic doesn't yet.
-- **Slug-rename/alias mechanism** — a real gap surfaced 2026-07-01:
-  `formSlug()` (`scripts/ingest/slug.ts`) recomputes a form's slug from
-  current display data (name/costume/gender) every ingestion run rather than
-  treating it as assigned-once. This bit us for real: fixing a mis-parsed
-  costume name from "character" to "Detective Pikachu" changed its slug
-  (`pikachu-standard-character-male` → `...-detective-pikachu-male`), which
-  would silently orphan any personal data already keyed to the old slug.
-  CLAUDE.md's stated intent ("permanent, immutable... generated once and
-  never reused") already promises the fix needed; it isn't implemented yet.
-  Belongs with the migration runner: an explicit, logged remap step applied
-  to personal data when reference tables get replaced. Decided **not** to
-  switch to UUID primary keys instead — human-readable slugs are a deliberate
-  CLAUDE.md design choice (SQLite-browser/CSV-authoring ergonomics), and the
-  actual bug is narrower than the ID type.
-
-### B. Pokedex grid filter upgrade
-
-Small, independent of A — can land before/after/alongside it. The grid's
-filter bar (`src/features/data-entry/species-grid.ts`) currently only has
-All/Caught/Uncaught. Promote the user's chosen indicator fields (already
-selected in Settings via `getIndicatorSelection()`/`MAX_GRID_INDICATORS`,
-currently badge-only) into real filter chips alongside All/Caught/Uncaught,
-plus a "More" expansion exposing filters for the rest of the achievement
-fields — the default 4 don't always match what the user wants to filter by
-in the moment.
+Agreed sequence as of 2026-07-01 (reasoning inline per item). Milestones A
+and B are done (see Done section above) — C is next up.
 
 ### C. Stats / completion tracking
 
-Once A removes the "is this real data" doubt about building against dummy
-data. Per CLAUDE.md this is the primary feature; the scope×lens query design
-is already spec'd there. Concrete shape from the user (2026-07-01):
+Now unblocked — real persistent storage (milestone A) removed the "is this
+real data" doubt about building against dummy data. Per CLAUDE.md this is the
+primary feature; the scope×lens query design is already spec'd there.
+Concrete shape from the user (2026-07-01):
 
 - Filters/selectables at the top; default view grouped by Region.
 - Default lens: **Registered**, counted by **species**, not forms (e.g.
@@ -208,9 +220,13 @@ validated.
   just a structural example. Unresolved; ask before assuming either way.
 - Bundle size: `reference.json` (now 1024 species/2813 forms after costume
   ingestion) is bundled directly into the JS chunk, past Vite's 500KB
-  warning threshold. Not a functional problem yet, but worth lazy-loading or
-  fetching as a separate asset instead of a static import before this goes
-  much bigger.
+  warning threshold — main JS chunk is now ~1.46MB (103KB gzipped) plus a
+  separate ~300KB `jeep-sqlite.entry` chunk (84KB gzipped) after milestone A.
+  Not a functional problem yet, but worth lazy-loading reference.json or
+  fetching it as a separate asset instead of a static import before this goes
+  much bigger. The jeep-sqlite chunk specifically will shrink or disappear
+  once milestone D adds a native Android build (native SQLite doesn't need
+  the sql.js/jeep-sqlite web shim at all).
 - 282 forms have placeholder ("missing-types") typing — mostly costumes/
   letters/formes/less-common regional variants my PokeAPI variety-name
   guessing couldn't confidently match. Real values exist in PokeAPI: this

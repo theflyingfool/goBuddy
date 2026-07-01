@@ -1,18 +1,27 @@
-import type { Repository, SpeciesFilter } from "../../data/repository";
+import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repository";
 import { clear, el } from "../../ui/dom";
 import { speciesSpritePath } from "../../ui/sprites";
-import { INDICATOR_LABELS } from "./indicator-labels";
+import { ALL_GRID_FILTER_FIELDS, INDICATOR_LABELS, gridFilterFieldLabel } from "./indicator-labels";
+
+export type FieldFilterState = "include" | "exclude";
 
 export interface GridState {
   filterText: string;
   caughtFilter: NonNullable<SpeciesFilter["caught"]>;
   collapsedRegions: Set<string>;
+  /** Tri-state quick filters beyond All/Caught/Uncaught, keyed by field. */
+  fieldFilters: Partial<Record<GridFilterField, FieldFilterState>>;
+  /** Whether the "More filters" section (every field beyond the user's 4 chosen indicators) is expanded. */
+  moreFiltersOpen: boolean;
 }
 
 export interface GridCallbacks {
   onSelectSpecies: (speciesSlug: string) => void;
   onCaughtFilterChange: (value: GridState["caughtFilter"]) => void;
   onToggleRegion: (regionSlug: string) => void;
+  /** Cycles a field's filter state: off → include → exclude → off. */
+  onCycleFieldFilter: (field: GridFilterField) => void;
+  onToggleMoreFilters: () => void;
 }
 
 const CAUGHT_FILTER_OPTIONS: { value: GridState["caughtFilter"]; label: string }[] = [
@@ -20,6 +29,16 @@ const CAUGHT_FILTER_OPTIONS: { value: GridState["caughtFilter"]; label: string }
   { value: "caught", label: "Caught" },
   { value: "uncaught", label: "Uncaught" },
 ];
+
+function fieldFilterChip(field: GridFilterField, state: GridState, callbacks: GridCallbacks): HTMLElement {
+  const current = state.fieldFilters[field];
+  const label = gridFilterFieldLabel(field);
+  const stateClass = current === "include" ? " filter-chip-include" : current === "exclude" ? " filter-chip-exclude" : "";
+  const suffix = current === "include" ? " ✓" : current === "exclude" ? " ✕" : "";
+  const chip = el("button", { type: "button", class: `filter-chip${stateClass}`, title: label.full }, [`${label.badge}${suffix}`]);
+  chip.addEventListener("click", () => callbacks.onCycleFieldFilter(field));
+  return chip;
+}
 
 export function renderSpeciesGrid(container: HTMLElement, repo: Repository, state: GridState, callbacks: GridCallbacks) {
   clear(container);
@@ -36,7 +55,26 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
     button.addEventListener("click", () => callbacks.onCaughtFilterChange(option.value));
     filterBar.append(button);
   }
+  for (const field of indicatorSelection) {
+    filterBar.append(fieldFilterChip(field, state, callbacks));
+  }
   container.append(filterBar);
+
+  const indicatorSelectionSet = new Set<string>(indicatorSelection);
+  const moreFields = ALL_GRID_FILTER_FIELDS.filter((f) => !indicatorSelectionSet.has(f));
+  const moreToggle = el("button", { type: "button", class: "more-filters-toggle" }, [
+    `${state.moreFiltersOpen ? "▾" : "▸"} More filters (${moreFields.length})`,
+  ]);
+  moreToggle.addEventListener("click", () => callbacks.onToggleMoreFilters());
+  container.append(moreToggle);
+
+  if (state.moreFiltersOpen) {
+    const moreBar = el("div", { class: "filter-bar" });
+    for (const field of moreFields) {
+      moreBar.append(fieldFilterChip(field, state, callbacks));
+    }
+    container.append(moreBar);
+  }
 
   let anyResults = false;
 
@@ -45,6 +83,7 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
       region: region.slug,
       search: state.filterText,
       caught: state.caughtFilter,
+      fieldFilters: state.fieldFilters,
     });
     if (summaries.length === 0) continue;
     anyResults = true;
