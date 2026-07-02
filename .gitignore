@@ -1,5 +1,6 @@
 node_modules/
 dist/
+*.apk
 tsconfig.tsbuildinfo
 dummy.sqlite
 scripts/ingest/.cache/
