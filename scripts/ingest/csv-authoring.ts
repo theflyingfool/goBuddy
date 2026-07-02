@@ -95,7 +95,13 @@ function runImport(path: string) {
   const formsBySlug = new Map(data.forms.map((f) => [f.slug, f]));
 
   const lines = readFileSync(path, "utf-8").split("\n").filter((l) => l.trim());
-  const [, ...dataLines] = lines; // drop header
+  // Map cells by the file's OWN header names, not by fixed COLUMNS position, so
+  // an older export whose column order predates a schema change (e.g. a
+  // costume CSV written before can_gigantamax was added) still imports
+  // correctly: known columns line up by name, obsolete columns are ignored,
+  // and columns absent from the file default to "" (never undefined).
+  const headerCells = parseCsvLine(lines[0]).map((h) => h.trim());
+  const dataLines = lines.slice(1);
 
   let inserted = 0;
   let updated = 0;
@@ -104,7 +110,10 @@ function runImport(path: string) {
 
   for (const line of dataLines) {
     const cells = parseCsvLine(line);
-    const row = Object.fromEntries(COLUMNS.map((col, i) => [col, cells[i] ?? ""])) as Record<(typeof COLUMNS)[number], string>;
+    const row = Object.fromEntries(COLUMNS.map((col) => [col, ""])) as Record<(typeof COLUMNS)[number], string>;
+    headerCells.forEach((col, i) => {
+      if (col in row) row[col as (typeof COLUMNS)[number]] = cells[i] ?? "";
+    });
 
     let speciesSlug = row.species_slug.trim() || slugify(row.species_name);
     if (!speciesBySlug.has(speciesSlug)) {
@@ -119,6 +128,7 @@ function runImport(path: string) {
         hasMale: parseBool(row.has_male),
         hasFemale: parseBool(row.has_female),
         canMegaEvolve: parseBool(row.can_mega_evolve),
+        canGigantamax: parseBool(row.can_gigantamax),
       };
       data.species.push(newSpecies);
       speciesBySlug.set(speciesSlug, newSpecies);
@@ -140,7 +150,6 @@ function runImport(path: string) {
       shinyAvailable: parseBool(row.shiny_available),
       shadowAvailable: parseBool(row.shadow_available),
       dynamaxAvailable: parseBool(row.dynamax_available),
-      gigantamaxAvailable: parseBool(row.gigantamax_available),
       regionalExclusive: parseBool(row.regional_exclusive),
       imageRef: row.image_ref || null,
     };

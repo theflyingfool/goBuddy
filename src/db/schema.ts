@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS species (
   region_slug TEXT NOT NULL REFERENCES regions(slug),
   has_male INTEGER NOT NULL CHECK (has_male IN (0, 1)),
   has_female INTEGER NOT NULL CHECK (has_female IN (0, 1)),
-  can_mega_evolve INTEGER NOT NULL CHECK (can_mega_evolve IN (0, 1))
+  can_mega_evolve INTEGER NOT NULL CHECK (can_mega_evolve IN (0, 1)),
+  can_gigantamax INTEGER NOT NULL CHECK (can_gigantamax IN (0, 1))
 );
 
 CREATE TABLE IF NOT EXISTS form (
@@ -43,7 +44,6 @@ CREATE TABLE IF NOT EXISTS form (
   shiny_available INTEGER NOT NULL CHECK (shiny_available IN (0, 1)),
   shadow_available INTEGER NOT NULL CHECK (shadow_available IN (0, 1)),
   dynamax_available INTEGER NOT NULL CHECK (dynamax_available IN (0, 1)),
-  gigantamax_available INTEGER NOT NULL CHECK (gigantamax_available IN (0, 1)),
   regional_exclusive INTEGER NOT NULL CHECK (regional_exclusive IN (0, 1)),
   image_ref TEXT
 );

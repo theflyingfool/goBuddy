@@ -79,7 +79,7 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       case "dynamaxCapable":
         return (formsBySpecies.get(species.slug) ?? []).some((f) => f.dynamaxAvailable);
       case "gigantamaxCapable":
-        return (formsBySpecies.get(species.slug) ?? []).some((f) => f.gigantamaxAvailable);
+        return species.canGigantamax;
       default:
         return indicators[field];
     }

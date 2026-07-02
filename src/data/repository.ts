@@ -29,7 +29,7 @@ export type SpeciesBooleanField = "xxl" | "xxs" | "purified";
 
 // Reference-data *availability* — "can this species/form ever be Mega
 // Evolved/Dynamaxed/Gigantamaxed", derived from species.canMegaEvolve /
-// form.dynamaxAvailable / form.gigantamaxAvailable. Distinct from the
+// form.dynamaxAvailable / species.canGigantamax. Distinct from the
 // same-named personal achievement fields (e.g. form_personal.dynamax = "have
 // I already caught one") — conflating the two is exactly what made
 // "Uncaught + Dynamax" return nothing (a species you haven't caught can't

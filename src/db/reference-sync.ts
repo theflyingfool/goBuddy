@@ -57,12 +57,22 @@ export async function syncReferenceData(db: SQLiteDBConnection, referenceData: R
     // personal rows they'd otherwise remap would just get orphaned instead.
     await applySlugRenames(db);
 
-    // Delete in FK-safe order (children before parents). `transaction: false`
-    // on every statement below — we're already inside the manual
-    // begin/commit above and don't want each call opening its own.
+    // Drop (not just delete-from) in FK-safe order (children before
+    // parents), then recreate from REFERENCE_SCHEMA_SQL below. A plain
+    // DELETE FROM would leave a stale table object in place if a reference
+    // table's *column shape* changed (a column added/removed/renamed) since
+    // the last sync — CREATE TABLE IF NOT EXISTS at the top of this
+    // function is a no-op against an already-existing table, so the old
+    // columns would silently stick around forever on any device that had
+    // already initialized its DB before the shape changed. Dropping and
+    // recreating makes every future DDL change to these tables safe by
+    // default, not just this one. `transaction: false` on every statement
+    // below — we're already inside the manual begin/commit above and don't
+    // want each call opening its own.
     for (const table of ["form_types", "mega_variant", "form", "species", "backgrounds", "types", "regions"]) {
-      await db.run(`DELETE FROM ${table}`, [], false);
+      await db.run(`DROP TABLE IF EXISTS ${table}`, [], false);
     }
+    await db.execute(REFERENCE_SCHEMA_SQL, false);
 
     for (const region of referenceData.regions) {
       await db.run("INSERT INTO regions (slug, name) VALUES (?, ?)", [region.slug, region.name], false);
@@ -75,16 +85,16 @@ export async function syncReferenceData(db: SQLiteDBConnection, referenceData: R
     }
     for (const s of referenceData.species) {
       await db.run(
-        `INSERT INTO species (slug, dex_number, name, family_slug, gen, rarity, region_slug, has_male, has_female, can_mega_evolve)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [s.slug, s.dexNumber, s.name, s.familySlug, s.gen, s.rarity, s.regionSlug, b(s.hasMale), b(s.hasFemale), b(s.canMegaEvolve)],
+        `INSERT INTO species (slug, dex_number, name, family_slug, gen, rarity, region_slug, has_male, has_female, can_mega_evolve, can_gigantamax)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [s.slug, s.dexNumber, s.name, s.familySlug, s.gen, s.rarity, s.regionSlug, b(s.hasMale), b(s.hasFemale), b(s.canMegaEvolve), b(s.canGigantamax)],
         false,
       );
     }
     for (const f of referenceData.forms) {
       await db.run(
-        `INSERT INTO form (slug, species_slug, form_name, costume_name, gender, evolves, shiny_available, shadow_available, dynamax_available, gigantamax_available, regional_exclusive, image_ref)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO form (slug, species_slug, form_name, costume_name, gender, evolves, shiny_available, shadow_available, dynamax_available, regional_exclusive, image_ref)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           f.slug,
           f.speciesSlug,
@@ -95,7 +105,6 @@ export async function syncReferenceData(db: SQLiteDBConnection, referenceData: R
           b(f.shinyAvailable),
           b(f.shadowAvailable),
           b(f.dynamaxAvailable),
-          b(f.gigantamaxAvailable),
           b(f.regionalExclusive),
           f.imageRef,
         ],

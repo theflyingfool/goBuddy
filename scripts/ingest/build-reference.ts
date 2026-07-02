@@ -9,7 +9,7 @@
 // or at least made good progress — anything not yet cached gets fetched
 // live here too, just slower).
 
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,11 +21,13 @@ import { generationForDex, ULTRA_BEAST_NAMES } from "./pokemon-facts";
 import { detectStatelessGaps } from "./gap-detection";
 import type { Form, Gender, MegaVariant, Rarity, Species } from "../../src/db/types";
 import type { ReferenceData, ReferenceGap } from "../../src/db/reference-data";
+import type { GigantamaxParseOutput } from "./parse-gigantamax";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../..");
 const FORMS_CSV = resolve(REPO_ROOT, "Blank Pokedex Project (Living Column) - Forms w_ Dynamax.csv");
 const TYPES_CSV = resolve(REPO_ROOT, "Refs from Obsidian/Partial pokemon list.csv");
+const GIGANTAMAX_MATCHES_PATH = resolve(REPO_ROOT, "data-authoring/gigantamax-species.json");
 const REFERENCE_OUT = resolve(REPO_ROOT, "src/data/reference.json");
 const GAPS_OUT = resolve(REPO_ROOT, "src/data/reference-gaps.json");
 
@@ -294,6 +296,12 @@ async function main() {
       hasMale,
       hasFemale,
       canMegaEvolve: parsed.canMegaEvolve,
+      // Set true in the Gigantamax post-pass below for species matched
+      // against Refs from Obsidian/Pokedex Sheet Recovery.xlsx's "Regional
+      // Formes" sheet (see scripts/ingest/parse-gigantamax.ts) — that's now
+      // the authoritative source for Gigantamax capability, not a column on
+      // this Forms CSV (which predates several real Gigantamax releases).
+      canGigantamax: false,
     });
 
     for (const parsedForm of parsed.forms) {
@@ -319,7 +327,6 @@ async function main() {
           shinyAvailable: parsedForm.shinyAvailable,
           shadowAvailable: parsed.shadowAvailable,
           dynamaxAvailable: parsed.dynamaxAvailable,
-          gigantamaxAvailable: parsed.gigantamaxAvailable,
           regionalExclusive,
           imageRef: null,
         });
@@ -331,10 +338,106 @@ async function main() {
     }
   }
 
+  console.log("Applying Gigantamax data...");
+  if (existsSync(GIGANTAMAX_MATCHES_PATH)) {
+    const gigantamaxData: GigantamaxParseOutput = JSON.parse(readFileSync(GIGANTAMAX_MATCHES_PATH, "utf-8"));
+    const speciesBySlug = new Map(species.map((s) => [s.slug, s]));
+    const formsBySpeciesSlug = new Map<string, Form[]>();
+    for (const f of forms) {
+      const list = formsBySpeciesSlug.get(f.speciesSlug) ?? [];
+      list.push(f);
+      formsBySpeciesSlug.set(f.speciesSlug, list);
+    }
+    const formTypesBySlug = new Map<string, string[]>();
+    for (const ft of formTypes) {
+      const list = formTypesBySlug.get(ft.formSlug) ?? [];
+      list.push(ft.typeSlug);
+      formTypesBySlug.set(ft.formSlug, list);
+    }
+
+    let addedForms = 0;
+    for (const match of gigantamaxData.matches) {
+      const sp = speciesBySlug.get(match.speciesSlug);
+      if (!sp) {
+        gaps.push({
+          kind: "possible-bogus-form",
+          speciesSlug: match.speciesSlug,
+          note: `Gigantamax ingestion (parse-gigantamax.ts) matched species slug "${match.speciesSlug}" (from sheet row "${match.rawName}"), but no such species exists in the built reference data — verify manually.`,
+        });
+        continue;
+      }
+      sp.canGigantamax = true;
+
+      const speciesForms = formsBySpeciesSlug.get(sp.slug) ?? [];
+      // Mirror shiny availability + types from the existing non-costume form
+      // this Gigantamax form corresponds to: the style-matching form if this
+      // species has named styles (e.g. Urshifu's Single/Rapid Strike, see
+      // GigantamaxMatch.styleSuffix), otherwise its "Standard"/base form.
+      const findMirrorForm = (gender: Gender): Form | undefined => {
+        const candidates = speciesForms.filter((f) => f.costumeName === null && f.gender === gender);
+        if (match.styleSuffix) {
+          const styled = candidates.find((f) => f.formName.toLowerCase() === match.styleSuffix!.toLowerCase());
+          if (styled) return styled;
+        }
+        return candidates.find((f) => f.formName === "Standard") ?? candidates[0];
+      };
+
+      const formName = match.styleSuffix ? `Gigantamax ${match.styleSuffix}` : "Gigantamax";
+
+      for (const gender of gendersFor(sp.hasMale, sp.hasFemale)) {
+        const mirrorForm = findMirrorForm(gender);
+        if (!mirrorForm) {
+          gaps.push({
+            kind: "possible-bogus-form",
+            speciesSlug: sp.slug,
+            note: `Gigantamax ingestion couldn't find an existing non-costume form to mirror shiny-availability/types from (gender: ${gender}) — defaulted to shiny unavailable, no types.`,
+          });
+        }
+
+        const fSlug = formSlug(sp.slug, formName, gender);
+        forms.push({
+          slug: fSlug,
+          speciesSlug: sp.slug,
+          formName,
+          costumeName: null,
+          gender,
+          // Gigantamax Pokémon can never evolve further (a game-wide rule,
+          // same category as Mega's shadow-exclusion in CLAUDE.md) —
+          // matches mainline Pokémon behavior, not just a GO simplification.
+          evolves: false,
+          shinyAvailable: mirrorForm?.shinyAvailable ?? false,
+          // Gigantamax and Shadow are mutually exclusive in-game (confirmed,
+          // same rule as regular Dynamax/Shadow — see CLAUDE.md).
+          shadowAvailable: false,
+          // Gigantamax is fundamentally a Dynamax variant.
+          dynamaxAvailable: true,
+          regionalExclusive: false,
+          imageRef: null,
+        });
+        for (const typeSlug of mirrorForm ? (formTypesBySlug.get(mirrorForm.slug) ?? []) : []) {
+          formTypes.push({ formSlug: fSlug, typeSlug });
+        }
+        addedForms++;
+      }
+    }
+
+    console.log(
+      `  Matched ${gigantamaxData.matches.length} species from the sheet (${gigantamaxData.unmatched.length} unmatched), added ${addedForms} Gigantamax form row(s).`,
+    );
+    if (gigantamaxData.unmatched.length > 0) {
+      console.log(`  Unmatched sheet row(s) (not present in the built reference data):`);
+      for (const name of gigantamaxData.unmatched) console.log(`    - ${name}`);
+    }
+  } else {
+    console.log(`  No Gigantamax match data found at ${GIGANTAMAX_MATCHES_PATH} — run "npm run ingest:gigantamax" first to include Gigantamax forms. Skipping.`);
+  }
+
   // Gap kinds that are a pure function of the final species/forms/formTypes
   // (no PokeAPI/CSV context needed) are computed once here via the shared
   // detector — see gap-detection.ts's header comment for why this is shared
   // with csv-authoring.ts's `import` command instead of only living here.
+  // Runs AFTER the Gigantamax block above so the new Gigantamax forms are
+  // included in gap detection.
   gaps.push(...detectStatelessGaps(species, forms, formTypes));
 
   const allTypeSlugs = new Set(formTypes.map((ft) => ft.typeSlug));

@@ -66,6 +66,7 @@ insertAll(
     "has_male",
     "has_female",
     "can_mega_evolve",
+    "can_gigantamax",
   ],
   species.map((s) => ({
     slug: s.slug,
@@ -78,6 +79,7 @@ insertAll(
     has_male: b(s.hasMale),
     has_female: b(s.hasFemale),
     can_mega_evolve: b(s.canMegaEvolve),
+    can_gigantamax: b(s.canGigantamax),
   })),
 );
 
@@ -93,7 +95,6 @@ insertAll(
     "shiny_available",
     "shadow_available",
     "dynamax_available",
-    "gigantamax_available",
     "regional_exclusive",
     "image_ref",
   ],
@@ -107,7 +108,6 @@ insertAll(
     shiny_available: b(f.shinyAvailable),
     shadow_available: b(f.shadowAvailable),
     dynamax_available: b(f.dynamaxAvailable),
-    gigantamax_available: b(f.gigantamaxAvailable),
     regional_exclusive: b(f.regionalExclusive),
     image_ref: f.imageRef,
   })),

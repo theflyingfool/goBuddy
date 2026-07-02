@@ -19,6 +19,14 @@
 // its species' availability for every column except Shiny, which is read
 // per-row since it's the one column that's actually populated at that
 // granularity.
+//
+// The Gigantamax column (10) is deliberately NOT parsed here — it predates
+// (and is missing several species from) the dedicated "Regional Formes"
+// sheet in Refs from Obsidian/Pokedex Sheet Recovery.xlsx that
+// scripts/ingest/parse-gigantamax.ts now ingests instead, which is both
+// more complete and, per the user, the correct model for Gigantamax:
+// species.canGigantamax + dedicated Gigantamax `form` rows, not a form-level
+// availability flag.
 
 import { readFileSync } from "node:fs";
 
@@ -44,7 +52,6 @@ const COL = {
   LUCKY: 5,
   MEGA: 8,
   DYNAMAX: 9,
-  GIGANTAMAX: 10,
   SHADOW: 11,
 } as const;
 
@@ -66,7 +73,6 @@ export interface ParsedSpecies {
   luckyAvailable: boolean;
   canMegaEvolve: boolean;
   dynamaxAvailable: boolean;
-  gigantamaxAvailable: boolean;
   shadowAvailable: boolean;
   forms: ParsedForm[];
   /** Form tokens that appeared more than once for this species (e.g. a
@@ -126,7 +132,6 @@ export function parseFormsCsv(filePath: string): ParsedSpecies[] {
         luckyAvailable: isAvailable(cells[COL.LUCKY]),
         canMegaEvolve: isAvailable(cells[COL.MEGA]),
         dynamaxAvailable: isAvailable(cells[COL.DYNAMAX]),
-        gigantamaxAvailable: isAvailable(cells[COL.GIGANTAMAX]),
         shadowAvailable: isAvailable(cells[COL.SHADOW]),
         forms: [],
       };

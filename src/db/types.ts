@@ -1,6 +1,12 @@
 // Mirrors the schema proposed in CLAUDE.md, plus additions agreed with the
 // user along the way:
-// - Form.gigantamaxAvailable, and AppSetting (personal UI-state table).
+// - Species.canGigantamax, and AppSetting (personal UI-state table).
+//   Gigantamax was originally modeled as a per-form availability flag
+//   (Form.gigantamaxAvailable), but the user confirmed Gigantamax Pokémon
+//   are genuine distinct catchable forms — structurally like costumes, not
+//   like Mega — so it's now a species-wide capability flag (mirroring
+//   canMegaEvolve) plus dedicated "Gigantamax" `form` rows, rather than a
+//   boolean on every existing form.
 // - Form.shiny/luckyShiny/shadowShiny — CLAUDE.md's sketch had
 //   dynamaxShiny/luckyDynamaxShiny but no plain shiny flag for the
 //   base/lucky/shadow branches, even though the user's old Obsidian vault
@@ -48,6 +54,7 @@ export interface Species {
   hasMale: boolean;
   hasFemale: boolean;
   canMegaEvolve: boolean;
+  canGigantamax: boolean;
 }
 
 export interface Form {
@@ -60,7 +67,6 @@ export interface Form {
   shinyAvailable: boolean;
   shadowAvailable: boolean;
   dynamaxAvailable: boolean;
-  gigantamaxAvailable: boolean;
   regionalExclusive: boolean;
   imageRef: string | null;
 }
