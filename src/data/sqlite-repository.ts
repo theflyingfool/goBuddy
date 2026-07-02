@@ -97,21 +97,35 @@ export async function createSqliteRepository(): Promise<Repository> {
     writeQueue = writeQueue.then(fn).catch((err) => console.error("SQLite write-through failed:", err));
   }
 
+  // When > 0, a bulk operation is in flight (see runBulk below). The
+  // personal-changed hooks below fire synchronously — one per row — while the
+  // in-memory bulk method loops, so each reads this flag at enqueue time and,
+  // if inside a bulk, (a) skips its own per-statement transaction (runBulk
+  // wraps the whole batch in ONE explicit transaction instead — and the
+  // plugin's default per-statement BEGIN would error nested inside that) and
+  // (b) skips its per-row persistDb, leaving runBulk to do a single flush at
+  // the end. Outside a bulk, behavior is unchanged: per-statement transaction
+  // + a persist flush per edit.
+  let bulkDepth = 0;
+
   const repo = createInMemoryRepository(referenceData, state, {
     onSpeciesPersonalChanged(speciesSlug, personal) {
+      const inBulk = bulkDepth > 0;
       enqueueWrite(async () => {
         await db.run(
           `INSERT INTO species_personal (species_slug, registered, xxl, xxs, purified) VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(species_slug) DO UPDATE SET registered = excluded.registered, xxl = excluded.xxl, xxs = excluded.xxs, purified = excluded.purified`,
           [speciesSlug, personal.registered ? 1 : 0, personal.xxl ? 1 : 0, personal.xxs ? 1 : 0, personal.purified ? 1 : 0],
+          !inBulk,
         );
-        await persistDb();
+        if (!inBulk) await persistDb();
       });
     },
     onFormPersonalChanged(_formSlug, personal) {
+      const inBulk = bulkDepth > 0;
       enqueueWrite(async () => {
-        await db.run(upsertFormPersonalSql(), formPersonalValues(personal));
-        await persistDb();
+        await db.run(upsertFormPersonalSql(), formPersonalValues(personal), !inBulk);
+        if (!inBulk) await persistDb();
       });
     },
     onAppSettingChanged(key, value) {
@@ -121,6 +135,28 @@ export async function createSqliteRepository(): Promise<Repository> {
       });
     },
   });
+
+  // Runs a batched in-memory apply (which fires N onXChanged hooks
+  // synchronously, each enqueuing a transaction-less row write with persist
+  // suppressed — see bulkDepth above) wrapped in a single SQL transaction and
+  // followed by exactly ONE persistDb() IndexedDB flush, instead of N. Awaits
+  // the queue so callers can rely on the writes having landed.
+  async function runBulk(applyBatch: () => Promise<void>): Promise<void> {
+    bulkDepth++;
+    enqueueWrite(async () => {
+      await db.beginTransaction();
+    });
+    try {
+      await applyBatch();
+    } finally {
+      bulkDepth--;
+    }
+    enqueueWrite(async () => {
+      await db.commitTransaction();
+      await persistDb();
+    });
+    await writeQueue;
+  }
 
   return {
     ...repo,
@@ -141,6 +177,15 @@ export async function createSqliteRepository(): Promise<Repository> {
     async importPersonalData(data) {
       await repo.importPersonalData(data);
       await writeQueue;
+    },
+    // Bulk overrides: run the shared in-memory cascade path (repo.bulkSet*)
+    // but collapse its N per-row IndexedDB flushes into one transaction + one
+    // persist via runBulk.
+    async bulkSetFormPersonalField(formSlugs, field, value) {
+      await runBulk(() => repo.bulkSetFormPersonalField(formSlugs, field, value));
+    },
+    async bulkSetSpeciesPersonalField(speciesSlugs, field, value) {
+      await runBulk(() => repo.bulkSetSpeciesPersonalField(speciesSlugs, field, value));
     },
   };
 }

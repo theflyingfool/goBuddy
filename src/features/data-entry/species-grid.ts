@@ -1,9 +1,15 @@
 import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repository";
 import { clear, el } from "../../ui/dom";
 import { speciesSpritePath } from "../../ui/sprites";
+import { SPECIES_FIELDS } from "./field-groups";
 import { CLASSIFICATION_FIELDS, INDICATOR_LABELS, MORE_FILTER_FIELDS, gridFilterFieldLabel } from "./indicator-labels";
 
 export type FieldFilterState = "include" | "exclude";
+
+// The species-level personal booleans bulk-editable from grid select-mode —
+// exactly SPECIES_FIELDS (registered/xxl/xxs/purified), the same set the
+// single-species detail page toggles.
+export type SpeciesBulkField = (typeof SPECIES_FIELDS)[number]["field"];
 
 export interface GridState {
   filterText: string;
@@ -13,6 +19,14 @@ export interface GridState {
   fieldFilters: Partial<Record<GridFilterField, FieldFilterState>>;
   /** Whether the "More filters" section (every field beyond the user's 4 chosen indicators) is expanded. */
   moreFiltersOpen: boolean;
+  /** Select mode: tapping a tile toggles selection (for a bulk edit) instead of navigating. */
+  selectMode: boolean;
+  /** Slugs of species currently selected while in select mode. */
+  selectedSpecies: Set<string>;
+  /** Which species-level boolean the bulk-action bar will set. */
+  bulkField: SpeciesBulkField;
+  /** Whether the bulk action turns the field on (true) or off (false). */
+  bulkValue: boolean;
 }
 
 export interface GridCallbacks {
@@ -22,6 +36,13 @@ export interface GridCallbacks {
   /** Cycles a field's filter state: off → include → exclude → off. */
   onCycleFieldFilter: (field: GridFilterField) => void;
   onToggleMoreFilters: () => void;
+  onToggleSelectMode: () => void;
+  onToggleSpeciesSelection: (speciesSlug: string) => void;
+  onBulkFieldChange: (field: SpeciesBulkField) => void;
+  onBulkValueChange: (value: boolean) => void;
+  /** Apply the chosen field/value to every selected species (bulkSetSpeciesPersonalField), then clear + refresh. */
+  onApplyBulk: () => void;
+  onClearSelection: () => void;
 }
 
 const CAUGHT_FILTER_OPTIONS: { value: GridState["caughtFilter"]; label: string }[] = [
@@ -40,10 +61,61 @@ function fieldFilterChip(field: GridFilterField, state: GridState, callbacks: Gr
   return chip;
 }
 
+function renderBulkBar(state: GridState, callbacks: GridCallbacks): HTMLElement {
+  const bar = el("div", { class: "bulk-action-bar" });
+
+  const fieldSelect = el("select", { class: "bulk-field-select", "aria-label": "Field to set" }) as HTMLSelectElement;
+  for (const { field, label } of SPECIES_FIELDS) {
+    fieldSelect.append(el("option", { value: field }, [label]));
+  }
+  fieldSelect.value = state.bulkField;
+  fieldSelect.addEventListener("change", () => callbacks.onBulkFieldChange(fieldSelect.value as SpeciesBulkField));
+
+  const onOff = el("div", { class: "bulk-onoff" });
+  for (const opt of [{ v: true, label: "On" }, { v: false, label: "Off" }] as const) {
+    const btn = el("button", { type: "button", class: `filter-chip${state.bulkValue === opt.v ? " filter-chip-active" : ""}` }, [opt.label]);
+    btn.addEventListener("click", () => callbacks.onBulkValueChange(opt.v));
+    onOff.append(btn);
+  }
+
+  const applyBtn = el("button", { type: "button", class: "bulk-apply-button" }, [`Apply to ${state.selectedSpecies.size}`]);
+  applyBtn.addEventListener("click", () => callbacks.onApplyBulk());
+
+  const clearBtn = el("button", { type: "button", class: "bulk-clear-button" }, ["Clear"]);
+  clearBtn.addEventListener("click", () => callbacks.onClearSelection());
+
+  bar.append(
+    el("span", { class: "bulk-count" }, [`${state.selectedSpecies.size} selected`]),
+    el("span", { class: "bulk-set-label" }, ["Set"]),
+    fieldSelect,
+    onOff,
+    applyBtn,
+    clearBtn,
+  );
+  return bar;
+}
+
 export function renderSpeciesGrid(container: HTMLElement, repo: Repository, state: GridState, callbacks: GridCallbacks) {
   clear(container);
 
   const indicatorSelection = repo.getIndicatorSelection();
+
+  const selectToolbar = el("div", { class: "grid-select-toolbar" });
+  const selectToggle = el(
+    "button",
+    { type: "button", class: `filter-chip${state.selectMode ? " filter-chip-active" : ""}` },
+    [state.selectMode ? "✓ Selecting" : "Select"],
+  );
+  selectToggle.addEventListener("click", () => callbacks.onToggleSelectMode());
+  selectToolbar.append(selectToggle);
+  if (state.selectMode) {
+    selectToolbar.append(el("span", { class: "grid-select-hint" }, ["Tap tiles to select, then choose a field to set."]));
+  }
+  container.append(selectToolbar);
+
+  if (state.selectMode && state.selectedSpecies.size > 0) {
+    container.append(renderBulkBar(state, callbacks));
+  }
 
   const filterBar = el("div", { class: "filter-bar" });
   for (const option of CAUGHT_FILTER_OPTIONS) {
@@ -114,17 +186,26 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
         .filter((field) => indicators[field])
         .map((field) => el("span", { class: "badge", title: INDICATOR_LABELS[field].full }, [INDICATOR_LABELS[field].badge]));
 
-      const tile = el("button", { type: "button", class: `species-tile${caught ? "" : " uncaught"}` }, [
-        el("div", { class: "badge-row" }, badges),
-        el("img", {
-          class: "species-sprite",
-          src: speciesSpritePath(species.dexNumber),
-          alt: species.name,
-          loading: "lazy",
-        }),
-        el("div", { class: "tile-label" }, [`#${species.dexNumber} ${species.name}`]),
-      ]);
-      tile.addEventListener("click", () => callbacks.onSelectSpecies(species.slug));
+      const selected = state.selectMode && state.selectedSpecies.has(species.slug);
+      const tile = el(
+        "button",
+        { type: "button", class: `species-tile${caught ? "" : " uncaught"}${selected ? " selected" : ""}` },
+        [
+          el("div", { class: "badge-row" }, badges),
+          state.selectMode ? el("span", { class: `select-check${selected ? " on" : ""}` }, [selected ? "✓" : ""]) : "",
+          el("img", {
+            class: "species-sprite",
+            src: speciesSpritePath(species.dexNumber),
+            alt: species.name,
+            loading: "lazy",
+          }),
+          el("div", { class: "tile-label" }, [`#${species.dexNumber} ${species.name}`]),
+        ],
+      );
+      tile.addEventListener("click", () => {
+        if (state.selectMode) callbacks.onToggleSpeciesSelection(species.slug);
+        else callbacks.onSelectSpecies(species.slug);
+      });
       grid.append(tile);
     }
     container.append(grid);

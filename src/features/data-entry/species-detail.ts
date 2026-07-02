@@ -6,13 +6,16 @@ import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
 
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
 
-interface FormGroup {
+export interface FormGroup {
   key: string;
   label: string;
   forms: Form[];
 }
 
-function groupForms(forms: Form[], collapseGender: boolean): FormGroup[] {
+// Exported for reuse by the bulk-form-edit page, which needs the identical
+// gender-collapsing grouping this page uses (one checkbox per form/costume,
+// gender variants merged) rather than reinventing it.
+export function groupForms(forms: Form[], collapseGender: boolean): FormGroup[] {
   const groups = new Map<string, FormGroup>();
   for (const form of forms) {
     const groupKey = collapseGender ? `${form.formName}|${form.costumeName ?? ""}` : form.slug;

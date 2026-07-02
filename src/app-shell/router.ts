@@ -1,6 +1,7 @@
 export type Route =
   | { name: "data-entry-grid" }
   | { name: "data-entry-detail"; speciesSlug: string }
+  | { name: "bulk-form-edit" }
   | { name: "stats" }
   | { name: "search-tools" }
   | { name: "coverage-report" }
@@ -14,6 +15,8 @@ export function parseRoute(hash: string): Route {
   if (detailMatch) return { name: "data-entry-detail", speciesSlug: decodeURIComponent(detailMatch[1]) };
 
   switch (path) {
+    case "/bulk-edit":
+      return { name: "bulk-form-edit" };
     case "/stats":
       return { name: "stats" };
     case "/search-tools":

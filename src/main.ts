@@ -5,6 +5,7 @@ import { createSqliteRepository } from "./data/sqlite-repository";
 import type { Repository } from "./data/repository";
 import { renderSpeciesDetail } from "./features/data-entry/species-detail";
 import { renderSpeciesGrid, type GridState } from "./features/data-entry/species-grid";
+import { renderBulkFormEditPage } from "./features/data-entry/bulk-form-edit";
 import { renderCoverageReportPage } from "./features/coverage-report/coverage-report-page";
 import { renderSettingsPage } from "./features/settings/settings-page";
 import { renderStatsPage } from "./features/stats/stats-page";
@@ -38,6 +39,10 @@ function bootstrap(repo: Repository) {
     collapsedRegions: new Set(),
     fieldFilters: {},
     moreFiltersOpen: false,
+    selectMode: false,
+    selectedSpecies: new Set(),
+    bulkField: "registered",
+    bulkValue: true,
   };
   let drawerOpen = false;
 
@@ -80,6 +85,36 @@ function bootstrap(repo: Repository) {
             gridState.moreFiltersOpen = !gridState.moreFiltersOpen;
             renderGrid();
           },
+          onToggleSelectMode: () => {
+            gridState.selectMode = !gridState.selectMode;
+            if (!gridState.selectMode) gridState.selectedSpecies.clear();
+            renderGrid();
+          },
+          onToggleSpeciesSelection: (slug) => {
+            if (gridState.selectedSpecies.has(slug)) gridState.selectedSpecies.delete(slug);
+            else gridState.selectedSpecies.add(slug);
+            renderGrid();
+          },
+          onBulkFieldChange: (field) => {
+            gridState.bulkField = field;
+            renderGrid();
+          },
+          onBulkValueChange: (value) => {
+            gridState.bulkValue = value;
+            renderGrid();
+          },
+          onApplyBulk: () => {
+            const slugs = [...gridState.selectedSpecies];
+            if (slugs.length === 0) return;
+            void repo.bulkSetSpeciesPersonalField(slugs, gridState.bulkField, gridState.bulkValue).then(() => {
+              gridState.selectedSpecies.clear();
+              renderGrid();
+            });
+          },
+          onClearSelection: () => {
+            gridState.selectedSpecies.clear();
+            renderGrid();
+          },
         });
 
       renderHeader(
@@ -113,6 +148,9 @@ function bootstrap(repo: Repository) {
     } else {
       renderHeader(headerEl, { kind: "none" }, () => setDrawerOpen(!drawerOpen));
       switch (route.name) {
+        case "bulk-form-edit":
+          renderBulkFormEditPage(contentEl, repo);
+          break;
         case "stats":
           renderStatsPage(contentEl, repo);
           break;

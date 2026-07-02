@@ -103,6 +103,20 @@ export interface Repository {
   setSpeciesPersonalField(speciesSlug: string, field: keyof Omit<SpeciesPersonal, "speciesSlug">, value: boolean): void;
   setFormPersonalField(formSlug: string, field: keyof Omit<FormPersonal, "formSlug">, value: boolean): void;
 
+  /**
+   * Batched equivalents of the two single setters above, for the bulk-edit
+   * features. Each applies the SAME cascade behavior as its single counterpart
+   * to every slug in the list — the form version reuses mergeFormPersonalCascade
+   * plus the species-registered cascade (so bulk-setting e.g. fourStar also
+   * marks each form caught and its species registered), the species version
+   * reuses the xxl/xxs/purified → registered cascade. Async because the real
+   * SQLite backend overrides these to collapse the N per-row writes into a
+   * single transaction + a single IndexedDB persist flush (vs. one flush per
+   * row the naive path would produce).
+   */
+  bulkSetFormPersonalField(formSlugs: string[], field: FormPersonalBooleanField, value: boolean): Promise<void>;
+  bulkSetSpeciesPersonalField(speciesSlugs: string[], field: keyof Omit<SpeciesPersonal, "speciesSlug">, value: boolean): Promise<void>;
+
   getAppSetting(key: string): string | undefined;
   setAppSetting(key: string, value: string): void;
 

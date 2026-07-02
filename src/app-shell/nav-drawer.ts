@@ -11,6 +11,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Pokedex", path: "/data-entry", routeName: "data-entry-grid" },
+  { label: "Bulk Edit", path: "/bulk-edit", routeName: "bulk-form-edit" },
   { label: "Stats", path: "/stats", routeName: "stats" },
   { label: "Search Tools", path: "/search-tools", routeName: "search-tools" },
   { label: "Coverage Report", path: "/coverage-report", routeName: "coverage-report" },

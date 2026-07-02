@@ -455,3 +455,169 @@ fieldset {
   color: #888;
   cursor: pointer;
 }
+
+/* ---- Bulk edit (grid select-mode + bulk-form page) ---- */
+
+.grid-select-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.25rem 0 0.4rem;
+}
+
+.grid-select-hint,
+.bulk-gating-note {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.species-tile.selected {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+  background: #2563eb18;
+}
+
+.select-check {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid #8888;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1.15rem;
+  text-align: center;
+  background: canvas;
+}
+
+.select-check.on {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  margin: 0.4rem 0;
+  border: 1px solid #8886;
+  border-radius: 10px;
+  background: #8881;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.bulk-count {
+  font-weight: bold;
+}
+
+.bulk-set-label {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.bulk-field-select,
+.bulk-target-select,
+.bulk-region-select,
+.bulk-search {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #8886;
+  border-radius: 8px;
+  background: canvas;
+  font-size: 0.9rem;
+}
+
+.bulk-onoff {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.bulk-apply-button {
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: 999px;
+  background: #16a34a;
+  color: white;
+  font-weight: bold;
+}
+
+.bulk-apply-button:disabled {
+  background: #8885;
+  color: #ccc;
+}
+
+.bulk-clear-button {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid #8886;
+  border-radius: 999px;
+  background: none;
+}
+
+.bulk-filters,
+.bulk-target-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.bulk-filters {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.bulk-filter-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bulk-filter-row .bulk-search {
+  flex: 1;
+}
+
+.bulk-species-card {
+  border: 1px solid #8883;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.bulk-species-name {
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.bulk-form-row {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.bulk-current {
+  color: #16a34a;
+  font-weight: bold;
+  margin-left: auto;
+}
+
+.bulk-selection-bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+}
+
+.bulk-truncation-note,
+.page-intro {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.page-title {
+  margin: 0.25rem 0;
+}

@@ -162,6 +162,30 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
     hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
 
+  // Single apply-step for one form field, factored out of setFormPersonalField
+  // so the batched bulkSetFormPersonalField can reuse the EXACT same
+  // cascade+persist path (mergeFormPersonalCascade for the forward-only field
+  // cascade, then cascadeSpeciesRegisteredForForm for the species side) rather
+  // than duplicating it and risking drift from the single-edit behavior.
+  function applyFormPersonalField(formSlug: string, field: keyof Omit<FormPersonal, "formSlug">, value: boolean): void {
+    const current = state.formPersonal[formSlug] ?? emptyFormPersonal(formSlug);
+    const updated = mergeFormPersonalCascade(current, field, value);
+    state.formPersonal[formSlug] = updated;
+    hooks.onFormPersonalChanged(formSlug, updated);
+    cascadeSpeciesRegisteredForForm(formSlug, updated);
+  }
+
+  // Species counterpart to applyFormPersonalField — same reason: shared by the
+  // single setter and the batched bulkSetSpeciesPersonalField so the
+  // xxl/xxs/purified → registered cascade stays identical between them.
+  function applySpeciesPersonalField(speciesSlug: string, field: keyof Omit<SpeciesPersonal, "speciesSlug">, value: boolean): void {
+    const current = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
+    const impliesRegistered = value && (field === "xxl" || field === "xxs" || field === "purified");
+    const updated: SpeciesPersonal = { ...current, [field]: value, ...(impliesRegistered ? { registered: true } : {}) };
+    state.speciesPersonal[speciesSlug] = updated;
+    hooks.onSpeciesPersonalChanged(speciesSlug, updated);
+  }
+
   function computeLens(lens: CompletionLens, scoped: Species[]): CompletionLensResult {
     if (lens.kind === "registered") {
       const missing = scoped.filter((s) => !(state.speciesPersonal[s.slug] ?? emptySpeciesPersonal(s.slug)).registered);
@@ -247,24 +271,28 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       };
     },
 
+    // Catching an XXL/XXS/purified individual implies the species itself is
+    // registered — that cascade (and the single-vs-bulk-shared apply step)
+    // lives in applySpeciesPersonalField above.
     setSpeciesPersonalField(speciesSlug, field, value) {
-      const current = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
-      // Catching an XXL/XXS/purified individual implies the species itself
-      // is registered — same forward-only cascade rule as form fields, just
-      // a one-off since there are only 3 species-level fields (no shared
-      // group structure worth factoring like FORM_FIELD_CASCADES).
-      const impliesRegistered = value && (field === "xxl" || field === "xxs" || field === "purified");
-      const updated: SpeciesPersonal = { ...current, [field]: value, ...(impliesRegistered ? { registered: true } : {}) };
-      state.speciesPersonal[speciesSlug] = updated;
-      hooks.onSpeciesPersonalChanged(speciesSlug, updated);
+      applySpeciesPersonalField(speciesSlug, field, value);
     },
 
     setFormPersonalField(formSlug, field, value) {
-      const current = state.formPersonal[formSlug] ?? emptyFormPersonal(formSlug);
-      const updated = mergeFormPersonalCascade(current, field, value);
-      state.formPersonal[formSlug] = updated;
-      hooks.onFormPersonalChanged(formSlug, updated);
-      cascadeSpeciesRegisteredForForm(formSlug, updated);
+      applyFormPersonalField(formSlug, field, value);
+    },
+
+    // Bulk variants: loop the slugs applying the same per-row cascade path as
+    // the single setters. Each row still fires its hook (that's what persists);
+    // the SQLite backend overrides these to batch those N writes into one
+    // transaction + one flush. Base impl (dummy backend) just persists per row,
+    // same as it does for single edits.
+    async bulkSetFormPersonalField(formSlugs, field, value) {
+      for (const formSlug of formSlugs) applyFormPersonalField(formSlug, field, value);
+    },
+
+    async bulkSetSpeciesPersonalField(speciesSlugs, field, value) {
+      for (const speciesSlug of speciesSlugs) applySpeciesPersonalField(speciesSlug, field, value);
     },
 
     getAppSetting(key) {
