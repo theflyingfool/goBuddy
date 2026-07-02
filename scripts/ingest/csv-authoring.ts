@@ -13,51 +13,23 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { formSlug as buildFormSlug, slugify } from "./slug";
-import type { ReferenceData } from "../../src/db/reference-data";
+import { detectStatelessGaps, STATELESS_GAP_KINDS } from "./gap-detection";
+import { REFERENCE_CSV_COLUMNS as COLUMNS, formToCsvRow, referenceRowsToCsv } from "../../src/data/reference-csv-format";
+import type { ReferenceData, ReferenceGap } from "../../src/db/reference-data";
 import type { Form, Gender, Rarity, Species } from "../../src/db/types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../..");
 const REFERENCE_PATH = resolve(REPO_ROOT, "src/data/reference.json");
+const GAPS_PATH = resolve(REPO_ROOT, "src/data/reference-gaps.json");
 const AUTHORING_DIR = resolve(REPO_ROOT, "data-authoring");
 const EXPORT_PATH = resolve(AUTHORING_DIR, "reference-export.csv");
 const TEMPLATE_PATH = resolve(AUTHORING_DIR, "new-entries-template.csv");
 const DEFAULT_IMPORT_PATH = resolve(AUTHORING_DIR, "new-entries.csv");
 
-const COLUMNS = [
-  "species_slug",
-  "dex_number",
-  "species_name",
-  "family_slug",
-  "generation",
-  "rarity",
-  "region_slug",
-  "has_male",
-  "has_female",
-  "can_mega_evolve",
-  "form_slug",
-  "form_name",
-  "costume_name",
-  "gender",
-  "evolves",
-  "shiny_available",
-  "shadow_available",
-  "dynamax_available",
-  "gigantamax_available",
-  "regional_exclusive",
-  "image_ref",
-  "types",
-] as const;
-
-function csvEscape(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
-
 function writeCsv(path: string, rows: string[][]) {
   mkdirSync(dirname(path), { recursive: true });
-  const content = [COLUMNS.join(","), ...rows.map((r) => r.map(csvEscape).join(","))].join("\n") + "\n";
-  writeFileSync(path, content);
+  writeFileSync(path, referenceRowsToCsv(rows));
 }
 
 /** Minimal quoted-CSV line parser — handles the `"a,b""c"` escaping csvEscape produces. */
@@ -100,44 +72,9 @@ function saveReference(data: ReferenceData) {
   writeFileSync(REFERENCE_PATH, JSON.stringify(data));
 }
 
-function typesForForm(data: ReferenceData, formSlug: string): string {
-  return data.formTypes
-    .filter((ft) => ft.formSlug === formSlug)
-    .map((ft) => ft.typeSlug)
-    .join(";");
-}
-
 function runExport() {
   const data = loadReference();
-  const speciesBySlug = new Map(data.species.map((s) => [s.slug, s]));
-  const rows = data.forms.map((form) => {
-    const species = speciesBySlug.get(form.speciesSlug);
-    if (!species) throw new Error(`Form ${form.slug} references unknown species ${form.speciesSlug}`);
-    return [
-      species.slug,
-      String(species.dexNumber),
-      species.name,
-      species.familySlug,
-      String(species.gen),
-      species.rarity,
-      species.regionSlug,
-      String(species.hasMale),
-      String(species.hasFemale),
-      String(species.canMegaEvolve),
-      form.slug,
-      form.formName,
-      form.costumeName ?? "",
-      form.gender,
-      String(form.evolves),
-      String(form.shinyAvailable),
-      String(form.shadowAvailable),
-      String(form.dynamaxAvailable),
-      String(form.gigantamaxAvailable),
-      String(form.regionalExclusive),
-      form.imageRef ?? "",
-      typesForForm(data, form.slug),
-    ];
-  });
+  const rows = data.forms.map((form) => formToCsvRow(data, form));
   writeCsv(EXPORT_PATH, rows);
   console.log(`Wrote ${rows.length} rows to ${EXPORT_PATH}`);
 }
@@ -162,6 +99,8 @@ function runImport(path: string) {
 
   let inserted = 0;
   let updated = 0;
+  const touchedSpeciesSlugs = new Set<string>();
+  const touchedFormSlugs = new Set<string>();
 
   for (const line of dataLines) {
     const cells = parseCsvLine(line);
@@ -185,8 +124,11 @@ function runImport(path: string) {
       speciesBySlug.set(speciesSlug, newSpecies);
     }
 
+    touchedSpeciesSlugs.add(speciesSlug);
+
     const gender = (row.gender || "unknown") as Gender;
     const fSlug = row.form_slug.trim() || buildFormSlug(speciesSlug, row.form_name || null, gender, row.costume_name || null);
+    touchedFormSlugs.add(fSlug);
 
     const newForm: Form = {
       slug: fSlug,
@@ -227,6 +169,33 @@ function runImport(path: string) {
 
   saveReference(data);
   console.log(`Imported ${dataLines.length} rows from ${path}: ${inserted} new form(s), ${updated} updated.`);
+
+  // Keep the Coverage Report in sync: without this, a gap a human just fixed
+  // by hand via this exact CSV round-trip would keep showing up until the
+  // next full `npm run ingest:build` (see TODO.md's "Coverage Report was
+  // stale" entry). Only the stateless gap kinds (derivable purely from
+  // reference.json — see gap-detection.ts) can be refreshed here; kinds that
+  // depend on PokeAPI/the Forms CSV/Bulbapedia are left as whatever the last
+  // full build or event-parse run recorded.
+  //
+  // Scoped to the species/forms this import actually touched, not a full
+  // recompute over the whole dataset: several forms elsewhere in
+  // reference.json carry a "missing-types" gap for a placeholder types list
+  // that's non-empty (just wrong) — see gap-detection.ts's header comment —
+  // so a dataset-wide recompute would silently drop those still-unresolved
+  // gaps just because an unrelated row got imported. Only entries for rows
+  // this run actually reviewed are safe to replace.
+  const existingGaps: ReferenceGap[] = existsSync(GAPS_PATH) ? JSON.parse(readFileSync(GAPS_PATH, "utf-8")) : [];
+  const keptGaps = existingGaps.filter((g) => {
+    if (!STATELESS_GAP_KINDS.includes(g.kind)) return true; // not recomputable here — leave untouched
+    const touched = g.formSlug ? touchedFormSlugs.has(g.formSlug) : touchedSpeciesSlugs.has(g.speciesSlug);
+    return !touched;
+  });
+  const touchedSpecies = data.species.filter((s) => touchedSpeciesSlugs.has(s.slug));
+  const touchedForms = data.forms.filter((f) => touchedFormSlugs.has(f.slug));
+  const freshGaps = detectStatelessGaps(touchedSpecies, touchedForms, data.formTypes);
+  writeFileSync(GAPS_PATH, JSON.stringify([...keptGaps, ...freshGaps]));
+  console.log(`Refreshed ${GAPS_PATH.replace(REPO_ROOT + "/", "")}: ${keptGaps.length} kept + ${freshGaps.length} recomputed gap(s) for this import's rows.`);
 }
 
 const [, , mode, arg] = process.argv;

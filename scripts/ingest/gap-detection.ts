@@ -1,0 +1,72 @@
+// Gap checks that are purely a function of the CURRENT reference.json
+// contents — no PokeAPI fetch, no Forms-CSV skeleton, no Bulbapedia
+// wikitext needed to (re)derive them. build-reference.ts calls these once
+// at the end of a full ingest; csv-authoring.ts's `import` command calls
+// them again after every manual CSV fix, so a gap a human just fixed by
+// hand stops showing up in the Coverage Report without needing a full
+// `npm run ingest:build` re-run (see TODO.md's "Coverage Report was stale"
+// entry — this closes that standing gap for the stateless kinds below).
+//
+// Other ReferenceGap kinds (mega-discrepancy, possible-bogus-form,
+// guessed-costume-name) depend on external sources reference.json doesn't
+// carry (PokeAPI's mega varieties, the Forms CSV's raw tokens, Bulbapedia's
+// sprite codes) — those are NOT recomputed here, and are left untouched by
+// csv-authoring.ts; only re-running the script that originally produced
+// them can refresh those entries.
+
+import type { Form, FormType, Species } from "../../src/db/types";
+import type { ReferenceGap } from "../../src/db/reference-data";
+
+/** The ReferenceGap kinds this module can fully recompute from reference.json alone. */
+export const STATELESS_GAP_KINDS: ReferenceGap["kind"][] = ["missing-types", "unverified-gender", "inherited-availability"];
+
+export function detectUnverifiedGenderGaps(species: Species[]): ReferenceGap[] {
+  // Genderless AND not a legendary/mythical/UB is unusual enough to be worth a manual glance.
+  return species
+    .filter((s) => !s.hasMale && !s.hasFemale && s.rarity === "standard")
+    .map(
+      (s): ReferenceGap => ({
+        kind: "unverified-gender",
+        speciesSlug: s.slug,
+        note: "Marked genderless — double check this is correct, not a fetch/import gap.",
+      }),
+    );
+}
+
+export function detectMissingTypesGaps(forms: Form[], formTypes: FormType[]): ReferenceGap[] {
+  const typeCounts = new Map<string, number>();
+  for (const ft of formTypes) typeCounts.set(ft.formSlug, (typeCounts.get(ft.formSlug) ?? 0) + 1);
+  return forms
+    .filter((f) => (typeCounts.get(f.slug) ?? 0) === 0)
+    .map(
+      (f): ReferenceGap => ({
+        kind: "missing-types",
+        speciesSlug: f.speciesSlug,
+        formSlug: f.slug,
+        note: "No types recorded for this form.",
+      }),
+    );
+}
+
+export function detectInheritedAvailabilityGaps(forms: Form[]): ReferenceGap[] {
+  // Fires for every non-base form (by design — the source CSV only varies
+  // Shiny per form, everything else is inherited from the species row).
+  return forms
+    .filter((f) => f.formName !== "Standard")
+    .map(
+      (f): ReferenceGap => ({
+        kind: "inherited-availability",
+        speciesSlug: f.speciesSlug,
+        formSlug: f.slug,
+        note: "Shadow/Dynamax/Gigantamax/evolves availability inherited from the species row, not verified per-form (the source CSV only varies Shiny at this granularity).",
+      }),
+    );
+}
+
+export function detectStatelessGaps(species: Species[], forms: Form[], formTypes: FormType[]): ReferenceGap[] {
+  return [
+    ...detectUnverifiedGenderGaps(species),
+    ...detectMissingTypesGaps(forms, formTypes),
+    ...detectInheritedAvailabilityGaps(forms),
+  ];
+}

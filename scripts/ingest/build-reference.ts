@@ -18,6 +18,7 @@ import { parseFormsCsv } from "./parse-forms-csv";
 import { parseTypesCsv } from "./parse-types-csv";
 import { PUNCTUATION_FORM_NAMES, formSlug, megaVariantSlug, slugify } from "./slug";
 import { generationForDex, ULTRA_BEAST_NAMES } from "./pokemon-facts";
+import { detectStatelessGaps } from "./gap-detection";
 import type { Form, Gender, MegaVariant, Rarity, Species } from "../../src/db/types";
 import type { ReferenceData, ReferenceGap } from "../../src/db/reference-data";
 
@@ -233,10 +234,6 @@ async function main() {
     }
     dexToFamilySlug.set(parsed.dexNumber, familySlug);
 
-    if (baseTypes.length === 0) {
-      gaps.push({ kind: "missing-types", speciesSlug: slug, note: "No types found from PokeAPI or the fallback CSV." });
-    }
-
     // Mega variants: only for species the GO tracker (Forms CSV) says can
     // mega evolve — but flag if PokeAPI shows a mega variety exists and the
     // tracker disagrees, since that tracker can go stale (e.g. Kangaskhan).
@@ -299,11 +296,6 @@ async function main() {
       canMegaEvolve: parsed.canMegaEvolve,
     });
 
-    if (!hasMale && !hasFemale && rarity === "standard") {
-      // genderless AND not a legendary/mythical/UB is unusual enough to be worth a manual glance
-      gaps.push({ kind: "unverified-gender", speciesSlug: slug, note: "Marked genderless by PokeAPI — double check this is correct, not a fetch gap." });
-    }
-
     for (const parsedForm of parsed.forms) {
       for (const gender of gendersFor(hasMale, hasFemale)) {
         const fSlug = formSlug(slug, parsedForm.formToken, gender);
@@ -335,18 +327,15 @@ async function main() {
         for (const typeName of types) {
           formTypes.push({ formSlug: fSlug, typeSlug: slugify(typeName) });
         }
-
-        if (parsedForm.formToken !== null) {
-          gaps.push({
-            kind: "inherited-availability",
-            speciesSlug: slug,
-            formSlug: fSlug,
-            note: "Shadow/Dynamax/Gigantamax/evolves availability inherited from the species row, not verified per-form (the source CSV only varies Shiny at this granularity).",
-          });
-        }
       }
     }
   }
+
+  // Gap kinds that are a pure function of the final species/forms/formTypes
+  // (no PokeAPI/CSV context needed) are computed once here via the shared
+  // detector — see gap-detection.ts's header comment for why this is shared
+  // with csv-authoring.ts's `import` command instead of only living here.
+  gaps.push(...detectStatelessGaps(species, forms, formTypes));
 
   const allTypeSlugs = new Set(formTypes.map((ft) => ft.typeSlug));
   const referenceData: ReferenceData = {
