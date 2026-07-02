@@ -3,6 +3,107 @@
 Living status doc. Update this whenever a task starts, finishes, or a new
 one gets identified — don't let it go stale.
 
+## Not Done
+
+Agreed sequence as of 2026-07-01 (reasoning inline per item). Milestones A, B,
+C, and D are all done (see Done section below), and so is the post-emulator
+cleanup pass (grid filter redesign, data-quality improvements, custom icon —
+see Done below) — nothing next-in-sequence has been agreed yet. Items below
+are bucketed by priority so the actionable work is visible without scrolling
+past the historical sections.
+
+### High priority
+
+#### Install/run the real APK on a device or emulator
+
+Ran cleanly on an emulator (confirmed 2026-07-01) — still never installed on
+a real physical device. Worth doing before fully trusting the native
+SQLite/jeep-sqlite platform split in practice, not just in an emulator.
+
+#### Stats page: region drill-down + clickable species
+
+User-requested 2026-07-01: clicking a **region** (not just a specific
+lens cell) should expand to show the full per-species detail for that region
+(right now only clicking a lens *cell* shows a missing-species list for that
+one lens — there's no "show me everything for this region" view). And within
+that expanded view, clicking an individual species should navigate straight
+to that species' Pokedex detail page (`speciesDetailPath`) — right now the
+missing-species list in `stats-page.ts` is plain text, not links.
+
+### Medium priority
+
+#### Decide whether Gigantamax needs its own personal-achievement field
+
+Surfaced while fixing the grid filter bug: CLAUDE.md's original schema only
+gave the Dynamax branch (and its lucky/shiny/floor/4★/shundo variants) a
+`form_personal` column; Gigantamax never got its own. Not a bug — the new
+"Can Gigantamax" grid filter (reference availability) works fine regardless —
+just confirms there's currently no way to track "have I gotten a Gigantamax
+individual" as a distinct personal fact, separate from a regular Dynamax
+catch. Deliberately left out of the grid-filter fix (a schema/feature
+question, not a bug fix) — ask before adding it.
+
+#### ~11 costume names still show a raw Bulbapedia sprite code
+
+Down from 27 (see Done below) after mechanical fixes for World Championships
+years, T-shirt colors, and Gem crown's already-legible gem names. What's left
+needs real player knowledge, not mechanical transforms: Cap Pikachu's "O"/"W"
+codes, and Flying Pikachu's Fly/Fly5/FlyOkinawa/FlyGreen/FlyPurple/FlyOrange/
+FlyRed variants. Worth asking the user directly — real event trivia isn't
+something to guess at.
+
+### Low priority / someday
+
+- Search Tools (tri-state PoGo search-string builder) + the auto-declutter
+  engine — CLAUDE.md explicitly ranks these below Stats.
+- Background-linking UI (schema supports `form_background_personal`
+  scoped per achievement variant; no picker UI built yet).
+- Real GO cosmetic background data — none exists in any source yet; only
+  2 hand-placed placeholders (`spring-2024`, `anniversary-2016`) exist so
+  the schema has something to demonstrate against.
+- The `001-Bulbasaur/Standard.md` question from the Obsidian refs — it
+  looks like it might contain real personal progress data rather than
+  just a structural example. Unresolved; ask before assuming either way.
+- Bundle size: `reference.json` (now 1024 species/2813 forms after costume
+  ingestion) is bundled directly into the JS chunk, past Vite's 500KB
+  warning threshold — main JS chunk is now ~1.48MB (106KB gzipped) plus a
+  separate ~300KB `jeep-sqlite.entry` chunk (84KB gzipped). Not a functional
+  problem yet, but worth lazy-loading reference.json or fetching it as a
+  separate asset instead of a static import before this goes much bigger.
+  **Correcting an earlier prediction here**: milestone D's native Android
+  build does *not* shrink the jeep-sqlite chunk — Capacitor ships one
+  universal web bundle to every platform, so that code is still bundled into
+  the APK even though `sqlite-client.ts` now skips *running* it on native.
+  Actually dropping it from the native build would need real code-splitting
+  (`import()` gated on `Capacitor.getPlatform()`), not just adding the
+  native project.
+- 183 forms still have placeholder ("missing-types") typing (down from 282,
+  see the 2026-07-01 cleanup pass below) — mostly Unown/Vivillon/Spinda-style
+  pattern variants that PokeAPI genuinely doesn't model as `varieties` at all
+  (confirmed via the cache directly, not just a name-matching miss). Real
+  values likely still exist in PokeAPI via each variety's `pokemon-form`
+  sub-resource — that traversal wasn't attempted this pass. Real fix needs
+  that deeper traversal, or manual correction via the CSV authoring tool.
+
+## Known issues / accepted tradeoffs
+
+- ~~The per-form toggle grid on the species detail page requires a lot of
+  scrolling per variant~~ — **resolved 2026-07-01**: form groups are now
+  collapsed-by-default `<details>` blocks with a compact overview grid at
+  the top of the page (see Done below).
+- Gender availability (has_male/has_female) and legendary/mythical
+  classification come from PokeAPI's `gender_rate`/`is_legendary`/
+  `is_mythical` — trusted directly rather than double-checked by hand
+  across all 1024 species. 65 genderless-and-standard-rarity species are
+  flagged in the coverage report as worth a quick manual glance, not
+  because they're likely wrong, just because genderless is the less common
+  case.
+- 385 forms carry availability (shadow/dynamax/gigantamax/evolves)
+  inherited from their species rather than independently verified — this
+  is a structural limitation of the source CSV (it only varies Shiny at
+  the per-form level), not a bug; see memory
+  `project_reference_data_ingestion.md`.
+
 ## Done
 
 - Project scaffold: TypeScript + Vite, no framework (`package.json`,
@@ -169,11 +270,11 @@ one gets identified — don't let it go stale.
   shipped build, not just compiled once before the fix existed.
   - ~~Not yet done: never installed/run on a real device or emulator~~ —
     **resolved 2026-07-01**: ran cleanly on an emulator. Still not tested on
-    a real physical device (see Backlog).
+    a real physical device (see Not Done above).
   - ~~App icon and splash screen are Capacitor's generic default
     placeholders~~ — **resolved 2026-07-01**, see the icon/splash entry below.
   - **Correction to an earlier prediction**: the bundle-size backlog note
-    below previously said the jeep-sqlite chunk "will shrink or disappear
+    above previously said the jeep-sqlite chunk "will shrink or disappear
     once milestone D adds a native build" — that was wrong. Capacitor ships
     one universal web bundle to both platforms; the platform-aware guard
     means jeep-sqlite/sql.js code won't *run* on native, but it's still
@@ -203,8 +304,8 @@ one gets identified — don't let it go stale.
     the exact bug is fixed: Uncaught + Can-Dynamax now returns 153 species,
     matching an independent count of species with ≥1 dynamax-available form.
   - **Deliberately not done**: adding a personal `gigantamax` achievement
-    field (see Backlog) — a schema/feature question, out of scope for a bug
-    fix, called out rather than silently skipped.
+    field (see Not Done above) — a schema/feature question, out of scope for
+    a bug fix, called out rather than silently skipped.
   - **Missing-types matching pass** (`scripts/ingest/build-reference.ts`):
     `findFormTypes` previously only attempted a PokeAPI variety match for
     regional-prefix tokens (Alolan/Galarian/Hisuian/Paldean) — every other
@@ -235,7 +336,7 @@ one gets identified — don't let it go stale.
     and stopped flagging Gem crown's already-legible gem names (Amethyst/
     Quartz/Pyrite/Malachite/Aquamarine) as unresolved guesses. **23 → 11
     guessed-costume-name gaps.** Remaining 11 need real player knowledge, not
-    mechanical transforms (see Backlog).
+    mechanical transforms (see Not Done above).
   - **Custom app icon + splash**: generated a Poké-Ball-style geometric badge
     (red top / white bottom / black band / white-and-black center circle —
     generic ball shape, not a reproduction of Nintendo's trademarked logo
@@ -392,98 +493,3 @@ choices, not silently "fixed" — see Coverage Report in-app):
     directly (not through `parse-event-pokemon.ts`) still won't get any gap
     checking at all. Worth revisiting if manual CSV authoring becomes more
     frequent than the costume-ingestion case that prompted this fix.
-
-## Backlog (not started)
-
-Agreed sequence as of 2026-07-01 (reasoning inline per item). Milestones A, B,
-C, and D are all done (see Done section above), and so is the post-emulator
-cleanup pass (grid filter redesign, data-quality improvements, custom icon —
-see Done above) — nothing next-in-sequence has been agreed yet.
-
-### Install/run the real APK on a device or emulator
-
-Ran cleanly on an emulator (confirmed 2026-07-01) — still never installed on
-a real physical device. Worth doing before fully trusting the native
-SQLite/jeep-sqlite platform split in practice, not just in an emulator.
-
-### Decide whether Gigantamax needs its own personal-achievement field
-
-Surfaced while fixing the grid filter bug: CLAUDE.md's original schema only
-gave the Dynamax branch (and its lucky/shiny/floor/4★/shundo variants) a
-`form_personal` column; Gigantamax never got its own. Not a bug — the new
-"Can Gigantamax" grid filter (reference availability) works fine regardless —
-just confirms there's currently no way to track "have I gotten a Gigantamax
-individual" as a distinct personal fact, separate from a regular Dynamax
-catch. Deliberately left out of the grid-filter fix (a schema/feature
-question, not a bug fix) — ask before adding it.
-
-### ~11 costume names still show a raw Bulbapedia sprite code
-
-Down from 27 (see Done above) after mechanical fixes for World Championships
-years, T-shirt colors, and Gem crown's already-legible gem names. What's left
-needs real player knowledge, not mechanical transforms: Cap Pikachu's "O"/"W"
-codes, and Flying Pikachu's Fly/Fly5/FlyOkinawa/FlyGreen/FlyPurple/FlyOrange/
-FlyRed variants. Worth asking the user directly — real event trivia isn't
-something to guess at.
-
-### Stats page: region drill-down + clickable species
-
-User-requested 2026-07-01: clicking a **region** (not just a specific
-lens cell) should expand to show the full per-species detail for that region
-(right now only clicking a lens *cell* shows a missing-species list for that
-one lens — there's no "show me everything for this region" view). And within
-that expanded view, clicking an individual species should navigate straight
-to that species' Pokedex detail page (`speciesDetailPath`) — right now the
-missing-species list in `stats-page.ts` is plain text, not links.
-
-### Lower priority (unchanged from CLAUDE.md's own ranking)
-
-- Search Tools (tri-state PoGo search-string builder) + the auto-declutter
-  engine — CLAUDE.md explicitly ranks these below Stats.
-- Background-linking UI (schema supports `form_background_personal`
-  scoped per achievement variant; no picker UI built yet).
-- Real GO cosmetic background data — none exists in any source yet; only
-  2 hand-placed placeholders (`spring-2024`, `anniversary-2016`) exist so
-  the schema has something to demonstrate against.
-- The `001-Bulbasaur/Standard.md` question from the Obsidian refs — it
-  looks like it might contain real personal progress data rather than
-  just a structural example. Unresolved; ask before assuming either way.
-- Bundle size: `reference.json` (now 1024 species/2813 forms after costume
-  ingestion) is bundled directly into the JS chunk, past Vite's 500KB
-  warning threshold — main JS chunk is now ~1.48MB (106KB gzipped) plus a
-  separate ~300KB `jeep-sqlite.entry` chunk (84KB gzipped). Not a functional
-  problem yet, but worth lazy-loading reference.json or fetching it as a
-  separate asset instead of a static import before this goes much bigger.
-  **Correcting an earlier prediction here**: milestone D's native Android
-  build does *not* shrink the jeep-sqlite chunk — Capacitor ships one
-  universal web bundle to every platform, so that code is still bundled into
-  the APK even though `sqlite-client.ts` now skips *running* it on native.
-  Actually dropping it from the native build would need real code-splitting
-  (`import()` gated on `Capacitor.getPlatform()`), not just adding the
-  native project.
-- 183 forms still have placeholder ("missing-types") typing (down from 282,
-  see the 2026-07-01 cleanup pass above) — mostly Unown/Vivillon/Spinda-style
-  pattern variants that PokeAPI genuinely doesn't model as `varieties` at all
-  (confirmed via the cache directly, not just a name-matching miss). Real
-  values likely still exist in PokeAPI via each variety's `pokemon-form`
-  sub-resource — that traversal wasn't attempted this pass. Real fix needs
-  that deeper traversal, or manual correction via the CSV authoring tool.
-
-## Known issues / accepted tradeoffs
-
-- ~~The per-form toggle grid on the species detail page requires a lot of
-  scrolling per variant~~ — **resolved 2026-07-01**: form groups are now
-  collapsed-by-default `<details>` blocks with a compact overview grid at
-  the top of the page (see Done above).
-- Gender availability (has_male/has_female) and legendary/mythical
-  classification come from PokeAPI's `gender_rate`/`is_legendary`/
-  `is_mythical` — trusted directly rather than double-checked by hand
-  across all 1024 species. 65 genderless-and-standard-rarity species are
-  flagged in the coverage report as worth a quick manual glance, not
-  because they're likely wrong, just because genderless is the less common
-  case.
-- 385 forms carry availability (shadow/dynamax/gigantamax/evolves)
-  inherited from their species rather than independently verified — this
-  is a structural limitation of the source CSV (it only varies Shiny at
-  the per-form level), not a bug; see memory
-  `project_reference_data_ingestion.md`.
