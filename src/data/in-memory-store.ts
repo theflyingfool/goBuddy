@@ -6,6 +6,7 @@
 // persists (localStorage for the dummy backend, real SQLite for the other)
 // without this module needing to know which.
 
+import { resolveFormFieldCascade } from "../db/cascades";
 import { emptyFormPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
@@ -42,10 +43,12 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
   const speciesBySlug = new Map<string, Species>(referenceData.species.map((s) => [s.slug, s]));
   const speciesByDexOrder = [...referenceData.species].sort((a, b) => a.dexNumber - b.dexNumber);
   const formsBySpecies = new Map<string, Form[]>();
+  const speciesSlugByFormSlug = new Map<string, string>();
   for (const f of referenceData.forms) {
     const list = formsBySpecies.get(f.speciesSlug) ?? [];
     list.push(f);
     formsBySpecies.set(f.speciesSlug, list);
+    speciesSlugByFormSlug.set(f.slug, f.speciesSlug);
   }
 
   function matchesSearch(species: Species, search: string): boolean {
@@ -117,6 +120,46 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
 
   function formCaught(form: Form): boolean {
     return (state.formPersonal[form.slug] ?? emptyFormPersonal(form.slug)).caught;
+  }
+
+  function isFormPersonalBooleanField(field: keyof Omit<FormPersonal, "formSlug">): field is FormPersonalBooleanField {
+    return (FORM_PERSONAL_BOOLEAN_FIELDS as readonly string[]).includes(field);
+  }
+
+  // Reusable merge step: given the current record and one field being set,
+  // returns the record with that field applied PLUS every field its cascade
+  // implies (transitively — see resolveFormFieldCascade), all merged into a
+  // single object. Pure/no side effects, so a future bulk-edit feature can
+  // call this once per row and batch the writes, rather than duplicating the
+  // cascade-resolution logic. Only `true`-valued boolean fields cascade —
+  // unchecking (false) and non-boolean fields (bestShiny/etc.) pass through
+  // unchanged, per the forward-only cascade rule.
+  function mergeFormPersonalCascade(base: FormPersonal, field: keyof Omit<FormPersonal, "formSlug">, value: boolean): FormPersonal {
+    const updated: FormPersonal = { ...base, [field]: value };
+    if (value && isFormPersonalBooleanField(field)) {
+      for (const implied of resolveFormFieldCascade(field)) {
+        updated[implied] = true;
+      }
+    }
+    return updated;
+  }
+
+  // Cross-cutting species-level cascade: if the merged form-personal record
+  // has any boolean field true, that form's species must be "registered"
+  // (you can't own an achievement on a form of a species you haven't caught
+  // at all). Skips the write entirely if already registered, so toggling
+  // further fields within an already-registered species doesn't produce a
+  // redundant species_personal write on every keystroke.
+  function cascadeSpeciesRegisteredForForm(formSlug: string, updated: FormPersonal): void {
+    const anyTrue = FORM_PERSONAL_BOOLEAN_FIELDS.some((field) => updated[field]);
+    if (!anyTrue) return;
+    const speciesSlug = speciesSlugByFormSlug.get(formSlug);
+    if (!speciesSlug) return;
+    const currentSpecies = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
+    if (currentSpecies.registered) return;
+    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true };
+    state.speciesPersonal[speciesSlug] = updatedSpecies;
+    hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
 
   function computeLens(lens: CompletionLens, scoped: Species[]): CompletionLensResult {
@@ -206,16 +249,22 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
 
     setSpeciesPersonalField(speciesSlug, field, value) {
       const current = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
-      const updated = { ...current, [field]: value };
+      // Catching an XXL/XXS/purified individual implies the species itself
+      // is registered — same forward-only cascade rule as form fields, just
+      // a one-off since there are only 3 species-level fields (no shared
+      // group structure worth factoring like FORM_FIELD_CASCADES).
+      const impliesRegistered = value && (field === "xxl" || field === "xxs" || field === "purified");
+      const updated: SpeciesPersonal = { ...current, [field]: value, ...(impliesRegistered ? { registered: true } : {}) };
       state.speciesPersonal[speciesSlug] = updated;
       hooks.onSpeciesPersonalChanged(speciesSlug, updated);
     },
 
     setFormPersonalField(formSlug, field, value) {
       const current = state.formPersonal[formSlug] ?? emptyFormPersonal(formSlug);
-      const updated = { ...current, [field]: value };
+      const updated = mergeFormPersonalCascade(current, field, value);
       state.formPersonal[formSlug] = updated;
       hooks.onFormPersonalChanged(formSlug, updated);
+      cascadeSpeciesRegisteredForForm(formSlug, updated);
     },
 
     getAppSetting(key) {
