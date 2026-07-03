@@ -53,6 +53,17 @@ export async function syncReferenceData(db: SQLiteDBConnection, referenceData: R
 
   await db.beginTransaction();
   try {
+    // Defer foreign-key enforcement to COMMIT. Personal tables
+    // (species_personal, form_personal, …) hold FKs into the reference
+    // tables we're about to drop/recreate; without deferral, the implicit
+    // row-delete of a DROP TABLE (or a DELETE FROM) trips "FOREIGN KEY
+    // constraint failed" the moment any personal data references a reference
+    // row — which is every returning user the first time an app update
+    // changes reference.json. Because we re-insert the same slugs below, the
+    // constraints are satisfied again by commit time. Resets automatically
+    // at the end of the transaction.
+    await db.run("PRAGMA defer_foreign_keys = true", [], false);
+
     // Renames must land before the old form rows disappear below, or the
     // personal rows they'd otherwise remap would just get orphaned instead.
     await applySlugRenames(db);
