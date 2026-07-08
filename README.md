@@ -6,9 +6,10 @@ device. Ships as a Capacitor-wrapped Android APK (sideloaded, not Play
 Store); the same TypeScript/Vite web app also runs standalone in a desktop
 browser for editing on a computer (see "Cross-device data" below).
 
-See [CLAUDE.md](./CLAUDE.md) for the full project spec (schema, features,
-scope) and [TODO.md](./TODO.md) for current status, known issues, and
-backlog.
+See [docs/data-model.md](./docs/data-model.md) (schema/storage) and
+[docs/features.md](./docs/features.md) (feature specs) for the full design,
+[CLAUDE.md](./CLAUDE.md) for the working invariants, and [TODO.md](./TODO.md)
+for current status, known issues, and backlog.
 
 ## Stack
 
