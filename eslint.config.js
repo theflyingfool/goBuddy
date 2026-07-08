@@ -5,8 +5,8 @@ import tseslint from "typescript-eslint";
 // the linter covers every .ts file including root-level configs
 // (eslint.config.js, vite.config.ts) without tsconfig-inclusion gymnastics.
 // The type-checked configs (recommendedTypeChecked) surface real issues
-// (unawaited promises, `any` from untyped SQL rows) — see docs/v1-tasks.md
-// § 9 for adopting that as a deliberate follow-up, not smuggled in here.
+// (unawaited promises, `any` from untyped SQL rows) that would need a
+// deliberate adoption pass, not smuggled in here.
 export default tseslint.config(
   {
     ignores: [

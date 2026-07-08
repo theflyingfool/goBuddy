@@ -6,10 +6,12 @@ device. Ships as a Capacitor-wrapped Android APK (sideloaded, not Play
 Store); the same TypeScript/Vite web app also runs standalone in a desktop
 browser for editing on a computer (see "Cross-device data" below).
 
-See [docs/data-model.md](./docs/data-model.md) (schema/storage) and
-[docs/features.md](./docs/features.md) (feature specs) for the full design,
-[CLAUDE.md](./CLAUDE.md) for the working invariants, and [TODO.md](./TODO.md)
-for current status, known issues, and backlog.
+See [docs/data-model.md](./docs/data-model.md) (schema/storage),
+[docs/features.md](./docs/features.md) (feature specs, by release status),
+and [docs/architecture.md](./docs/architecture.md) (codebase map) for the
+full design; [CLAUDE.md](./CLAUDE.md) for the working invariants; and
+[TODO.md](./TODO.md) / [CHANGELOG.md](./CHANGELOG.md) for current status and
+shipped-version history.
 
 ## Stack
 
@@ -31,7 +33,7 @@ and carry their own schema-version + migration runner
 
 ## Running it
 
-```
+```sh
 git clone <this repo>
 cd GoBuddy
 npm install
@@ -62,8 +64,8 @@ nothing leaves the browser.
   reference fields (types, region, availability flags), since the bundled
   dataset is filled in incrementally.
 
-Not yet built (see `TODO.md`'s backlog): the tri-state search-string
-builder and the auto-declutter engine.
+Not yet built (see [docs/features/planned.md](./docs/features/planned.md)):
+the tri-state search-string builder and the auto-declutter engine.
 
 ## Building the Android app
 
@@ -71,7 +73,7 @@ Requires the Android SDK/Gradle/JDK already installed locally. Gradle 8.x
 needs a JDK ≤ 21 — if your default `java` is newer, point `JAVA_HOME` at a
 JDK 21 (e.g. Android Studio's bundled JBR).
 
-```
+```sh
 export JAVA_HOME=/opt/android-studio/jbr   # or wherever your JDK 21 lives
 export ANDROID_HOME=$HOME/Android/Sdk
 npm run android:sync    # vite build + capacitor sync into android/
@@ -103,27 +105,14 @@ phone, edit on desktop (`npm run dev`), and import back.
 The species/form/type reference data (`src/data/reference.json`) is built
 from a combination of a Pokémon GO tracking spreadsheet (checked into the
 repo root as CSVs), [PokeAPI](https://pokeapi.co), and Bulbapedia (for
-costume data). See `scripts/ingest/` and `INGESTION_PROGRESS.md` for
-details.
-
-```
-npm run ingest:fetch   # pull/cache PokeAPI data (rate-limited, resumable)
-npm run ingest:build   # build src/data/reference.json from the cache + CSVs
-npm run ingest:events  # parse event-sourced costume/Pokémon data
-```
-
-To manually add or correct entries (e.g. a new costume) instead of
-re-running the automated pipeline:
-
-```
-npm run ingest:csv:export     # dump current reference data to CSV for review
-npm run ingest:csv:template   # blank CSV with the right headers
-npm run ingest:csv:import     # merge a filled-in CSV back into reference.json
-```
+costume data), via scripts under `scripts/ingest/`. For the correct order to
+run them in and known pitfalls, see
+[docs/ingestion-runbook.md](docs/ingestion-runbook.md); for what each script
+does, see [docs/architecture.md](docs/architecture.md).
 
 ## Inspecting the schema directly
 
-```
+```sh
 npm run build:dummy-db
 ```
 

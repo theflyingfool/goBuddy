@@ -144,8 +144,8 @@ form_personal
   shundo bool,                   -- independently stored, see note above
 
   lucky bool,
-  lucky_floor bool,               -- lowest possible for lucky (~10/10/10,
-                                   -- verify exact value, not load-bearing)
+  lucky_floor bool,               -- lowest possible for lucky (12/12/12,
+                                   -- confirmed, not load-bearing)
   lucky_four_star bool,
   lucky_shundo bool,
 
@@ -207,4 +207,58 @@ mega_personal
   incrementally.
 
 See `README.md` for the operational ingestion commands (`npm run ingest:*`)
-and `INGESTION_PROGRESS.md` for pipeline status.
+and `INGESTION_PROGRESS.md` for pipeline status. For what each ingest script
+actually does, see [docs/architecture.md](architecture.md); for the correct
+order to run them in, see [docs/ingestion-runbook.md](ingestion-runbook.md).
+
+## Future direction (deferred, not yet built)
+
+These are decisions that have already been made — reasoned through and
+deliberately deferred, not open questions. They live here because this is
+the architecture doc; `docs/v1-roadmap/` and `docs/v1-tasks/` are dated
+reports and task trackers that should link back to this section rather than
+re-explain it.
+
+### Build-time SQLite generation
+
+The CSV→`reference.json` ingestion pipeline described above already exists
+and runs at *authoring* time (`npm run ingest:build`). A further step —
+pre-baking an actual on-device SQLite file at *app build* time, instead of
+the app performing ~8,100 sequential inserts on first boot/reference-data
+update — is a separate, deferred optimization.
+`@capacitor-community/sqlite` already exposes `executeSet`/`importFromJson`/
+`copyFromAssets`, and `scripts/build-dummy-db.ts` already proves the
+prepared-statement bulk-insert pattern works in this codebase; it's just not
+wired into the app's boot path yet. **Deferred**, pending real-device timing
+data — see `docs/v1-tasks/09-v2-watchlist.md` for status, and
+`docs/v1-tasks/06-performance-and-quality-infra.md` for the V1 contingency
+that would pull the batching fix forward if real-hardware testing shows the
+current insert loop is actually slow enough to hurt first boot.
+
+### Personal/reference database file split
+
+Today's design — one SQLite database, two logical table groups, joined by
+permanent slug foreign keys — is what makes reference-table replacement safe
+without touching personal data (see "Storage" above). A further step —
+splitting personal and reference data into two *physical* database files
+instead of one — was considered and **deliberately deferred to V2**, bundled
+with the identity/slug rework below. Splitting the files would remove
+cross-file FK coupling as a *concern* entirely (a personal row in one file
+can't be foreign-keyed to a reference row in another the way SQLite enforces
+it today), but that benefit is clearest once identity isn't a slug-derived
+string — hence bundling the two. See `docs/v1-roadmap/addendum.md` for the
+decision record and `docs/v1-tasks/09-v2-watchlist.md` for status.
+
+### Identity/slug rework
+
+Slugs today are pure display-derived text (`slugify(name/form/costume/gender)`
+in `scripts/ingest/slug.ts`) — there's no PokeAPI numeric ID or other stable
+identifier persisted anywhere. That's a real fragility (a display-name typo
+fix becomes a slug change, which is exactly what the slug-rename registry in
+`src/db/slug-renames.ts` exists to patch over) but fixing it is bigger than a
+single-version pass, so it's **deferred to V2**. The insight worth preserving:
+identity should likely be unified with the image-pipeline's numeric IDs (see
+`docs/v1-tasks/05-image-pipeline.md`) — Niantic's own game-master
+form/costume ID enum — rather than solving slug-stability and image-matching
+as two separate problems. See `docs/v1-roadmap/addendum.md` for the full
+decision record.
