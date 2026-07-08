@@ -106,6 +106,10 @@ something to guess at.
 
 ## Done
 
+*`CHANGELOG.md` is now the canonical home for shipped-version history —
+add new entries there at each version bump instead of appending here. This
+section is kept as-is (a historical record), not being retroactively split.*
+
 - Project scaffold: TypeScript + Vite, no framework (`package.json`,
   `vite.config.ts`, `tsconfig.json`).
 - SQLite schema (`src/db/schema.ts` DDL, `src/db/types.ts` TS mirror)

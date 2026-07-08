@@ -1,6 +1,7 @@
 # PoGo Buddy
 
 ## What this is
+
 A local-only Android app (Capacitor-wrapped web app, sideloaded APK) for
 tracking a Pokémon GO living dex — the first phase of a broader "Pokémon GO
 companion app" I intend to grow over time (future phases: in-game achievement
@@ -18,6 +19,7 @@ independent tables. So don't design the personal/reference split assuming every
 future fact is a per-species boolean.
 
 ## Platform
+
 - Capacitor project targeting Android only (no iOS).
 - Distributed as a sideloaded `.apk` — not the Play Store.
 - Assume the Android SDK, Gradle, and JDK are already installed locally; do not
@@ -26,6 +28,7 @@ future fact is a per-species boolean.
   the Android Studio GUI is open.
 
 ## Storage — core invariants
+
 Full schema DDL and rationale live in **[docs/data-model.md](docs/data-model.md)**;
 the real schema is in `src/db/schema.ts` / `src/db/types.ts`. The non-negotiables:
 
@@ -47,6 +50,7 @@ the real schema is in `src/db/schema.ts` / `src/db/types.ts`. The non-negotiable
   personal-schema changes migrate on load without touching reference data.
 
 ## Versioning policy — two separate numbers, don't conflate them
+
 (Full detail in [docs/data-model.md](docs/data-model.md).) Bumping the wrong one
 — or neither — is the failure mode to avoid:
 
@@ -61,6 +65,7 @@ the real schema is in `src/db/schema.ts` / `src/db/types.ts`. The non-negotiable
   needs no manual bump.
 
 ## Working style
+
 This project's schema and feature specs are reasoned proposals, not fixed specs.
 If you notice something better modeled differently — a missing edge case, a
 normalization that doesn't hold, a game mechanic a design gets wrong — **propose
@@ -85,7 +90,10 @@ rather be asked than have you guess.
   increments `versionCode` by exactly 1 regardless of bump size (Android only
   requires `versionCode` to strictly increase between installs). See
   `scripts/bump-version.ts`'s header comment for the exact mechanics; pass
-  `--dry-run` to preview without writing.
+  `--dry-run` to preview without writing. As part of the same step, add a
+  `CHANGELOG.md` entry for the new version and snapshot
+  `docs/features/current.md` into `docs/features/history/vX.Y.Z.md` before
+  updating `current.md` for the new release.
 - **Linting.** `npm run lint` runs ESLint (`eslint.config.js`, TypeScript-aware,
   covers `src/` and `scripts/`). It also runs automatically as a pre-commit
   hook (`.githooks/pre-commit`, activated via `core.hooksPath` — wired up
@@ -93,21 +101,34 @@ rather be asked than have you guess.
   husky). A failing lint blocks the commit; `git commit --no-verify` skips it
   if truly necessary. The baseline config is deliberately non-type-checked
   (`typescript-eslint`'s `recommended`, not `recommendedTypeChecked`) to keep
-  the enforced bar clean today — see `docs/v1-tasks.md` § 9 for adopting the
-  stricter type-checked rules as a deliberate follow-up (it surfaced real
-  issues — unawaited promises, `any` leaking from untyped SQL rows — worth
-  fixing on purpose, not as a side effect of turning the linter on).
+  the enforced bar clean today.
 
 ## Out of scope for v1
+
 - No networking, sync, accounts, or multi-device support of any kind.
 - No trade-matching feature — that's just two people opening the app side by
   side. Don't build anything for it.
 - No iOS target.
 
 ## Docs
+
 - **[docs/data-model.md](docs/data-model.md)** — storage design, full schema DDL,
-  versioning policy detail, reference-data ingestion rationale.
-- **[docs/features.md](docs/features.md)** — full feature specs (stats, search
-  builder, declutter engine, data entry) and open design questions.
+  versioning policy detail, reference-data ingestion rationale, and deferred
+  architecture decisions (build-time DB generation, DB file split, identity
+  rework).
+- **[docs/features.md](docs/features.md)** — hub linking to feature specs by
+  release status: `docs/features/current.md`, `next.md`, `planned.md`,
+  `history/`.
+- **[docs/architecture.md](docs/architecture.md)** — codebase map: what each
+  script/feature/module does, plus the cross-cutting patterns (write-queue,
+  cascade, dual-backend, single-source-of-truth field lists).
+- **[docs/ingestion-runbook.md](docs/ingestion-runbook.md)** — the correct
+  order to run the reference-data ingestion scripts in, and known pitfalls.
+- **[docs/install-guide.md](docs/install-guide.md)** — sideload/update
+  instructions for friends running the app.
+- **[docs/v1-roadmap/](docs/v1-roadmap/)** — the studio-review findings behind
+  the current V1 push (why).
+- **[docs/v1-tasks/](docs/v1-tasks/)** — the V1 task breakdown (what/order).
 - **[README.md](README.md)** — running/building the app, ingestion commands.
+- **[CHANGELOG.md](CHANGELOG.md)** — shipped-version history.
 - **[TODO.md](TODO.md)** — current status, known issues, backlog.
