@@ -57,7 +57,7 @@ export interface TypesCsvEntry {
 }
 
 export function parseTypesCsv(filePath: string): TypesCsvEntry[] {
-  const raw = readFileSync(filePath, "utf-8").replace(/^﻿/, "");
+  const raw = readFileSync(filePath, "utf-8").replace(/^\uFEFF/, ""); // strip BOM
   const lines = raw.split("\n").filter((l) => l.trim());
   const [, ...dataLines] = lines; // drop header
 

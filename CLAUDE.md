@@ -67,6 +67,37 @@ normalization that doesn't hold, a game mechanic a design gets wrong — **propo
 the change and ask**, rather than silently deviating or silently complying. I'd
 rather be asked than have you guess.
 
+## Development workflow
+
+- **Branches for new work.** Feature/fix work happens on a branch
+  (`feature/<name>` or `fix/<name>`) off `master`, merged back via a PR
+  (`gh pr create` / `gh pr merge`). Small doc-only/planning commits may still
+  go straight to `master`, as they always have — the branch requirement is for
+  actual code changes.
+- **App-release version bump on merge.** This is a **third, separate**
+  version concept from the two in "Versioning policy" above (those are
+  internal DB-version numbers; this is the app's own release version) —
+  don't conflate them. After merging a branch into `master`, run
+  `npm run version:bump -- minor` (feature branches) or
+  `npm run version:bump -- patch` (fix branches), review the diff, and commit
+  it as its own "Bump version to X" commit. This updates `package.json`'s
+  semver and `android/app/build.gradle`'s `versionName` together, and always
+  increments `versionCode` by exactly 1 regardless of bump size (Android only
+  requires `versionCode` to strictly increase between installs). See
+  `scripts/bump-version.ts`'s header comment for the exact mechanics; pass
+  `--dry-run` to preview without writing.
+- **Linting.** `npm run lint` runs ESLint (`eslint.config.js`, TypeScript-aware,
+  covers `src/` and `scripts/`). It also runs automatically as a pre-commit
+  hook (`.githooks/pre-commit`, activated via `core.hooksPath` — wired up
+  automatically by `npm install`'s `prepare` script, no extra dependency like
+  husky). A failing lint blocks the commit; `git commit --no-verify` skips it
+  if truly necessary. The baseline config is deliberately non-type-checked
+  (`typescript-eslint`'s `recommended`, not `recommendedTypeChecked`) to keep
+  the enforced bar clean today — see `docs/v1-tasks.md` § 9 for adopting the
+  stricter type-checked rules as a deliberate follow-up (it surfaced real
+  issues — unawaited promises, `any` leaking from untyped SQL rows — worth
+  fixing on purpose, not as a side effect of turning the linter on).
+
 ## Out of scope for v1
 - No networking, sync, accounts, or multi-device support of any kind.
 - No trade-matching feature — that's just two people opening the app side by

@@ -115,7 +115,7 @@ function runImport(path: string) {
       if (col in row) row[col as (typeof COLUMNS)[number]] = cells[i] ?? "";
     });
 
-    let speciesSlug = row.species_slug.trim() || slugify(row.species_name);
+    const speciesSlug = row.species_slug.trim() || slugify(row.species_name);
     if (!speciesBySlug.has(speciesSlug)) {
       const newSpecies: Species = {
         slug: speciesSlug,

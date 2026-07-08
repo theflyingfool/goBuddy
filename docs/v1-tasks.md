@@ -277,7 +277,21 @@ remaining first-boot/device-specific items.*
 - [ ] Committed Playwright smoke suite: boot, toggle+reload persistence,
   stats counts, export/import, settings — the scenarios already verified
   manually per `TODO.md`, made repeatable.
-- [ ] CI workflow: `tsc -b --noEmit` + unit tests + the smoke suite on PR.
+- [ ] CI workflow: `tsc -b --noEmit` + unit tests + the smoke suite on PR
+  (lint is already enforced pre-commit locally, per `CLAUDE.md`'s
+  "Development workflow" — CI should still run it too, as a backstop).
+- [ ] Upgrade `eslint.config.js` from `typescript-eslint`'s `recommended` to
+  `recommendedTypeChecked` (needs `parserOptions.project` wired up, and a
+  separate lighter block for root-level config files like `vite.config.ts`
+  that aren't in the `tsconfig.json` `include`). Turning this on the first
+  time surfaced real issues worth fixing deliberately: unawaited promises in
+  `src/main.ts` and `src/features/stats/stats-page.ts`
+  (`no-floating-promises`), promise-returning handlers passed where a sync
+  callback is expected in `settings-page.ts`/`coverage-report-page.ts`
+  (`no-misused-promises`), and `any` leaking from untyped raw SQL query rows
+  throughout `src/data/sqlite-repository.ts` (`no-unsafe-assignment`/
+  `no-unsafe-member-access` — fixing this properly means typing the DB row
+  shape at the query boundary, not just silencing the rule).
 - [ ] Delete dead code: `src/data/dummy-repository.ts`,
   `src/data/personal-demo-seed.ts`, and the in-memory JS stats path
   (`computeLens` in `src/data/in-memory-store.ts`) — make stats SQL-only via
