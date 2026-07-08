@@ -3,7 +3,7 @@
 
 ## 5. Mega evolution vertical slice
 
-*Depends on § 1's mega reference-data fixes landing first.*
+*Depends on [§ 1](01-reference-data-correction.md)'s mega reference-data fixes landing first.*
 
 - [ ] Repository: add `getMegaVariantsForSpecies(speciesSlug)` and mega
   read/write methods to `src/data/repository.ts`,

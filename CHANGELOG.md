@@ -6,17 +6,10 @@ for shipped-version history going forward — see `TODO.md` for current
 in-progress status/known issues, not past releases.
 
 Each entry corresponds to a `package.json`/`android/app/build.gradle`
-version bump (see CLAUDE.md's "App-release version bump on merge").
+version bump (see CLAUDE.md's "App-release version bump on merge"), and
+covers the commits between that bump and the previous one.
 
 ## [0.10.0] — 2026-07-08
-
-- Added branch/versioning development workflow, ESLint, and a pre-commit
-  lint hook (`.githooks/pre-commit`).
-- Split `CLAUDE.md` into working invariants + `docs/`; added the V1 planning
-  roadmap and task breakdown.
-- Fixed a DB-open crash on reference re-sync when personal data exists.
-
-## [0.9.0] — 2026-07-01
 
 - Modeled Gigantamax as distinct catchable form rows (not a separate
   personal-data field).
@@ -25,12 +18,27 @@ version bump (see CLAUDE.md's "App-release version bump on merge").
 - Added bulk-edit UI: grid select-mode + form-level quick-entry.
 - Added forward-only cascading checkbox updates (checking a combined
   achievement like Shundo auto-checks its components).
+- Fixed a DB-open crash on reference re-sync when personal data exists.
+- Reorganized `TODO.md` so actionable work sits at the top.
+- Added branch/versioning development workflow, ESLint, and a pre-commit
+  lint hook (`.githooks/pre-commit`).
+- Split `CLAUDE.md` into working invariants + `docs/`; added the V1 planning
+  roadmap and task breakdown.
+- Fleshed out README with prerequisites, clone step, and a features overview.
+- Added CI workflows (Claude Code Review, Claude PR Assistant).
+
+## [0.9.0] — 2026-07-01
+
+- Completion-stats tracking (Stats page).
+- Native Android scaffolding; fixed a stale Coverage Report.
+- Fixed the grid Dynamax filter bug, improved data quality, added a real
+  app icon.
 - Manual cross-device export/import, toggle-availability gating, and
   versioning docs.
-- Fleshed out README with prerequisites, clone step, and a features overview.
 
 ## [0.0.1] — 2026-07-01
 
-- Initial milestones: dummy-backend-first pivot, completion-stats tracking
-  (Stats page), native Android scaffolding (Milestone D), Coverage Report
-  fixes, real app icon, grid Dynamax filter fix.
+- Initial dex-tracking foundation with real ingested reference data.
+- Fixed Unown's spurious Standard form; ingested Bulbapedia costume data;
+  reworked the forms UI.
+- Grid tri-state filters + real SQLite persistence.

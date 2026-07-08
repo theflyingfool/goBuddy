@@ -3,14 +3,15 @@
 
 ## 8. Performance / first-impression fixes
 
-*Most legibility-adjacent performance items already live in § 4 (bulk-edit
-focus bug, select-mode jank, species-detail rebuild). This section is the
-remaining first-boot/device-specific items.*
+*Most legibility-adjacent performance items already live in
+[§ 4](03-visual-and-legibility.md) (bulk-edit focus bug, select-mode jank,
+species-detail rebuild). This section is the remaining
+first-boot/device-specific items.*
 
 - [ ] Real-device install + first-boot timing test (the reference sync does
   ~8,156 sequential inserts on first run / on any reference-data-changing
-  update — untested on real hardware). This is also § 11's release-candidate
-  gate.
+  update — untested on real hardware). This is also
+  [§ 11](08-release-candidate.md)'s release-candidate gate.
 - [ ] **Contingency**: if the timing test shows the sync is slow enough to
   hurt the first-run experience, pull forward the `executeSet`-batching fix
   for `src/db/reference-sync.ts` (the SQLite plugin already supports this;
@@ -23,7 +24,9 @@ remaining first-boot/device-specific items.*
 
 - [ ] Slug-stability check script: diff new `reference.json` slugs against
   the last committed version; fail if any slug vanished without a matching
-  entry in `src/db/slug-renames.ts`. (Feeds § 1 and § 2's checks.)
+  entry in `src/db/slug-renames.ts`. (Feeds
+  [§ 1](01-reference-data-correction.md) and
+  [§ 2](02-data-safety-net.md)'s checks.)
 - [ ] Migration fixture tests: a thin adapter running the real migration +
   sync code (`src/db/migrations.ts`, `src/db/reference-sync.ts`) against
   fixture databases via Node's built-in SQLite — reuse the prepared-statement

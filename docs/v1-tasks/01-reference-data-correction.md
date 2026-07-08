@@ -37,8 +37,9 @@ design, so fixes here are free today and permanent debt later.*
   sprite images before slugging (Cap Pikachu O=Original/W=World; Flying
   Pikachu Fly/Fly5/FlyOkinawa/FlyGreen/FlyPurple/FlyOrange/FlyRed — see
   `docs/v1-roadmap/02-reference-data-corrections.md` §7 for the proposed names). Apply once confirmed.
-- [ ] Fix the lucky-IV-floor comment in `docs/data-model.md` (~10/10/10 →
-  12/12/12; non-load-bearing, just a stale comment).
-- [ ] Once § 9's slug-stability check script exists, run it against this pass's
-  output before merging, to confirm nothing was accidentally renamed instead
-  of corrected-in-place.
+- [x] Fix the lucky-IV-floor comment in `docs/data-model.md` (~10/10/10 →
+  12/12/12; non-load-bearing, just a stale comment). Done as part of the
+  docs reorg pass.
+- [ ] Once [§ 9](06-performance-and-quality-infra.md)'s slug-stability check
+  script exists, run it against this pass's output before merging, to
+  confirm nothing was accidentally renamed instead of corrected-in-place.

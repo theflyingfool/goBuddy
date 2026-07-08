@@ -3,9 +3,12 @@
 
 ## 11. Release candidate
 
-- [ ] Real-device install + first-boot timing (resolves § 8's contingency).
+- [ ] Real-device install + first-boot timing (resolves
+  [§ 8](06-performance-and-quality-infra.md)'s contingency).
 - [ ] Upgrade-over-install test: v1 APK + real data → v2 APK, confirm data
   survives and no boot-brick.
-- [ ] Confirm the § 9 smoke suite + CI are green.
+- [ ] Confirm the [§ 9](06-performance-and-quality-infra.md) smoke suite +
+  CI are green.
 - [ ] Tag `v1.0.0`.
-- [ ] Distribute with the install/update one-pager (§ 10).
+- [ ] Distribute with the install/update one-pager
+  ([§ 10](07-documentation-and-release.md)).
