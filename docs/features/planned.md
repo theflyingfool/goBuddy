@@ -40,7 +40,7 @@ without touching the query layer.
 into a single search string** — species dex numbers/names OR'd together via
 `,`, sharing one AND'd exclusion clause. E.g. if Bulbasaur, Venusaur,
 Pikachu all have a banked 4★, the output is one string like:
-```
+```text
 1,3,25&!4*&1*,2*,3*
 ```
 not three separate strings. Species matching *different* rules produce

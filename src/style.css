@@ -328,31 +328,6 @@ input[type="checkbox"] {
   list-style: none;
 }
 
-/* ---- Sidebar nav (>=720px) ---- */
-
-.sidebar-nav {
-  display: none;
-}
-
-@media (min-width: 720px) {
-  .sidebar-nav {
-    display: block;
-    width: 220px;
-    flex-shrink: 0;
-    background: var(--surface);
-    border-right: 1px solid var(--line);
-    padding: 1rem;
-    box-sizing: border-box;
-    overflow-y: auto;
-  }
-
-  .tab-bar,
-  .more-drawer,
-  .more-scrim {
-    display: none !important;
-  }
-}
-
 /* ---- Tab bar (<720px) ---- */
 
 .tab-bar {
@@ -383,6 +358,31 @@ input[type="checkbox"] {
 
 .tab-item.nav-item-current {
   background: none;
+}
+
+/* ---- Sidebar nav (>=720px) ---- */
+
+.sidebar-nav {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .sidebar-nav {
+    display: block;
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 1rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+
+  .tab-bar,
+  .more-drawer,
+  .more-scrim {
+    display: none;
+  }
 }
 
 /* ---- Content ---- */

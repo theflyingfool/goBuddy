@@ -77,7 +77,7 @@ doesn't hold, a game mechanic this gets wrong — propose the change and ask
 rather than silently deviating or silently complying. I'd rather be asked
 than have you guess.
 
-```
+```text
 REFERENCE (replaceable wholesale on every update, keyed by permanent slug)
 
 species

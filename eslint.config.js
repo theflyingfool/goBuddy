@@ -1,31 +1,114 @@
 import js from "@eslint/js";
+import globals from "globals";
 import tseslint from "typescript-eslint";
+import json from "@eslint/json";
+import markdown from "@eslint/markdown";
+import css from "@eslint/css";
+import { defineConfig } from "eslint/config";
 
-// Non-type-checked rules only (no parserOptions.project) — deliberately, so
-// the linter covers every .ts file including root-level configs
-// (eslint.config.js, vite.config.ts) without tsconfig-inclusion gymnastics.
-// The type-checked configs (recommendedTypeChecked) surface real issues
-// (unawaited promises, `any` from untyped SQL rows) that would need a
-// deliberate adoption pass, not smuggled in here.
-export default tseslint.config(
+export default defineConfig([
   {
     ignores: [
       "build/**",
-      ".claude/**",
       "dist/**",
       "android/**",
       "node_modules/**",
+      ".claude/**",
+      ".obsidian/**",
       "scripts/ingest/.cache/**",
       "data-authoring/**",
       "*.sqlite",
+      "package-lock.json",
     ],
   },
-  js.configs.recommended,
+
+  // JavaScript / TypeScript — scoped to these extensions so js/recommended
+  // doesn't also run against the JSON/Markdown/CSS blocks below. Unscoped,
+  // it ran on every file including .obsidian/app.json and crashed
+  // no-irregular-whitespace, which doesn't support the JSON language's
+  // SourceCode object (no getAllComments()).
+  {
+    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
+    plugins: {
+      js,
+    },
+    extends: ["js/recommended"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
+
+  // TypeScript — non-type-checked rules only (no parserOptions.project),
+  // deliberately: recommendedTypeChecked also tries to type-check embedded
+  // code fences inside every Markdown doc (CLAUDE.md, docs/*.md) once
+  // markdown/recommended is on, and those fences aren't part of the tsconfig
+  // project, so it can't resolve them. Type-aware linting would need a
+  // deliberate adoption pass (e.g. scoping it to src/**), not a drive-by here.
   ...tseslint.configs.recommended,
+
   {
     rules: {
-      "@typescript-eslint/no-unused-vars": "off", // already enforced by tsconfig's noUnusedLocals/noUnusedParameters
+      // Let TypeScript handle these
+      "@typescript-eslint/no-unused-vars": "off",
       "prefer-const": "error",
     },
   },
-);
+
+  // JSON
+  {
+    files: ["**/*.json"],
+    plugins: {
+      json,
+    },
+    language: "json/json",
+    extends: ["json/recommended"],
+  },
+
+  // JSONC
+  {
+    files: ["**/*.jsonc"],
+    plugins: {
+      json,
+    },
+    language: "json/jsonc",
+    extends: ["json/recommended"],
+  },
+
+  // Markdown — gfm, not commonmark: this repo's docs use GitHub task-list
+  // checkboxes (`- [ ]` / `- [x]`) throughout (docs/v1-tasks/**,
+  // CHANGELOG.md); the commonmark parser doesn't know that syntax and reads
+  // each `[ ]`/`[x]` as a broken markdown link reference.
+  {
+    files: ["**/*.md"],
+    plugins: {
+      markdown,
+    },
+    language: "markdown/gfm",
+    extends: ["markdown/recommended"],
+    rules: {
+      // CHANGELOG.md's `## [0.11.0] — date` headers (Keep a Changelog
+      // convention) use literal brackets around the version with no actual
+      // link-reference definitions — not broken links, just the format.
+      "markdown/no-missing-label-refs": "off",
+    },
+  },
+
+  // CSS
+  {
+    files: ["**/*.css"],
+    plugins: {
+      css,
+    },
+    language: "css/css",
+    extends: ["css/recommended"],
+    rules: {
+      // This app ships as a single bundled Capacitor/Android webview, not a
+      // cross-browser site — "baseline" (cross-browser-support) checks don't
+      // apply to a fixed, known runtime.
+      "css/use-baseline": "off",
+    },
+  },
+]);
