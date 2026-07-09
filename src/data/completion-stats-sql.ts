@@ -54,15 +54,49 @@ async function registeredLens(db: SQLiteDBConnection, scope: CompletionScope): P
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
-async function formCompleteLens(db: SQLiteDBConnection, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
+// Mirrors field-groups.ts's isGigantamaxForm — can't call that JS predicate
+// from SQL, so this LIKE pattern re-encodes the same "formName is always
+// 'Gigantamax' or 'Gigantamax {style}'" rule. Keep the two in sync if that
+// ingestion convention ever changes.
+const NOT_GIGANTAMAX_SQL = "f.form_name != 'Gigantamax' AND f.form_name NOT LIKE 'Gigantamax %'";
+
+async function formCompleteLens(db: SQLiteDBConnection, scope: CompletionScope, excludeRegional: boolean): Promise<Omit<CompletionLensResult, "lens">> {
   const { where, params } = scopeClause(scope);
   const total = await countSpecies(db, where, params);
+  // Gigantamax always excluded (own gigantamaxCompleteLens instead, same
+  // reasoning as costumeComplete carving out costumes); regional-exclusive
+  // exclusion is a per-install Settings choice (D2 — some players can
+  // actually reach regionals via an alt/travel, others can't).
   const missingSpecies = await selectMissingSpecies(
     db,
     `SELECT s.slug, s.name, s.dex_number FROM species s
      WHERE ${where} AND EXISTS (
        SELECT 1 FROM form f LEFT JOIN form_personal fp ON fp.form_slug = f.slug
-       WHERE f.species_slug = s.slug AND f.costume_name IS NULL AND (fp.caught IS NULL OR fp.caught = 0)
+       WHERE f.species_slug = s.slug AND f.costume_name IS NULL AND ${NOT_GIGANTAMAX_SQL}
+       ${excludeRegional ? "AND f.regional_exclusive = 0" : ""}
+       AND (fp.caught IS NULL OR fp.caught = 0)
+     )`,
+    params,
+  );
+  return { total, complete: total - missingSpecies.length, missingSpecies };
+}
+
+async function gigantamaxCompleteLens(db: SQLiteDBConnection, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
+  // Same "only count species that actually have one" denominator as
+  // costumeCompleteLens/megaCompleteLens.
+  const { where, params } = scopeClause(scope);
+  const totalRows = (
+    await db.query(`SELECT COUNT(DISTINCT s.slug) as c FROM species s JOIN form f ON f.species_slug = s.slug WHERE ${where} AND NOT (${NOT_GIGANTAMAX_SQL})`, params)
+  ).values ?? [];
+  const total = (totalRows[0] as { c: number } | undefined)?.c ?? 0;
+  const missingSpecies = await selectMissingSpecies(
+    db,
+    `SELECT DISTINCT s.slug, s.name, s.dex_number FROM species s
+     JOIN form f2 ON f2.species_slug = s.slug
+     WHERE ${where} AND NOT (f2.form_name != 'Gigantamax' AND f2.form_name NOT LIKE 'Gigantamax %')
+     AND EXISTS (
+       SELECT 1 FROM form f LEFT JOIN form_personal fp ON fp.form_slug = f.slug
+       WHERE f.species_slug = s.slug AND NOT (${NOT_GIGANTAMAX_SQL}) AND (fp.caught IS NULL OR fp.caught = 0)
      )`,
     params,
   );
@@ -133,7 +167,12 @@ async function achievementLens(db: SQLiteDBConnection, scope: CompletionScope, f
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
-export async function getCompletionStatsSql(db: SQLiteDBConnection, scope: CompletionScope, lenses: CompletionLens[]): Promise<CompletionLensResult[]> {
+export async function getCompletionStatsSql(
+  db: SQLiteDBConnection,
+  scope: CompletionScope,
+  lenses: CompletionLens[],
+  excludeRegionalFromFormComplete: boolean,
+): Promise<CompletionLensResult[]> {
   const results: CompletionLensResult[] = [];
   // Sequenced (not Promise.all) — these all share one SQLite connection.
   for (const lens of lenses) {
@@ -141,14 +180,16 @@ export async function getCompletionStatsSql(db: SQLiteDBConnection, scope: Compl
       lens.kind === "registered"
         ? await registeredLens(db, scope)
         : lens.kind === "formComplete"
-          ? await formCompleteLens(db, scope)
+          ? await formCompleteLens(db, scope, excludeRegionalFromFormComplete)
           : lens.kind === "costumeComplete"
             ? await costumeCompleteLens(db, scope)
-            : lens.kind === "megaComplete"
-              ? await megaCompleteLens(db, scope, false)
-              : lens.kind === "megaShinyComplete"
-                ? await megaCompleteLens(db, scope, true)
-                : await achievementLens(db, scope, lens.field);
+            : lens.kind === "gigantamaxComplete"
+              ? await gigantamaxCompleteLens(db, scope)
+              : lens.kind === "megaComplete"
+                ? await megaCompleteLens(db, scope, false)
+                : lens.kind === "megaShinyComplete"
+                  ? await megaCompleteLens(db, scope, true)
+                  : await achievementLens(db, scope, lens.field);
     results.push({ lens, ...partial });
   }
   return results;

@@ -22,7 +22,7 @@ import { syncReferenceData } from "../db/reference-sync";
 import { getCompletionStatsSql } from "./completion-stats-sql";
 import referenceDataJson from "./reference.json";
 import { createInMemoryRepository, type PersonalState } from "./in-memory-store";
-import type { Repository } from "./repository";
+import { EXCLUDE_REGIONAL_SETTING_KEY, type Repository } from "./repository";
 
 const referenceData = referenceDataJson as unknown as ReferenceData;
 
@@ -205,7 +205,7 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
     // read a connection that's still mid-write.
     async getCompletionStats(scope, lenses) {
       await writeQueue;
-      return getCompletionStatsSql(db, scope, lenses);
+      return getCompletionStatsSql(db, scope, lenses, state.appSettings[EXCLUDE_REGIONAL_SETTING_KEY] === "1");
     },
     // Overrides the in-memory-store default to also wait for the writes it
     // just queued (via the onXChanged hooks above) to actually land in

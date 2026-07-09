@@ -56,12 +56,35 @@
 
 ## 6. Gigantamax + form-complete semantics
 
-- [ ] Hide the redundant Dynamax/Lucky-Dynamax toggle groups on Gigantamax
-  form rows (they carry `dynamaxAvailable: true` today, showing groups that
-  describe the same catch event as the G-max row's own Standard branch) — use
-  the existing `availableWhen` mechanism in `src/features/data-entry/field-groups.ts`.
-- [ ] **D2**: decide form-complete denominator — exclude regional-exclusive
-  forms from the default lens (they currently make form-complete unattainable
-  for region-locked species); consider a separate "G-max-complete" lens.
-- [ ] Implement the chosen denominator logic
-  (`src/data/completion-stats-sql.ts` ~line 65).
+- [x] Hid the redundant Dynamax/Lucky-Dynamax toggle groups on Gigantamax form
+  rows: `isGigantamaxForm(form)` (exported from
+  `src/features/data-entry/field-groups.ts`, detects `formName === "Gigantamax"`
+  / `"Gigantamax {style}"` — the only reliable signal, no dedicated schema
+  flag) now excludes those rows from both groups' `availableWhen`. A
+  Gigantamax row's own Standard section (caught/shiny/floor/fourStar/shundo)
+  already *is* the Gigantamax encounter — there's no separate "regular"
+  version of that form to Dynamax on top of it.
+- [x] **D2 resolved** (owner decision, 2026-07-09): **regional-exclusive
+  forms** — a new Settings toggle ("Exclude regional-exclusive forms from
+  Form-complete", `EXCLUDE_REGIONAL_SETTING_KEY` = `exclude_regional_form_complete`,
+  default **off**), not a hardcoded exclusion — some players can actually
+  reach region-locked forms (an alt account, travel, trading), so this is a
+  per-install choice, not one fixed answer for everyone. **Gigantamax** —
+  split into its own `gigantamaxComplete` lens (same "only count species that
+  actually have one" denominator as `costumeComplete`/`megaComplete`) and
+  removed from Form-complete's denominator entirely, unconditionally (no
+  toggle — a G-max encounter is rare/one-off for everyone, not a
+  region-dependent capability like the regional case above).
+- [x] Implemented in both `src/data/completion-stats-sql.ts` (SQL:
+  `formCompleteLens` takes an `excludeRegional` param and always excludes
+  Gigantamax via a `NOT_GIGANTAMAX_SQL` LIKE-pattern mirroring
+  `isGigantamaxForm`; new `gigantamaxCompleteLens`) and
+  `src/data/in-memory-store.ts` (`computeLens`'s `formComplete`/new
+  `gigantamaxComplete` branches, reading the same setting key — exported from
+  `src/data/repository.ts` alongside `MAX_GRID_INDICATORS` since both
+  backends and Settings need it). Verified against real reference data
+  (throwaway script, not committed): Venusaur's Form-complete now clears
+  once both Standard forms are caught without needing its Gigantamax form;
+  Tauros's Form-complete stays incomplete by default with a
+  regional-exclusive form uncaught, and clears once the new toggle is
+  flipped on.

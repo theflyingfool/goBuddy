@@ -9,9 +9,11 @@
 import { resolveFormFieldCascade } from "../db/cascades";
 import { emptyFormPersonal, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
+import { isGigantamaxForm } from "../features/data-entry/field-groups";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type Region, type Species, type SpeciesPersonal } from "../db/types";
 import {
+  EXCLUDE_REGIONAL_SETTING_KEY,
   MAX_GRID_INDICATORS,
   type CompletionLens,
   type CompletionLensResult,
@@ -240,7 +242,13 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
     }
 
     if (lens.kind === "formComplete") {
-      const missing = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter((f) => f.costumeName === null).some((f) => !formCaught(f)));
+      // Gigantamax always excluded (own gigantamaxComplete lens instead, same
+      // carve-out costumeComplete already does for costumes); regional-
+      // exclusive exclusion is a per-install Settings choice (D2 — some
+      // players can actually reach regionals via an alt/travel, others can't).
+      const excludeRegional = state.appSettings[EXCLUDE_REGIONAL_SETTING_KEY] === "1";
+      const eligible = (f: Form) => f.costumeName === null && !isGigantamaxForm(f) && (!excludeRegional || !f.regionalExclusive);
+      const missing = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter(eligible).some((f) => !formCaught(f)));
       return { lens, total: scoped.length, complete: scoped.length - missing.length, missingSpecies: missing.map(toMissing) };
     }
 
@@ -251,6 +259,14 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       const withCostumes = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).some((f) => f.costumeName !== null));
       const missing = withCostumes.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter((f) => f.costumeName !== null).some((f) => !formCaught(f)));
       return { lens, total: withCostumes.length, complete: withCostumes.length - missing.length, missingSpecies: missing.map(toMissing) };
+    }
+
+    if (lens.kind === "gigantamaxComplete") {
+      // Same "only count species that actually have one" denominator as
+      // costumeComplete/megaComplete.
+      const withGigantamax = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).some(isGigantamaxForm));
+      const missing = withGigantamax.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter(isGigantamaxForm).some((f) => !formCaught(f)));
+      return { lens, total: withGigantamax.length, complete: withGigantamax.length - missing.length, missingSpecies: missing.map(toMissing) };
     }
 
     if (lens.kind === "megaComplete" || lens.kind === "megaShinyComplete") {

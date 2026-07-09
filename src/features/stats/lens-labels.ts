@@ -8,7 +8,7 @@ export function lensKey(lens: CompletionLens): string {
 }
 
 export function parseLensKey(key: string): CompletionLens | null {
-  if (key === "registered" || key === "formComplete" || key === "costumeComplete" || key === "megaComplete" || key === "megaShinyComplete") return { kind: key };
+  if (key === "registered" || key === "formComplete" || key === "costumeComplete" || key === "gigantamaxComplete" || key === "megaComplete" || key === "megaShinyComplete") return { kind: key };
   if (key.startsWith("achievement:")) {
     const field = key.slice("achievement:".length) as FormPersonalBooleanField;
     if (FORM_PERSONAL_BOOLEAN_FIELDS.includes(field)) return { kind: "achievement", field };
@@ -24,6 +24,8 @@ export function lensLabel(lens: CompletionLens): string {
       return "Form-complete";
     case "costumeComplete":
       return "Costume-complete";
+    case "gigantamaxComplete":
+      return "G-max-complete";
     case "megaComplete":
       return "Mega-complete";
     case "megaShinyComplete":
@@ -42,4 +44,7 @@ export const ACHIEVEMENT_LENSES: CompletionLens[] = INDICATOR_OPTIONS.map((field
 /** Mega lenses live in "More lenses" too, same denominator-only-counts-eligible-species shape as costumeComplete but for a much smaller slice of the dex (~50 species) — not worth a permanent KPI-row slot. */
 export const MEGA_LENSES: CompletionLens[] = [{ kind: "megaComplete" }, { kind: "megaShinyComplete" }];
 
-export const ALL_LENSES: CompletionLens[] = [...PRIMARY_LENSES, ...ACHIEVEMENT_LENSES, ...MEGA_LENSES];
+/** Split out of Form-complete (D2) — Gigantamax forms no longer count toward it, own lens instead, same "More lenses" placement as Mega (~32 species, too small for the KPI row). */
+export const GIGANTAMAX_LENSES: CompletionLens[] = [{ kind: "gigantamaxComplete" }];
+
+export const ALL_LENSES: CompletionLens[] = [...PRIMARY_LENSES, ...ACHIEVEMENT_LENSES, ...MEGA_LENSES, ...GIGANTAMAX_LENSES];

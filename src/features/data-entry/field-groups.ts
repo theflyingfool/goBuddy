@@ -2,6 +2,23 @@ import type { Form, FormPersonal, SpeciesPersonal } from "../../db/types";
 
 type FormField = keyof Omit<FormPersonal, "formSlug" | "bestShiny" | "bestNonShiny" | "bestLucky">;
 
+// Gigantamax form rows carry dynamaxAvailable: true (Gigantamax is
+// fundamentally a Dynamax variant — scripts/ingest/build-reference.ts), but
+// showing the Dynamax/Lucky Dynamax sections on one would ask the user to
+// mark the *same* catch event twice: the row's own Standard section
+// (caught/shiny/floor/fourStar/shundo) already *is* the Gigantamax
+// encounter, there's no separate "regular" version of this form to Dynamax
+// on top of it. No dedicated schema flag for this — formName is always
+// "Gigantamax" or "Gigantamax {style}" per the ingestion script above, so
+// that's the reliable signal. Exported since src/data/in-memory-store.ts
+// needs the identical check for the Form-complete/G-max-complete lens split
+// (same cross-layer import shape as src/db/cascades.ts already has on this
+// file) — completion-stats-sql.ts's SQL side mirrors this with a LIKE
+// pattern rather than calling this function directly.
+export function isGigantamaxForm(form: Form): boolean {
+  return form.formName === "Gigantamax" || form.formName.startsWith("Gigantamax ");
+}
+
 export const FORM_FIELD_GROUPS: { title: string; fields: { field: FormField; label: string }[]; availableWhen?: (form: Form) => boolean }[] = [
   {
     title: "Standard",
@@ -38,7 +55,7 @@ export const FORM_FIELD_GROUPS: { title: string; fields: { field: FormField; lab
   },
   {
     title: "Dynamax",
-    availableWhen: (form) => form.dynamaxAvailable,
+    availableWhen: (form) => form.dynamaxAvailable && !isGigantamaxForm(form),
     fields: [
       { field: "dynamax", label: "Dynamax" },
       { field: "dynamaxFloor", label: "Dynamax floor IV" },
@@ -51,7 +68,7 @@ export const FORM_FIELD_GROUPS: { title: string; fields: { field: FormField; lab
     // Lucky Dynamax is a sub-variant of Dynamax, not an independently
     // gated reference flag — same availableWhen as the Dynamax group above.
     title: "Lucky Dynamax",
-    availableWhen: (form) => form.dynamaxAvailable,
+    availableWhen: (form) => form.dynamaxAvailable && !isGigantamaxForm(form),
     fields: [
       { field: "luckyDynamax", label: "Lucky Dynamax" },
       { field: "luckyDynamaxFloor", label: "Lucky Dynamax floor IV" },

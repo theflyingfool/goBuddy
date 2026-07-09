@@ -68,6 +68,7 @@ export type CompletionLens =
   | { kind: "registered" }
   | { kind: "formComplete" }
   | { kind: "costumeComplete" }
+  | { kind: "gigantamaxComplete" }
   | { kind: "megaComplete" }
   | { kind: "megaShinyComplete" }
   | { kind: "achievement"; field: FormPersonalBooleanField };
@@ -177,3 +178,9 @@ export interface ImportResult {
 }
 
 export const MAX_GRID_INDICATORS = 4;
+
+// Read by both backends' getCompletionStats (in-memory-store.ts directly,
+// sqlite-repository.ts to pass through to the SQL lens) and written by
+// Settings — public since it's a real cross-layer contract, not an
+// implementation detail of either backend.
+export const EXCLUDE_REGIONAL_SETTING_KEY = "exclude_regional_form_complete";

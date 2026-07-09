@@ -7,6 +7,11 @@ import type { FormPersonal, MegaPersonal, SpeciesPersonal } from "./types";
 export const DEFAULT_APP_SETTINGS: Record<string, string> = {
   collapse_gender_forms: "0",
   grid_indicators: JSON.stringify(["shiny", "lucky", "fourStar"]),
+  // Off by default: Form-complete counting regional-exclusive forms is
+  // today's existing behavior. Some players (with an alt/travel/spoofing
+  // access to regionals) can actually complete it as-is; others can't, so
+  // this is a per-install choice (Settings), not a fixed app-wide answer.
+  exclude_regional_form_complete: "0",
 };
 
 export function emptySpeciesPersonal(speciesSlug: string): SpeciesPersonal {
