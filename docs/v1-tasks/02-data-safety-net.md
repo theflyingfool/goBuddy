@@ -44,9 +44,14 @@ that file (or a friend's trust in it) can currently be lost.*
   (`src/db/sqlite-client.ts`).
 - [ ] Rotating Android auto-export: once-daily, keep last 3, via the
   already-integrated `@capacitor/filesystem` plugin.
-- [ ] Migration-runner hardening: wrap each migration in a transaction
+- [x] Migration-runner hardening: wrap each migration in a transaction
   (`src/db/migrations.ts`), refuse to boot if the stored schema version is
-  newer than the app's (downgrade guard).
+  newer than the app's (downgrade guard). Verified with a `node:sqlite`
+  fixture harness (fresh boot, downgrade-guard throw, and transaction
+  rollback semantics) — not committed as a real test (§9 owes that), but
+  actually exercised rather than reasoned-through only. Done first, ahead
+  of the orphan-quarantine item below, since quarantine needs its own
+  personal-schema-version bump to run through this hardened path.
 - [ ] **D5**: decide and document the `android:allowBackup` stance
   (`android/app/src/main/AndroidManifest.xml`); test restore once if keeping
   it on.
