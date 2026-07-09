@@ -35,7 +35,7 @@ function bootstrap(repo: Repository) {
   applyTheme(getThemePreference(repo));
 
   const headerEl = el("header", { class: "app-header" });
-  const drawerEl = el("nav", { class: "nav-drawer" });
+  const drawerEl = el("nav", { class: "nav-drawer", inert: "" });
   const scrimEl = el("div", { class: "nav-scrim" });
   const contentEl = el("main", { class: "app-content" });
   app.append(headerEl, drawerEl, scrimEl, contentEl);
@@ -54,12 +54,28 @@ function bootstrap(repo: Repository) {
   let drawerOpen = false;
 
   function setDrawerOpen(open: boolean) {
+    const wasOpen = drawerOpen;
     drawerOpen = open;
     drawerEl.classList.toggle("open", drawerOpen);
     scrimEl.classList.toggle("open", drawerOpen);
+    headerEl.querySelector<HTMLElement>(".hamburger-button")?.setAttribute("aria-expanded", String(drawerOpen));
+
+    if (drawerOpen) {
+      drawerEl.removeAttribute("inert");
+      drawerEl.querySelector<HTMLElement>(".nav-item")?.focus();
+    } else {
+      drawerEl.setAttribute("inert", "");
+      // Only steal focus back when we're actually closing an open drawer
+      // (Escape/scrim/nav-item click) — not on every route's hashchange,
+      // which calls this unconditionally even when the drawer was never open.
+      if (wasOpen) headerEl.querySelector<HTMLElement>(".hamburger-button")?.focus();
+    }
   }
 
   scrimEl.addEventListener("click", () => setDrawerOpen(false));
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && drawerOpen) setDrawerOpen(false);
+  });
 
   function render() {
     const route = parseRoute(location.hash);
@@ -97,11 +113,6 @@ function bootstrap(repo: Repository) {
             if (!gridState.selectMode) gridState.selectedSpecies.clear();
             renderGrid();
           },
-          onToggleSpeciesSelection: (slug) => {
-            if (gridState.selectedSpecies.has(slug)) gridState.selectedSpecies.delete(slug);
-            else gridState.selectedSpecies.add(slug);
-            renderGrid();
-          },
           onBulkFieldChange: (field) => {
             gridState.bulkField = field;
             renderGrid();
@@ -135,6 +146,7 @@ function bootstrap(repo: Repository) {
           },
         },
         () => setDrawerOpen(!drawerOpen),
+        drawerOpen,
       );
       renderGrid();
     } else if (route.name === "data-entry-detail") {
@@ -148,12 +160,13 @@ function bootstrap(repo: Repository) {
           },
         },
         () => setDrawerOpen(!drawerOpen),
+        drawerOpen,
       );
       renderSpeciesDetail(contentEl, repo, route.speciesSlug, () => {
         location.hash = "/data-entry";
       });
     } else {
-      renderHeader(headerEl, { kind: "none" }, () => setDrawerOpen(!drawerOpen));
+      renderHeader(headerEl, { kind: "none" }, () => setDrawerOpen(!drawerOpen), drawerOpen);
       switch (route.name) {
         case "bulk-form-edit":
           renderBulkFormEditPage(contentEl, repo);

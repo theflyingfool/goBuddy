@@ -6,10 +6,15 @@ export type HeaderMode =
   | { kind: "jump"; repo: Repository; onSelect: (speciesSlug: string) => void }
   | { kind: "none" };
 
-export function renderHeader(container: HTMLElement, mode: HeaderMode, onHamburgerClick: () => void) {
+export function renderHeader(container: HTMLElement, mode: HeaderMode, onHamburgerClick: () => void, isDrawerOpen: boolean) {
   clear(container);
 
-  const hamburger = el("button", { type: "button", class: "hamburger-button", "aria-label": "Menu" }, ["☰"]);
+  const hamburger = el("button", {
+    type: "button",
+    class: "hamburger-button",
+    "aria-label": "Menu",
+    "aria-expanded": String(isDrawerOpen),
+  }, ["☰"]);
   hamburger.addEventListener("click", onHamburgerClick);
 
   const searchWrap = el("div", { class: "header-search" });
@@ -21,7 +26,13 @@ export function renderHeader(container: HTMLElement, mode: HeaderMode, onHamburg
       value: mode.value,
       class: "search-input",
     }) as HTMLInputElement;
-    input.addEventListener("input", () => mode.onChange(input.value));
+    // Debounced: this fires a full grid re-render + SQL query per keystroke
+    // otherwise, which is unnecessary re-render churn on every character typed.
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    input.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => mode.onChange(input.value), 150);
+    });
     searchWrap.append(input);
   } else if (mode.kind === "jump") {
     const input = el("input", {

@@ -36,7 +36,7 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
 
   const lensFieldset = el("fieldset", {});
   const kpiRow = el("div", { class: "stats-kpi-row" });
-  const bodyEl = el("div", { class: "stats-body" });
+  const bodyEl = el("div", { class: "stats-body", "aria-live": "polite" });
   const detailEl = el("div", { class: "stats-detail" });
   container.append(lensFieldset, kpiRow, bodyEl, detailEl);
 

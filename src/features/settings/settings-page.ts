@@ -75,7 +75,7 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   renderIndicatorCheckboxes();
 
   const dataFieldset = el("fieldset", {}, [el("legend", {}, ["Data"])]);
-  const statusEl = el("p", { class: "gap-note" }, []);
+  const statusEl = el("p", { class: "gap-note", "aria-live": "polite" }, []);
 
   const exportButton = el("button", { type: "button" }, ["Export personal data"]);
   exportButton.addEventListener("click", async () => {

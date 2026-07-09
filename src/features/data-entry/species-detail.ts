@@ -47,6 +47,11 @@ function domId(key: string): string {
 // sections the user just opened.
 const openGroupKeysBySpecies = new Map<string, Set<string>>();
 
+// Same rerender-loses-local-state problem as the open/collapse tracking
+// above, for the form-name filter box below (high form-count species like
+// Pikachu's 188 are otherwise unsearchable).
+const formFilterBySpecies = new Map<string, string>();
+
 export function renderSpeciesDetail(container: HTMLElement, repo: Repository, speciesSlug: string, onBack: () => void) {
   clear(container);
 
@@ -94,11 +99,32 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
 
   const rerender = () => renderSpeciesDetail(container, repo, speciesSlug, onBack);
 
+  const filterText = formFilterBySpecies.get(speciesSlug) ?? "";
+  const filterInput = el("input", {
+    type: "search",
+    class: "search-input form-filter-input",
+    placeholder: `Filter ${groups.length} forms by name…`,
+    value: filterText,
+    "aria-label": "Filter forms by name",
+  }) as HTMLInputElement;
+  filterInput.addEventListener("input", () => {
+    formFilterBySpecies.set(speciesSlug, filterInput.value);
+    const cursor = filterInput.selectionStart;
+    rerender();
+    const newInput = container.querySelector<HTMLInputElement>(".form-filter-input");
+    newInput?.focus();
+    if (cursor !== null) newInput?.setSelectionRange(cursor, cursor);
+  });
+
+  const normalizedFilter = filterText.trim().toLowerCase();
+  const matchesFilter = (group: FormGroup) => normalizedFilter === "" || group.label.toLowerCase().includes(normalizedFilter);
+  const visibleGroups = groups.filter(matchesFilter);
+
   // Compact overview grid: quick-scan caught status across every form group,
   // and a shortcut to open/jump to one instead of scrolling past everything
   // else in a long collapsed list.
   const overview = el("div", { class: "form-overview-grid" });
-  for (const group of groups) {
+  for (const group of visibleGroups) {
     const caught = groupIsCaught(group, formPersonalBySlug);
     const tile = el("button", { type: "button", class: `form-overview-tile${caught ? " caught" : ""}` }, [group.label]);
     tile.addEventListener("click", () => {
@@ -110,10 +136,16 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   }
 
   const formsContainer = el("div", { class: "forms-container" });
-  for (const group of groups) {
+  if (visibleGroups.length === 0) {
+    formsContainer.append(el("p", { class: "empty-state" }, ["No forms match that filter."]));
+  }
+  for (const group of visibleGroups) {
     const caught = groupIsCaught(group, formPersonalBySlug);
+    // While actively filtering, auto-open every match instead of requiring an
+    // extra tap — the user is specifically looking for this group.
+    const forceOpen = normalizedFilter !== "";
     const details = el("details", { id: domId(group.key), class: "form-group" }) as HTMLDetailsElement;
-    details.open = openKeysForRender.has(group.key);
+    details.open = forceOpen || openKeysForRender.has(group.key);
     details.addEventListener("toggle", () => {
       if (details.open) openKeysForRender.add(group.key);
       else openKeysForRender.delete(group.key);
@@ -144,5 +176,11 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     formsContainer.append(details);
   }
 
-  container.append(header, speciesFieldset, overview, formsContainer);
+  container.append(header, speciesFieldset);
+  // Only worth showing for species with enough forms that scanning them all
+  // isn't trivial — most species have a handful, a few (Pikachu, Unown,
+  // Vivillon, ...) have dozens to hundreds.
+  const FORM_FILTER_THRESHOLD = 8;
+  if (groups.length > FORM_FILTER_THRESHOLD) container.append(filterInput);
+  container.append(overview, formsContainer);
 }
