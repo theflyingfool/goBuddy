@@ -24,10 +24,28 @@ interface Migration {
   up: (db: SQLiteDBConnection) => Promise<void>;
 }
 
-// Empty today — v1 is the baseline every fresh DB starts at. Real entries
-// (e.g. `{ version: 2, up: (db) => db.execute("ALTER TABLE ...") }`) get
-// appended here as the personal schema grows.
-const MIGRATIONS: Migration[] = [];
+const MIGRATIONS: Migration[] = [
+  {
+    // Adds personal_data_quarantine (see schema.ts) for devices that synced
+    // reference data under v1, before reference-sync.ts's orphan quarantine
+    // existed. IF NOT EXISTS makes this safe even if a v1 device somehow
+    // already has the table (it doesn't, but matches the defensive style of
+    // the rest of the schema).
+    version: 2,
+    up: async (db) => {
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS personal_data_quarantine (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          source_table TEXT NOT NULL,
+          slug TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          quarantined_at TEXT NOT NULL
+        )`,
+        false,
+      );
+    },
+  },
+];
 
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {
   const result = await db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);

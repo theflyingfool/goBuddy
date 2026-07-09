@@ -134,6 +134,21 @@ CREATE TABLE IF NOT EXISTS mega_personal (
   evolved INTEGER NOT NULL DEFAULT 0 CHECK (evolved IN (0, 1)),
   shiny_evolved INTEGER NOT NULL DEFAULT 0 CHECK (shiny_evolved IN (0, 1))
 );
+
+-- Landing zone for personal rows reference-sync.ts finds orphaned (their
+-- slug no longer exists in a freshly-synced reference.json, and wasn't
+-- covered by a src/db/slug-renames.ts entry) — holds the row's full data as
+-- JSON so it isn't silently lost, without the FK constraints the real
+-- personal tables carry (a quarantined row's slug is, by definition, one
+-- reference-sync can't resolve). Inert: nothing reads this table back today
+-- — it's a manual-recovery/debugging aid, not a feature.
+CREATE TABLE IF NOT EXISTS personal_data_quarantine (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_table TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  quarantined_at TEXT NOT NULL
+);
 `;
 
-export const CURRENT_PERSONAL_SCHEMA_VERSION = 1;
+export const CURRENT_PERSONAL_SCHEMA_VERSION = 2;

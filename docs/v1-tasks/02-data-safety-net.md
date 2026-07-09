@@ -13,10 +13,16 @@ that file (or a friend's trust in it) can currently be lost.*
   (`src/main.ts`'s "Couldn't open the on-device database" path), still offer a
   raw "export personal data" action that reads the personal tables directly,
   bypassing the failed boot path.
-- [ ] Reference-sync orphan quarantine: in `src/db/reference-sync.ts`, detect
+- [x] Reference-sync orphan quarantine: in `src/db/reference-sync.ts`, detect
   personal rows whose slug no longer resolves after reference tables are
   recreated, and move them to a quarantine table instead of letting the
-  transaction commit fail.
+  transaction commit fail. New `personal_data_quarantine` table (personal
+  schema version bumped 1→2, added via the hardened migration runner above)
+  holds each orphaned row's full data as JSON. Verified with a `node:sqlite`
+  fixture: confirmed the failure is real (an unquarantined
+  orphan genuinely throws `FOREIGN KEY constraint failed` and rolls back
+  the whole sync) and that the fix resolves it (sync commits, orphan is
+  gone from its table and present in quarantine with the right payload).
 - [x] Ingestion-time slug-disappearance check — pairs with
   [§ 9](06-performance-and-quality-infra.md)'s slug-stability script; fail
   the build if a slug vanishes without a rename-registry entry. Done as
