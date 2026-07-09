@@ -64,3 +64,18 @@ design, so fixes here are free today and permanent debt later.*
   branch's diff from `master`: all 28 disappeared form slugs and 3
   disappeared species slugs match this pass's documented, intentional
   renames/purges above, nothing unaccounted for.
+- [x] **New, found via owner's manual `ingest:csv:export` review**: Armored
+  Mewtwo was double-modeled — once correctly as a real Forme
+  (`mewtwo-armored-unknown`, from the Forms-CSV/PokeAPI pipeline) and again
+  as a costume on the Standard form (`mewtwo-standard-armored-mewtwo-unknown`,
+  from `parse-event-pokemon.ts`'s Bulbapedia scrape, which doesn't
+  distinguish genuine alternate Formes from real costumes in Bulbapedia's
+  "Event Pokémon (GO)" list). Added a `NOT_ACTUALLY_A_COSTUME` exclusion set
+  (same pattern as `NO_STANDARD_FORM_NAMES`) to prevent recurrence, and
+  manually removed the already-imported duplicate form + its `formTypes` row
+  from `reference.json` (the CSV import path only inserts/updates, never
+  deletes). Checked for the same pattern elsewhere first — Pumpkaboo/
+  Gourgeist's "Spooky Festival (Small/Average/Large)" looked similar but is
+  legitimate (a real costume applied per size variant, already a documented
+  known case in `parse-event-pokemon.ts`). Owner is continuing a manual
+  review of the Coverage Report for further issues; more may follow.
