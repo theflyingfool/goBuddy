@@ -2,7 +2,7 @@ import { MAX_GRID_INDICATORS, type Repository } from "../../data/repository";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../../db/schema";
 import { type ThemePreference, getThemePreference, setThemePreference } from "../../app-shell/theme";
 import { clear, el, labeledToggle } from "../../ui/dom";
-import { INDICATOR_LABELS, INDICATOR_OPTIONS } from "../data-entry/indicator-labels";
+import { FORM_GRID_SECOND_FIELD_OPTIONS, INDICATOR_LABELS, INDICATOR_OPTIONS, getFormGridSecondField, setFormGridSecondField } from "../data-entry/indicator-labels";
 import { exportPersonalData, readPersonalDataFile } from "./personal-data-transfer";
 
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
@@ -45,6 +45,31 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
       repo.setAppSetting(COLLAPSE_SETTING_KEY, checked ? "1" : "0");
     }),
   );
+
+  // Caught is always the form-grid tile's first icon (the baseline everyone
+  // wants); this picks the *second* one — deliberately one field, not a
+  // multi-select picker, since the owner specifically didn't want an
+  // open-ended "which fields" decision here.
+  const formGridFieldset = el("fieldset", {}, [el("legend", {}, ["Form grid — second quick-toggle"])]);
+  const formGridOptions = el("div", { class: "theme-options" });
+  function renderFormGridSecondFieldOptions() {
+    clear(formGridOptions);
+    const current = getFormGridSecondField(repo);
+    for (const field of FORM_GRID_SECOND_FIELD_OPTIONS) {
+      const button = el(
+        "button",
+        { type: "button", class: `filter-chip${current === field ? " filter-chip-active" : ""}` },
+        [INDICATOR_LABELS[field].full],
+      );
+      button.addEventListener("click", () => {
+        setFormGridSecondField(repo, field);
+        renderFormGridSecondFieldOptions();
+      });
+      formGridOptions.append(button);
+    }
+  }
+  renderFormGridSecondFieldOptions();
+  formGridFieldset.append(formGridOptions);
 
   const indicatorFieldset = el("fieldset", {}, [
     el("legend", {}, [`Grid badges (pick up to ${MAX_GRID_INDICATORS})`]),
@@ -139,5 +164,5 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
 
   dataFieldset.append(exportButton, importLabel, statusEl);
 
-  container.append(heading, appearanceFieldset, collapseFieldset, indicatorFieldset, dataFieldset);
+  container.append(heading, appearanceFieldset, collapseFieldset, formGridFieldset, indicatorFieldset, dataFieldset);
 }

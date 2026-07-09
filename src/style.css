@@ -668,10 +668,33 @@ input[type="checkbox"] {
   background: var(--surface-2);
 }
 
-.form-filter-input {
-  display: block;
-  width: 100%;
+.form-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin: 0.5rem 0;
+}
+
+.form-filter-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.missing-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+
+.missing-chip.on {
+  background: var(--accent-wash);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .back-button,
@@ -693,55 +716,84 @@ fieldset {
   border-radius: var(--radius-sm);
 }
 
-.form-overview-grid {
+/* ---- Species-detail form grid (replaces the old accordion) ---- */
+
+.form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-  gap: 0.4rem;
-  margin: 0.75rem 0;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
 }
 
-.form-overview-tile {
-  padding: 0.4rem 0.3rem;
-  font-size: 0.8rem;
-  line-height: 1.2;
-  text-align: center;
+.form-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.3rem;
+  background: var(--surface);
   color: var(--ink);
-  background: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  opacity: 0.6;
-}
-
-.form-overview-tile.caught {
-  opacity: 1;
-  border-color: var(--accent);
-  background: var(--accent-wash);
-}
-
-.form-group {
-  margin-bottom: 0.75rem;
-  border-top: 2px solid var(--line);
-  padding-top: 0.25rem;
-}
-
-.form-group summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.6rem 0.25rem;
-  font-size: 1.05rem;
-  font-weight: 650;
+  position: relative;
   cursor: pointer;
 }
 
-.form-group-status {
-  font-size: 0.9rem;
+.form-tile.active-tile {
+  border-color: var(--accent);
+}
+
+.form-tile-more {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 0.7rem;
   color: var(--muted);
 }
 
-.form-group-status.caught {
+.form-tile-sprite {
+  width: 34px;
+  height: 34px;
+}
+
+.form-tile-name {
+  font-size: 0.72rem;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.form-tile-icons {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.form-mini-toggle {
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+}
+
+.form-mini-toggle.on {
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface-2));
   color: var(--accent);
+  border-color: var(--accent);
+}
+
+.form-expanded-panel {
+  grid-column: 1 / -1;
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+}
+
+.form-expanded-title {
+  font-weight: 650;
+  padding: 0.4rem 0.25rem;
 }
 
 .toggle-row {
