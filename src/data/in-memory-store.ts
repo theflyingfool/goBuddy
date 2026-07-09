@@ -7,10 +7,10 @@
 // without this module needing to know which.
 
 import { resolveFormFieldCascade } from "../db/cascades";
-import { emptyFormPersonal, emptySpeciesPersonal } from "../db/defaults";
+import { emptyFormPersonal, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
-import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormPersonal, type FormPersonalBooleanField, type Region, type Species, type SpeciesPersonal } from "../db/types";
+import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type Region, type Species, type SpeciesPersonal } from "../db/types";
 import {
   MAX_GRID_INDICATORS,
   type CompletionLens,
@@ -22,6 +22,7 @@ import {
   type PersonalDataExport,
   type Repository,
   type SpeciesFilter,
+  type SpeciesMegaVariant,
   type SpeciesSummary,
   type SpeciesWithForms,
 } from "./repository";
@@ -35,12 +36,16 @@ export interface PersonalState {
   speciesPersonal: Record<string, SpeciesPersonal>;
   formPersonal: Record<string, FormPersonal>;
   appSettings: Record<string, string>;
+  megaPersonal: Record<string, MegaPersonal>;
+  /** Read/exported for completeness — no UI writes this yet (see repository.ts). */
+  formBackgroundPersonal: FormBackgroundPersonal[];
 }
 
 export interface InMemoryStoreHooks {
   onSpeciesPersonalChanged(speciesSlug: string, personal: SpeciesPersonal): void;
   onFormPersonalChanged(formSlug: string, personal: FormPersonal): void;
   onAppSettingChanged(key: string, value: string): void;
+  onMegaPersonalChanged(megaVariantSlug: string, personal: MegaPersonal): void;
 }
 
 export function createInMemoryRepository(referenceData: ReferenceData, state: PersonalState, hooks: InMemoryStoreHooks): Repository {
@@ -53,6 +58,15 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
     list.push(f);
     formsBySpecies.set(f.speciesSlug, list);
     speciesSlugByFormSlug.set(f.slug, f.speciesSlug);
+  }
+
+  const megaVariantsBySpecies = new Map<string, MegaVariant[]>();
+  const speciesSlugByMegaVariantSlug = new Map<string, string>();
+  for (const mv of referenceData.megaVariants) {
+    const list = megaVariantsBySpecies.get(mv.speciesSlug) ?? [];
+    list.push(mv);
+    megaVariantsBySpecies.set(mv.speciesSlug, list);
+    speciesSlugByMegaVariantSlug.set(mv.slug, mv.speciesSlug);
   }
 
   function matchesSearch(species: Species, search: string): boolean {
@@ -80,6 +94,12 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
         return personal[field];
       case "megaCapable":
         return species.canMegaEvolve;
+      case "megaEvolved":
+        // Any-variant OR, same convention as the form-achievement indicators
+        // above (e.g. Charizard counts as "mega evolved" once you've done
+        // either X or Y, not only once you've done both — that stricter
+        // all-variants bar is what the megaComplete *stats lens* tracks).
+        return (megaVariantsBySpecies.get(species.slug) ?? []).some((mv) => (state.megaPersonal[mv.slug] ?? emptyMegaPersonal(mv.slug)).evolved);
       case "dynamaxCapable":
         return (formsBySpecies.get(species.slug) ?? []).some((f) => f.dynamaxAvailable);
       case "gigantamaxCapable":
@@ -190,6 +210,29 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
     hooks.onSpeciesPersonalChanged(speciesSlug, updated);
   }
 
+  // Mega is species-wide (not per-form, see repository.ts), so its only
+  // cascade is straight to species_personal.registered — no form-field
+  // cascade machinery needed. shinyEvolved implies evolved (forward-only,
+  // same rule as every other cascade: unchecking never cascades) since you
+  // can't have shiny-mega-evolved something without having mega-evolved it
+  // at all.
+  function applyMegaPersonalField(megaVariantSlug: string, field: keyof Omit<MegaPersonal, "megaVariantSlug">, value: boolean): void {
+    const current = state.megaPersonal[megaVariantSlug] ?? emptyMegaPersonal(megaVariantSlug);
+    const updated: MegaPersonal = { ...current, [field]: value };
+    if (value && field === "shinyEvolved") updated.evolved = true;
+    state.megaPersonal[megaVariantSlug] = updated;
+    hooks.onMegaPersonalChanged(megaVariantSlug, updated);
+
+    if (!updated.evolved) return;
+    const speciesSlug = speciesSlugByMegaVariantSlug.get(megaVariantSlug);
+    if (!speciesSlug) return;
+    const currentSpecies = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
+    if (currentSpecies.registered) return;
+    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true };
+    state.speciesPersonal[speciesSlug] = updatedSpecies;
+    hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
+  }
+
   function computeLens(lens: CompletionLens, scoped: Species[]): CompletionLensResult {
     if (lens.kind === "registered") {
       const missing = scoped.filter((s) => !(state.speciesPersonal[s.slug] ?? emptySpeciesPersonal(s.slug)).registered);
@@ -208,6 +251,19 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       const withCostumes = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).some((f) => f.costumeName !== null));
       const missing = withCostumes.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter((f) => f.costumeName !== null).some((f) => !formCaught(f)));
       return { lens, total: withCostumes.length, complete: withCostumes.length - missing.length, missingSpecies: missing.map(toMissing) };
+    }
+
+    if (lens.kind === "megaComplete" || lens.kind === "megaShinyComplete") {
+      // Same "only count species that actually have one" denominator as
+      // costumeComplete above. "Complete" means every mega_variant row for
+      // that species (both X and Y for Charizard) has the field true, not
+      // just one — same all-of convention groupFieldAllTrue uses for forms.
+      const megaField: keyof MegaPersonal = lens.kind === "megaShinyComplete" ? "shinyEvolved" : "evolved";
+      const withMega = scoped.filter((s) => (megaVariantsBySpecies.get(s.slug) ?? []).length > 0);
+      const missing = withMega.filter((s) =>
+        (megaVariantsBySpecies.get(s.slug) ?? []).some((mv) => !(state.megaPersonal[mv.slug] ?? emptyMegaPersonal(mv.slug))[megaField]),
+      );
+      return { lens, total: withMega.length, complete: withMega.length - missing.length, missingSpecies: missing.map(toMissing) };
     }
 
     // achievement: a species "has" the lens if ANY of its forms has that boolean true.
@@ -286,6 +342,18 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       applyFormPersonalField(formSlug, field, value);
     },
 
+    getMegaVariantsForSpecies(speciesSlug: string): SpeciesMegaVariant[] {
+      const variants = megaVariantsBySpecies.get(speciesSlug) ?? [];
+      return variants.map((variant) => ({
+        variant,
+        personal: state.megaPersonal[variant.slug] ?? emptyMegaPersonal(variant.slug),
+      }));
+    },
+
+    setMegaPersonalField(megaVariantSlug, field, value) {
+      applyMegaPersonalField(megaVariantSlug, field, value);
+    },
+
     // Bulk variants: loop the slugs applying the same per-row cascade path as
     // the single setters. Each row still fires its hook (that's what persists);
     // the SQLite backend overrides these to batch those N writes into one
@@ -332,6 +400,8 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
         speciesPersonal: { ...state.speciesPersonal },
         formPersonal: { ...state.formPersonal },
         appSettings: { ...state.appSettings },
+        megaPersonal: { ...state.megaPersonal },
+        formBackgroundPersonal: [...state.formBackgroundPersonal],
       };
     },
 
@@ -358,6 +428,16 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
         }
         state.formPersonal[slug] = personal;
         hooks.onFormPersonalChanged(slug, personal);
+      }
+      // Optional: absent entirely on an export file from before this field
+      // existed. Not counted in ImportResult's skip counts (that's about
+      // rows that resolve to a stale/unknown slug, not a whole-field gap in
+      // an older export) — silently skipped is correct here, since "not
+      // present" just means the exporting device had never used mega yet.
+      for (const [slug, personal] of Object.entries(data.megaPersonal ?? {})) {
+        if (!speciesSlugByMegaVariantSlug.has(slug)) continue;
+        state.megaPersonal[slug] = personal;
+        hooks.onMegaPersonalChanged(slug, personal);
       }
       for (const [key, value] of Object.entries(data.appSettings)) {
         // reference_data_version is reference-sync bookkeeping (a content

@@ -90,6 +90,28 @@ async function costumeCompleteLens(db: SQLiteDBConnection, scope: CompletionScop
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
+async function megaCompleteLens(db: SQLiteDBConnection, scope: CompletionScope, shiny: boolean): Promise<Omit<CompletionLensResult, "lens">> {
+  // Same "only count species that actually have one" denominator as
+  // costumeCompleteLens. "Complete" means every mega_variant row for that
+  // species (both X and Y for Charizard) has the field true, not just one.
+  const column = shiny ? "shiny_evolved" : "evolved";
+  const { where, params } = scopeClause(scope);
+  const totalRows = (await db.query(`SELECT COUNT(DISTINCT s.slug) as c FROM species s JOIN mega_variant mv ON mv.species_slug = s.slug WHERE ${where}`, params)).values ?? [];
+  const total = (totalRows[0] as { c: number } | undefined)?.c ?? 0;
+  const missingSpecies = await selectMissingSpecies(
+    db,
+    `SELECT DISTINCT s.slug, s.name, s.dex_number FROM species s
+     JOIN mega_variant mv2 ON mv2.species_slug = s.slug
+     WHERE ${where}
+     AND EXISTS (
+       SELECT 1 FROM mega_variant mv LEFT JOIN mega_personal mp ON mp.mega_variant_slug = mv.slug
+       WHERE mv.species_slug = s.slug AND (mp.${column} IS NULL OR mp.${column} = 0)
+     )`,
+    params,
+  );
+  return { total, complete: total - missingSpecies.length, missingSpecies };
+}
+
 async function achievementLens(db: SQLiteDBConnection, scope: CompletionScope, field: FormPersonalBooleanField): Promise<Omit<CompletionLensResult, "lens">> {
   // Column name is interpolated (SQLite params can't bind identifiers) — safe
   // only because it's resolved through the fixed camelCase->snake_case map,
@@ -122,7 +144,11 @@ export async function getCompletionStatsSql(db: SQLiteDBConnection, scope: Compl
           ? await formCompleteLens(db, scope)
           : lens.kind === "costumeComplete"
             ? await costumeCompleteLens(db, scope)
-            : await achievementLens(db, scope, lens.field);
+            : lens.kind === "megaComplete"
+              ? await megaCompleteLens(db, scope, false)
+              : lens.kind === "megaShinyComplete"
+                ? await megaCompleteLens(db, scope, true)
+                : await achievementLens(db, scope, lens.field);
     results.push({ lens, ...partial });
   }
   return results;

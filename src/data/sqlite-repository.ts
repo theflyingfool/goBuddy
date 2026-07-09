@@ -15,7 +15,7 @@
 
 import type { ReferenceData } from "../db/reference-data";
 import { DEFAULT_APP_SETTINGS } from "../db/defaults";
-import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormPersonal, type SpeciesPersonal } from "../db/types";
+import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormBackgroundPersonal, type FormPersonal, type MegaPersonal, type SpeciesPersonal } from "../db/types";
 import { getDb, persistDb } from "../db/sqlite-client";
 import { runPersonalMigrations } from "../db/migrations";
 import { syncReferenceData } from "../db/reference-sync";
@@ -68,7 +68,25 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     appSettings[row.key] = row.value;
   }
 
-  return { speciesPersonal, formPersonal, appSettings };
+  const megaPersonal: Record<string, MegaPersonal> = {};
+  for (const row of (await db.query("SELECT * FROM mega_personal")).values ?? []) {
+    megaPersonal[row.mega_variant_slug] = {
+      megaVariantSlug: row.mega_variant_slug,
+      evolved: !!row.evolved,
+      shinyEvolved: !!row.shiny_evolved,
+    };
+  }
+
+  const formBackgroundPersonal: FormBackgroundPersonal[] = [];
+  for (const row of (await db.query("SELECT * FROM form_background_personal")).values ?? []) {
+    formBackgroundPersonal.push({
+      formSlug: row.form_slug,
+      achievementField: row.achievement_field,
+      backgroundSlug: row.background_slug,
+    });
+  }
+
+  return { speciesPersonal, formPersonal, appSettings, megaPersonal, formBackgroundPersonal };
 }
 
 export async function createSqliteRepository(onWriteFailure?: (message: string, retry: () => Promise<void>) => void): Promise<Repository> {
@@ -140,6 +158,18 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       enqueueWrite(async () => {
         await db.run("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [key, value]);
         await persistDb();
+      });
+    },
+    onMegaPersonalChanged(megaVariantSlug, personal) {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run(
+          `INSERT INTO mega_personal (mega_variant_slug, evolved, shiny_evolved) VALUES (?, ?, ?)
+           ON CONFLICT(mega_variant_slug) DO UPDATE SET evolved = excluded.evolved, shiny_evolved = excluded.shiny_evolved`,
+          [megaVariantSlug, personal.evolved ? 1 : 0, personal.shinyEvolved ? 1 : 0],
+          !inBulk,
+        );
+        if (!inBulk) await persistDb();
       });
     },
   });

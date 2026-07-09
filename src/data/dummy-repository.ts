@@ -8,7 +8,7 @@
 
 import type { ReferenceData } from "../db/reference-data";
 import { DEFAULT_APP_SETTINGS, emptyFormPersonal, emptySpeciesPersonal } from "../db/defaults";
-import type { FormPersonal, SpeciesPersonal } from "../db/types";
+import type { FormPersonal, MegaPersonal, SpeciesPersonal } from "../db/types";
 import referenceDataJson from "./reference.json";
 import * as personalSeed from "./personal-demo-seed";
 import { createInMemoryRepository, type PersonalState } from "./in-memory-store";
@@ -36,10 +36,15 @@ function loadInitialState(): PersonalState {
   for (const f of referenceData.forms) formPersonal[f.slug] = emptyFormPersonal(f.slug);
   for (const fp of personalSeed.formPersonal) formPersonal[fp.formSlug] = fp;
 
+  const megaPersonal: Record<string, MegaPersonal> = {};
+  for (const mp of personalSeed.megaPersonal) megaPersonal[mp.megaVariantSlug] = mp;
+
   return {
     speciesPersonal,
     formPersonal,
     appSettings: { ...DEFAULT_APP_SETTINGS },
+    megaPersonal,
+    formBackgroundPersonal: [...personalSeed.formBackgroundPersonal],
   };
 }
 
@@ -54,5 +59,6 @@ export function createDummyRepository(): Repository {
     onSpeciesPersonalChanged: persist,
     onFormPersonalChanged: persist,
     onAppSettingChanged: persist,
+    onMegaPersonalChanged: persist,
   });
 }

@@ -804,6 +804,28 @@ fieldset {
   font-size: 1rem;
 }
 
+.mega-variant-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.3rem 0.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.mega-variant-row:first-of-type {
+  border-top: none;
+}
+
+.mega-variant-label {
+  font-weight: 650;
+  min-width: 4.5rem;
+}
+
+.mega-variant-row .toggle-row {
+  padding: 0;
+}
+
 .toggle-row input[type="checkbox"] {
   width: 1.4em;
   height: 1.4em;

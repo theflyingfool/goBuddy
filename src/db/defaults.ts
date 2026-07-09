@@ -1,4 +1,4 @@
-import type { FormPersonal, SpeciesPersonal } from "./types";
+import type { FormPersonal, MegaPersonal, SpeciesPersonal } from "./types";
 
 // Real, sensible defaults for a brand-new install — not demo data (see
 // personal-demo-seed.ts for that). Both backends seed app_settings with
@@ -11,6 +11,10 @@ export const DEFAULT_APP_SETTINGS: Record<string, string> = {
 
 export function emptySpeciesPersonal(speciesSlug: string): SpeciesPersonal {
   return { speciesSlug, registered: false, xxl: false, xxs: false, purified: false };
+}
+
+export function emptyMegaPersonal(megaVariantSlug: string): MegaPersonal {
+  return { megaVariantSlug, evolved: false, shinyEvolved: false };
 }
 
 export function emptyFormPersonal(formSlug: string, overrides: Partial<Omit<FormPersonal, "formSlug">> = {}): FormPersonal {
