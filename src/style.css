@@ -348,7 +348,7 @@ input[type="checkbox"] {
 
   .tab-bar,
   .more-drawer,
-  .nav-scrim {
+  .more-scrim {
     display: none !important;
   }
 }

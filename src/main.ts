@@ -45,7 +45,11 @@ function bootstrap(repo: Repository) {
   const mainWrap = el("div", { class: "app-main" }, [headerEl, contentEl]);
   const tabBarEl = el("nav", { class: "tab-bar" });
   const moreDrawerEl = el("nav", { class: "nav-drawer more-drawer", inert: "" });
-  const moreScrimEl = el("div", { class: "nav-scrim" });
+  // "more-scrim" (in addition to nav-scrim) so the desktop sidebar CSS can
+  // hide this one specifically without also hiding the filter sheet's
+  // click-outside catcher, which is a plain .nav-scrim too and needs to
+  // stay clickable (just invisible) at that width.
+  const moreScrimEl = el("div", { class: "nav-scrim more-scrim" });
   // Filter sheet (grid) / anchored panel (>=720px) — same pattern as the
   // More flyout, lives outside contentEl so the grid's own clear()-and-rebuild
   // cycle on every filter interaction never touches it.
