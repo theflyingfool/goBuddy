@@ -56,6 +56,11 @@ design, so fixes here are free today and permanent debt later.*
 - [x] Fix the lucky-IV-floor comment in `docs/data-model.md` (~10/10/10 →
   12/12/12; non-load-bearing, just a stale comment). Done as part of the
   docs reorg pass.
-- [ ] Once [§ 9](06-performance-and-quality-infra.md)'s slug-stability check
+- [x] Once [§ 9](06-performance-and-quality-infra.md)'s slug-stability check
   script exists, run it against this pass's output before merging, to
   confirm nothing was accidentally renamed instead of corrected-in-place.
+  The script was built in §2 (`scripts/ingest/check-slug-stability.ts`,
+  not yet merged at the time of this pass) — ran it manually against this
+  branch's diff from `master`: all 28 disappeared form slugs and 3
+  disappeared species slugs match this pass's documented, intentional
+  renames/purges above, nothing unaccounted for.
