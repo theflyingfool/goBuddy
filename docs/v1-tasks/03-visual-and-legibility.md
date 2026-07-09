@@ -6,6 +6,10 @@
 *The owner: "We need a more professional UI from day one." This is real
 design work — not pre-decided in this planning pass.*
 
+- [ ] Ensure we have a responsive UI: on a desktop / tablet we should be
+  using most of the space not limiting to a "phone"
+- [ ] We are correctly defaulting to dark mode, but this should be a toggle
+- [ ] The stats page should look like a well done powerBI dashboard or similar
 - [ ] Define the visual direction: a considered palette (named hex values,
   not defaults), a type pairing (display + body face), and a spacing/layout
   system. Treat as its own dedicated design session/pass, not a quick pick.
