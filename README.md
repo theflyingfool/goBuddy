@@ -1,8 +1,8 @@
 # PoGo Buddy
 
 A local-only, fully offline Pokémon GO living-dex tracker. No accounts, no
-backend, no network calls at runtime — all personal data stays on the
-device. Ships as a Capacitor-wrapped Android APK (sideloaded, not Play
+back-end, no network calls at runtime — all personal data stays on the
+device. Ships as a Capacitor-wrapped Android APK (side-loaded, not Play
 Store); the same TypeScript/Vite web app also runs standalone in a desktop
 browser for editing on a computer (see "Cross-device data" below).
 
