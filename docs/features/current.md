@@ -15,6 +15,7 @@ A general-purpose completion system with two independent axes, rather than
 hardcoded per-region views:
 
 **Scope** — what set of species/forms is being measured:
+
 - A region (species whose `region_slug` matches — note regions are assigned
   by dex-number origin, not by which forms happen to exist; e.g. Unown is
   scoped to Johto and Deoxys to Hoenn even though most of their many forms
@@ -23,6 +24,7 @@ hardcoded per-region views:
 - Eventually: all species globally
 
 **Lens** — what "complete" means, applied within that scope:
+
 - **Registered** — at least one form of the species caught, any form/gender
   (maps to `species_personal.registered`)
 - **Form-complete** — every non-costume form/gender of the species caught

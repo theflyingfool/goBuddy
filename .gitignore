@@ -22,3 +22,6 @@ Refs from Obsidian/
 # android/.idea/ (opening just the native project) since this pattern has no
 # leading slash.
 .idea/
+
+# Obsidian vault config — machine-local, not shared config.
+.obsidian/
