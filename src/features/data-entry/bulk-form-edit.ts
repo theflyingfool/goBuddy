@@ -14,6 +14,7 @@
 import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repository";
 import type { Form, FormPersonal, FormPersonalBooleanField } from "../../db/types";
 import { clear, el } from "../../ui/dom";
+import { speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS } from "./field-groups";
 import { gridFilterFieldLabel, MORE_FILTER_FIELDS } from "./indicator-labels";
 import { groupForms } from "./species-detail";
@@ -29,6 +30,8 @@ interface BulkFormEditState {
   targetValue: boolean;
   /** Eligible form slugs the user has checked for the next apply. */
   selectedForms: Set<string>;
+  /** Whether the region/caught/field-chip filter sheet is open. */
+  filterSheetOpen: boolean;
 }
 
 // Module-level so a re-render (the page rebuilds itself on every change, like
@@ -41,6 +44,7 @@ const state: BulkFormEditState = {
   targetField: "fourStar",
   targetValue: true,
   selectedForms: new Set(),
+  filterSheetOpen: false,
 };
 
 const CAUGHT_OPTIONS: { value: BulkFormEditState["caught"]; label: string }[] = [
@@ -79,21 +83,8 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
     ]),
   );
 
-  // ---- Filters (region / search / caught / field chips) ----
-  const filters = el("div", { class: "bulk-filters" });
-
-  const regionSelect = el("select", { class: "bulk-region-select", "aria-label": "Region" }) as HTMLSelectElement;
-  regionSelect.append(el("option", { value: "" }, ["All regions"]));
-  for (const region of repo.listRegions()) {
-    regionSelect.append(el("option", { value: region.slug }, [region.name]));
-  }
-  regionSelect.value = state.region;
-  regionSelect.addEventListener("change", () => {
-    state.region = regionSelect.value;
-    rerender();
-  });
-
-  const searchInput = el("input", { type: "search", class: "bulk-search", placeholder: "Search name or #", "aria-label": "Search" }) as HTMLInputElement;
+  // ---- Search bar + callable filter sheet (region / caught / field chips) ----
+  const searchInput = el("input", { type: "search", class: "bulk-search search-input", placeholder: "Search species/forms…", "aria-label": "Search" }) as HTMLInputElement;
   searchInput.value = state.search;
   searchInput.addEventListener("input", () => {
     state.search = searchInput.value;
@@ -105,6 +96,29 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
     const newSearchInput = container.querySelector<HTMLInputElement>(".bulk-search");
     newSearchInput?.focus();
     if (cursor !== null) newSearchInput?.setSelectionRange(cursor, cursor);
+  });
+
+  const activeFilterCount = (state.region !== "" ? 1 : 0) + (state.caught !== "all" ? 1 : 0) + Object.keys(state.fieldFilters).length;
+  const filterIconBtn = el(
+    "button",
+    { type: "button", class: "filter-icon-button", "aria-haspopup": "true", "aria-label": "Filters", "aria-expanded": String(state.filterSheetOpen) },
+    ["▤", activeFilterCount > 0 ? el("span", { class: "filter-icon-badge" }, [String(activeFilterCount)]) : ""],
+  );
+  filterIconBtn.addEventListener("click", () => {
+    state.filterSheetOpen = !state.filterSheetOpen;
+    rerender();
+  });
+  container.append(el("div", { class: "header-search bulk-search-row" }, [searchInput, filterIconBtn]));
+
+  const regionSelect = el("select", { class: "bulk-region-select", "aria-label": "Region" }) as HTMLSelectElement;
+  regionSelect.append(el("option", { value: "" }, ["All regions"]));
+  for (const region of repo.listRegions()) {
+    regionSelect.append(el("option", { value: region.slug }, [region.name]));
+  }
+  regionSelect.value = state.region;
+  regionSelect.addEventListener("change", () => {
+    state.region = regionSelect.value;
+    rerender();
   });
 
   const caughtBar = el("div", { class: "filter-bar" });
@@ -142,12 +156,27 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
     fieldChips.append(chip);
   }
 
-  filters.append(
-    el("div", { class: "bulk-filter-row" }, [regionSelect, searchInput]),
-    caughtBar,
-    fieldChips,
+  // This whole page already rebuilds itself in full on every state change
+  // (see module comment/rerender()), so the filter sheet doesn't need the
+  // shared overlay-panel controller used by the Dex grid/nav — there's no
+  // "stable content, rebuilt trigger" mismatch here, everything rebuilds
+  // together. Just reflect state.filterSheetOpen directly on fresh markup.
+  const filterBackdrop = el("div", { class: `nav-scrim${state.filterSheetOpen ? " open" : ""}` });
+  filterBackdrop.addEventListener("click", () => {
+    state.filterSheetOpen = false;
+    rerender();
+  });
+  const filterSheet = el(
+    "div",
+    { class: `filter-sheet${state.filterSheetOpen ? " open" : ""}`, inert: state.filterSheetOpen ? undefined : "" },
+    [
+      el("h2", { class: "filter-sheet-title" }, ["Filters"]),
+      el("div", { class: "bulk-filter-row" }, [regionSelect]),
+      caughtBar,
+      fieldChips,
+    ],
   );
-  container.append(filters);
+  container.append(filterSheet, filterBackdrop);
 
   // ---- Target field picker (grouped by section) + on/off ----
   const targetBar = el("div", { class: "bulk-target-bar" });
@@ -189,10 +218,14 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
   }
   container.append(targetBar);
 
-  // ---- Candidate form list ----
+  // ---- Candidate grid: same tappable-tile language as the Dex grid and the
+  // species-detail form grid, instead of a checkbox-rows-under-a-species-card
+  // list. A tile here is one (species, form-group) pair — tapping it toggles
+  // selection for that group's eligible forms; the target field/value picked
+  // above still applies to every selected tile on Apply, unchanged.
   const hasNarrowing = state.region !== "" || state.search.trim() !== "" || state.caught !== "all" || Object.keys(state.fieldFilters).length > 0;
 
-  const listContainer = el("div", { class: "bulk-form-list" });
+  const listContainer = el("div", { class: "form-grid" });
   const eligibleVisibleSlugs: string[] = [];
 
   if (!hasNarrowing) {
@@ -209,6 +242,7 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
       listContainer.append(el("p", { class: "empty-state" }, ["No species match those filters."]));
     } else {
       const shown = summaries.slice(0, MAX_SPECIES_SHOWN);
+      let anyTiles = false;
       for (const { species } of shown) {
         const { forms } = repo.getSpeciesWithForms(species.slug);
         const personalBySlug = new Map<string, FormPersonal>(forms.map((f) => [f.form.slug, f.personal]));
@@ -217,41 +251,44 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
           true,
         );
 
-        const rows: HTMLElement[] = [];
         for (const group of groups) {
           const eligible = eligibleForms(group, availableWhen);
           if (eligible.length === 0) continue; // gated out (e.g. non-shadow form, Shadow field selected)
           const eligibleSlugs = eligible.map((f) => f.slug);
           for (const s of eligibleSlugs) eligibleVisibleSlugs.push(s);
 
-          const checked = eligibleSlugs.every((s) => state.selectedForms.has(s));
+          const isSelected = eligibleSlugs.every((s) => state.selectedForms.has(s));
           const alreadySet = eligibleSlugs.every((s) => personalBySlug.get(s)?.[state.targetField]);
+          anyTiles = true;
 
-          const input = el("input", { type: "checkbox" }) as HTMLInputElement;
-          input.checked = checked;
-          input.addEventListener("change", () => {
-            if (input.checked) for (const s of eligibleSlugs) state.selectedForms.add(s);
+          const tile = el(
+            "button",
+            {
+              type: "button",
+              class: `form-tile${isSelected ? " selected" : ""}`,
+              "aria-pressed": String(isSelected),
+              "aria-label": `${species.name} ${group.label}, ${isSelected ? "selected" : "not selected"}`,
+              title: `Current ${targetLabel}: ${alreadySet ? "on" : "off"}`,
+            },
+            [
+              alreadySet ? el("span", { class: "form-tile-more" }, ["✓"]) : "",
+              el("img", { class: "form-tile-sprite", src: speciesSpritePath(species.dexNumber), alt: "", loading: "lazy" }),
+              el("div", { class: "form-tile-name" }, [`${species.name} · ${group.label}`]),
+            ],
+          );
+          tile.addEventListener("click", () => {
+            const nowSelected = !eligibleSlugs.every((s) => state.selectedForms.has(s));
+            if (nowSelected) for (const s of eligibleSlugs) state.selectedForms.add(s);
             else for (const s of eligibleSlugs) state.selectedForms.delete(s);
             rerender();
           });
-
-          rows.push(
-            el("label", { class: "toggle-row bulk-form-row" }, [
-              input,
-              el("span", {}, [group.label]),
-              el("span", { class: `bulk-current${alreadySet ? " on" : ""}`, title: `Current ${targetLabel}` }, [alreadySet ? "✓" : ""]),
-            ]),
-          );
+          listContainer.append(tile);
         }
-
-        if (rows.length === 0) continue;
-        const card = el("div", { class: "bulk-species-card" }, [
-          el("div", { class: "bulk-species-name" }, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
-          ...rows,
-        ]);
-        listContainer.append(card);
       }
 
+      if (!anyTiles) {
+        listContainer.append(el("p", { class: "empty-state" }, ["No forms match those filters."]));
+      }
       if (summaries.length > shown.length) {
         listContainer.append(el("p", { class: "bulk-truncation-note" }, [`Showing the first ${shown.length} of ${summaries.length} species — narrow your filters to see more.`]));
       }

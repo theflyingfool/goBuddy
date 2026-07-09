@@ -2,20 +2,14 @@ import type { Repository } from "../data/repository";
 import { clear, el } from "../ui/dom";
 
 export type HeaderMode =
-  | { kind: "filter"; value: string; onChange: (value: string) => void }
+  | { kind: "filter"; value: string; onChange: (value: string) => void; filterButton?: { activeCount: number; onClick: () => void } }
   | { kind: "jump"; repo: Repository; onSelect: (speciesSlug: string) => void }
   | { kind: "none" };
 
-export function renderHeader(container: HTMLElement, mode: HeaderMode, onHamburgerClick: () => void, isDrawerOpen: boolean) {
+// Nav moved to the bottom tab bar / sidebar (nav-drawer.ts) — this header is
+// just search (+ an optional filter-sheet trigger) now, no hamburger.
+export function renderHeader(container: HTMLElement, mode: HeaderMode) {
   clear(container);
-
-  const hamburger = el("button", {
-    type: "button",
-    class: "hamburger-button",
-    "aria-label": "Menu",
-    "aria-expanded": String(isDrawerOpen),
-  }, ["☰"]);
-  hamburger.addEventListener("click", onHamburgerClick);
 
   const searchWrap = el("div", { class: "header-search" });
 
@@ -34,6 +28,20 @@ export function renderHeader(container: HTMLElement, mode: HeaderMode, onHamburg
       debounceTimer = setTimeout(() => mode.onChange(input.value), 150);
     });
     searchWrap.append(input);
+
+    if (mode.filterButton) {
+      const { activeCount, onClick } = mode.filterButton;
+      const filterBtn = el(
+        "button",
+        { type: "button", class: "filter-icon-button", "aria-haspopup": "true", "aria-label": "Filters", "aria-expanded": "false" },
+        [
+          "▤",
+          activeCount > 0 ? el("span", { class: "filter-icon-badge" }, [String(activeCount)]) : "",
+        ],
+      );
+      filterBtn.addEventListener("click", onClick);
+      searchWrap.append(filterBtn);
+    }
   } else if (mode.kind === "jump") {
     const input = el("input", {
       type: "search",
@@ -62,5 +70,24 @@ export function renderHeader(container: HTMLElement, mode: HeaderMode, onHamburg
     searchWrap.append(input, results);
   }
 
-  container.append(hamburger, searchWrap);
+  container.append(searchWrap);
+}
+
+// Grid interactions (chip toggles, etc.) call this after every filter change
+// instead of re-invoking renderHeader — a full header rerender would also
+// tear down/rebuild the search input (losing focus/debounce state) just to
+// update a badge number.
+export function updateFilterBadge(container: HTMLElement, count: number) {
+  const button = container.querySelector<HTMLElement>(".filter-icon-button");
+  if (!button) return;
+  let badge = button.querySelector<HTMLElement>(".filter-icon-badge");
+  if (count > 0) {
+    if (!badge) {
+      badge = el("span", { class: "filter-icon-badge" });
+      button.append(badge);
+    }
+    badge.textContent = String(count);
+  } else {
+    badge?.remove();
+  }
 }

@@ -1,5 +1,5 @@
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type FormPersonalBooleanField } from "../../db/types";
-import type { AvailabilityFilterField, GridFilterField, RarityFilterField, SpeciesBooleanField } from "../../data/repository";
+import type { AvailabilityFilterField, GridFilterField, RarityFilterField, Repository, SpeciesBooleanField } from "../../data/repository";
 
 export const INDICATOR_LABELS: Record<FormPersonalBooleanField, { badge: string; full: string }> = {
   caught: { badge: "●", full: "Caught" },
@@ -84,4 +84,21 @@ export function gridFilterFieldLabel(field: GridFilterField): { badge: string; f
   if (field in SPECIES_FILTER_LABELS) return SPECIES_FILTER_LABELS[field as SpeciesBooleanField];
   if (field in AVAILABILITY_FILTER_LABELS) return AVAILABILITY_FILTER_LABELS[field as AvailabilityFilterField];
   return INDICATOR_LABELS[field as FormPersonalBooleanField];
+}
+
+// The species-detail form grid's second quick-toggle icon (Caught is always
+// shown, unconditionally). Deliberately a small curated set rather than every
+// achievement field — the owner specifically didn't want an open-ended
+// picker here, just "pick the one thing you're actively chasing."
+export const FORM_GRID_SECOND_FIELD_OPTIONS: FormPersonalBooleanField[] = ["shiny", "lucky", "shadow"];
+const FORM_GRID_SECOND_FIELD_SETTING_KEY = "form_grid_second_field";
+const DEFAULT_FORM_GRID_SECOND_FIELD: FormPersonalBooleanField = "shiny";
+
+export function getFormGridSecondField(repo: Repository): FormPersonalBooleanField {
+  const raw = repo.getAppSetting(FORM_GRID_SECOND_FIELD_SETTING_KEY);
+  return FORM_GRID_SECOND_FIELD_OPTIONS.includes(raw as FormPersonalBooleanField) ? (raw as FormPersonalBooleanField) : DEFAULT_FORM_GRID_SECOND_FIELD;
+}
+
+export function setFormGridSecondField(repo: Repository, field: FormPersonalBooleanField): void {
+  repo.setAppSetting(FORM_GRID_SECOND_FIELD_SETTING_KEY, field);
 }

@@ -109,10 +109,68 @@ function renderBulkBar(state: GridState, callbacks: GridCallbacks): HTMLElement 
   return bar;
 }
 
+// How many filters are "active" right now — drives the filter-icon button's
+// badge count in the header so collapsing the filter rows into a sheet
+// doesn't hide *that* a filter is applied.
+export function countActiveFilters(state: GridState): number {
+  return (state.caughtFilter !== "all" ? 1 : 0) + Object.keys(state.fieldFilters).length;
+}
+
+// Filter content used to live inline at the top of the grid; it's now the
+// contents of the callable filter sheet/panel (rendered into a container
+// that lives outside the grid's own `clear()` cycle, so opening/closing it
+// doesn't fight the grid's rerenders). Select-mode + the bulk bar stay on
+// the grid page itself — they're a selection tool, not a filter.
+export function renderFilterSheetContent(container: HTMLElement, repo: Repository, state: GridState, callbacks: GridCallbacks) {
+  clear(container);
+  const indicatorSelection = repo.getIndicatorSelection();
+
+  container.append(el("h2", { class: "filter-sheet-title" }, ["Filters"]));
+
+  const filterBar = el("div", { class: "filter-bar" });
+  for (const option of CAUGHT_FILTER_OPTIONS) {
+    const button = el(
+      "button",
+      { type: "button", class: `filter-chip${state.caughtFilter === option.value ? " filter-chip-active" : ""}`, "aria-pressed": String(state.caughtFilter === option.value) },
+      [option.label],
+    );
+    button.addEventListener("click", () => callbacks.onCaughtFilterChange(option.value));
+    filterBar.append(button);
+  }
+  for (const field of indicatorSelection) {
+    filterBar.append(fieldFilterChip(field, state, callbacks));
+  }
+  container.append(filterBar);
+
+  // Species classification (rarity + Mega/Dynamax/Gigantamax-capable) — its
+  // own row, not folded into the achievement chips above or the collapsed
+  // "More filters" below. Small, fixed-size set (6 fields), and expected to
+  // combine directly with Caught/Uncaught.
+  const classificationBar = el("div", { class: "filter-bar" });
+  for (const field of CLASSIFICATION_FIELDS) {
+    classificationBar.append(fieldFilterChip(field, state, callbacks));
+  }
+  container.append(classificationBar);
+
+  const indicatorSelectionSet = new Set<string>(indicatorSelection);
+  const moreFields = MORE_FILTER_FIELDS.filter((f) => !indicatorSelectionSet.has(f));
+  const moreToggle = el("button", { type: "button", class: "more-filters-toggle" }, [
+    `${state.moreFiltersOpen ? "▾" : "▸"} More filters (${moreFields.length})`,
+  ]);
+  moreToggle.addEventListener("click", () => callbacks.onToggleMoreFilters());
+  container.append(moreToggle);
+
+  if (state.moreFiltersOpen) {
+    const moreBar = el("div", { class: "filter-bar" });
+    for (const field of moreFields) {
+      moreBar.append(fieldFilterChip(field, state, callbacks));
+    }
+    container.append(moreBar);
+  }
+}
+
 export function renderSpeciesGrid(container: HTMLElement, repo: Repository, state: GridState, callbacks: GridCallbacks) {
   clear(container);
-
-  const indicatorSelection = repo.getIndicatorSelection();
 
   const selectToolbar = el("div", { class: "grid-select-toolbar" });
   const selectToggle = el(
@@ -147,47 +205,7 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
   }
   refreshBulkBar();
 
-  const filterBar = el("div", { class: "filter-bar" });
-  for (const option of CAUGHT_FILTER_OPTIONS) {
-    const button = el(
-      "button",
-      { type: "button", class: `filter-chip${state.caughtFilter === option.value ? " filter-chip-active" : ""}`, "aria-pressed": String(state.caughtFilter === option.value) },
-      [option.label],
-    );
-    button.addEventListener("click", () => callbacks.onCaughtFilterChange(option.value));
-    filterBar.append(button);
-  }
-  for (const field of indicatorSelection) {
-    filterBar.append(fieldFilterChip(field, state, callbacks));
-  }
-  container.append(filterBar);
-
-  // Species classification (rarity + Mega/Dynamax/Gigantamax-capable) — its
-  // own always-visible row, not folded into the achievement chips above or
-  // the collapsed "More filters" below. Small, fixed-size set (6 fields),
-  // and expected to combine directly with Caught/Uncaught.
-  const classificationBar = el("div", { class: "filter-bar" });
-  for (const field of CLASSIFICATION_FIELDS) {
-    classificationBar.append(fieldFilterChip(field, state, callbacks));
-  }
-  container.append(classificationBar);
-
-  const indicatorSelectionSet = new Set<string>(indicatorSelection);
-  const moreFields = MORE_FILTER_FIELDS.filter((f) => !indicatorSelectionSet.has(f));
-  const moreToggle = el("button", { type: "button", class: "more-filters-toggle" }, [
-    `${state.moreFiltersOpen ? "▾" : "▸"} More filters (${moreFields.length})`,
-  ]);
-  moreToggle.addEventListener("click", () => callbacks.onToggleMoreFilters());
-  container.append(moreToggle);
-
-  if (state.moreFiltersOpen) {
-    const moreBar = el("div", { class: "filter-bar" });
-    for (const field of moreFields) {
-      moreBar.append(fieldFilterChip(field, state, callbacks));
-    }
-    container.append(moreBar);
-  }
-
+  const indicatorSelection = repo.getIndicatorSelection();
   let anyResults = false;
 
   for (const region of repo.listRegions()) {
@@ -217,6 +235,7 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
         .map((field) => el("span", { class: "badge", title: INDICATOR_LABELS[field].full }, [INDICATOR_LABELS[field].badge]));
 
       const selected = state.selectMode && state.selectedSpecies.has(species.slug);
+      let isRegistered = caught;
       const tile = el(
         "button",
         { type: "button", class: `species-tile${caught ? "" : " uncaught"}${selected ? " selected" : ""}` },
@@ -258,7 +277,40 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
 
         refreshBulkBar();
       });
-      grid.append(tile);
+
+      // A real sibling <button>, not nested inside the tile button — <button>
+      // can't validly contain other interactive content, and a nested
+      // focusable control is unreliable for keyboard/screen-reader users.
+      // Positioned on top of the tile purely via CSS instead.
+      const tileWrap = el("div", { class: "species-tile-wrap" }, [tile]);
+      if (!state.selectMode) {
+        const registeredToggle = el(
+          "button",
+          { type: "button", class: `registered-toggle${isRegistered ? " on" : ""}`, "aria-pressed": String(isRegistered), "aria-label": `Registered: ${isRegistered ? "on" : "off"}` },
+          [isRegistered ? "✓" : ""],
+        );
+        // Only interactive quick-toggle on the tile: Registered, the
+        // species-level catch flag. Shiny/lucky/etc (the read-only badges
+        // above) are per-form facts an any-form OR can't unambiguously write
+        // back to, so those stay display-only here — full editing happens on
+        // the detail page where a tile is one specific form.
+        registeredToggle.addEventListener("click", (e) => {
+          e.stopPropagation();
+          isRegistered = !isRegistered;
+          repo.setSpeciesPersonalField(species.slug, "registered", isRegistered);
+          registeredToggle.classList.toggle("on", isRegistered);
+          registeredToggle.textContent = isRegistered ? "✓" : "";
+          registeredToggle.setAttribute("aria-pressed", String(isRegistered));
+          registeredToggle.setAttribute("aria-label", `Registered: ${isRegistered ? "on" : "off"}`);
+          // Patches this tile in place rather than a full renderGrid() — if
+          // the current Caught/Uncaught filter would now exclude it, it
+          // stays visible until the next full requery (filter change or
+          // navigation) rather than paying for a full requery on every tap.
+          tile.classList.toggle("uncaught", !isRegistered);
+        });
+        tileWrap.append(registeredToggle);
+      }
+      grid.append(tileWrap);
     }
     container.append(grid);
   }

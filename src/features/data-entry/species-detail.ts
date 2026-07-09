@@ -1,8 +1,10 @@
 import { navigate, speciesDetailPath } from "../../app-shell/router";
-import type { Form, FormPersonal } from "../../db/types";
+import type { Form, FormPersonal, FormPersonalBooleanField } from "../../db/types";
 import type { Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
+import { speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
+import { INDICATOR_LABELS, getFormGridSecondField } from "./indicator-labels";
 
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
 
@@ -31,26 +33,28 @@ export function groupForms(forms: Form[], collapseGender: boolean): FormGroup[] 
   return [...groups.values()];
 }
 
-function groupIsCaught(group: FormGroup, formPersonalBySlug: Map<string, FormPersonal>): boolean {
-  return group.forms.every((f) => formPersonalBySlug.get(f.slug)?.caught);
+// A gender-collapsed group can be >1 form (male+female); "true for the
+// group" means true for every form in it, same convention the old per-group
+// fieldsets used for their checkbox state.
+function groupFieldAllTrue(group: FormGroup, formPersonalBySlug: Map<string, FormPersonal>, field: FormPersonalBooleanField): boolean {
+  return group.forms.every((f) => formPersonalBySlug.get(f.slug)?.[field]);
 }
 
 function domId(key: string): string {
   return `form-group-${key.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
 }
 
-// A species with many costumes/letters/formes (e.g. Pikachu's 188) can't
-// reasonably show every form group expanded at once — groups render as
-// collapsed-by-default <details>. This tracks which ones the user has
-// opened, keyed by species, so a toggle-triggered re-render (this module
-// re-renders the whole page on every checkbox change) doesn't re-collapse
-// sections the user just opened.
-const openGroupKeysBySpecies = new Map<string, Set<string>>();
+// Which form tiles are expanded-in-place (showing their full field list)
+// right now, keyed by species — persisted across the full-page rerenders
+// this module still does on every toggle, so expanding a tile doesn't get
+// silently re-collapsed by an unrelated state change.
+const expandedGroupKeysBySpecies = new Map<string, Set<string>>();
 
-// Same rerender-loses-local-state problem as the open/collapse tracking
-// above, for the form-name filter box below (high form-count species like
-// Pikachu's 188 are otherwise unsearchable).
+// Same rerender-loses-local-state problem as the expand tracking above, for
+// the form-name filter box (high form-count species like Pikachu's 188 are
+// otherwise unsearchable) and the per-species "Missing only" toggle.
 const formFilterBySpecies = new Map<string, string>();
+const missingOnlyBySpecies = new Map<string, boolean>();
 
 export function renderSpeciesDetail(container: HTMLElement, repo: Repository, speciesSlug: string, onBack: () => void) {
   clear(container);
@@ -71,6 +75,11 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   const header = el("div", { class: "detail-header" }, [
     backButton,
     prevButton,
+    // Species-level sprite only — per-form/costume art (e.g. a party-hat
+    // Bulbasaur) is the separate, already-scoped image-pipeline task
+    // (docs/v1-tasks/05-image-pipeline.md, §7), blocked on sourcing a
+    // costume-ID→name lookup that doesn't exist yet.
+    el("img", { class: "detail-hero-sprite", src: speciesSpritePath(species.dexNumber), alt: "", loading: "lazy" }),
     el("h2", {}, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
     nextButton,
   ]);
@@ -90,12 +99,12 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     collapseGender,
   );
 
-  let openKeys = openGroupKeysBySpecies.get(speciesSlug);
-  if (!openKeys) {
-    openKeys = new Set();
-    openGroupKeysBySpecies.set(speciesSlug, openKeys);
+  let expandedKeys = expandedGroupKeysBySpecies.get(speciesSlug);
+  if (!expandedKeys) {
+    expandedKeys = new Set();
+    expandedGroupKeysBySpecies.set(speciesSlug, expandedKeys);
   }
-  const openKeysForRender = openKeys;
+  const expandedKeysForRender = expandedKeys;
 
   const rerender = () => renderSpeciesDetail(container, repo, speciesSlug, onBack);
 
@@ -103,7 +112,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   const filterInput = el("input", {
     type: "search",
     class: "search-input form-filter-input",
-    placeholder: `Filter ${groups.length} forms by name…`,
+    placeholder: `Search ${groups.length} forms…`,
     value: filterText,
     "aria-label": "Filter forms by name",
   }) as HTMLInputElement;
@@ -116,71 +125,109 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     if (cursor !== null) newInput?.setSelectionRange(cursor, cursor);
   });
 
+  const missingOnly = missingOnlyBySpecies.get(speciesSlug) ?? false;
+  const missingChip = el(
+    "button",
+    { type: "button", class: `missing-chip${missingOnly ? " on" : ""}`, "aria-pressed": String(missingOnly) },
+    [`Missing only${missingOnly ? " ✓" : ""}`],
+  );
+  missingChip.addEventListener("click", () => {
+    missingOnlyBySpecies.set(speciesSlug, !missingOnly);
+    rerender();
+  });
+
+  const formToolbar = el("div", { class: "form-toolbar" }, [filterInput, missingChip]);
+
   const normalizedFilter = filterText.trim().toLowerCase();
   const matchesFilter = (group: FormGroup) => normalizedFilter === "" || group.label.toLowerCase().includes(normalizedFilter);
-  const visibleGroups = groups.filter(matchesFilter);
+  const secondField = getFormGridSecondField(repo);
+  const visibleGroups = groups.filter(matchesFilter).filter((g) => !missingOnly || !groupFieldAllTrue(g, formPersonalBySlug, "caught"));
 
-  // Compact overview grid: quick-scan caught status across every form group,
-  // and a shortcut to open/jump to one instead of scrolling past everything
-  // else in a long collapsed list.
-  const overview = el("div", { class: "form-overview-grid" });
-  for (const group of visibleGroups) {
-    const caught = groupIsCaught(group, formPersonalBySlug);
-    const tile = el("button", { type: "button", class: `form-overview-tile${caught ? " caught" : ""}` }, [group.label]);
-    tile.addEventListener("click", () => {
-      openKeysForRender.add(group.key);
-      rerender();
-      document.getElementById(domId(group.key))?.scrollIntoView({ block: "start", behavior: "smooth" });
-    });
-    overview.append(tile);
-  }
-
-  const formsContainer = el("div", { class: "forms-container" });
+  // Every form (Standard, Shadow, every costume) is one tile in a searchable
+  // grid — this is what actually holds up for a 150+-form species like
+  // Pikachu, where a scroll-and-hope accordion didn't. Caught + one
+  // configurable second achievement icon sit right on the tile (unambiguous
+  // here, unlike the Dex grid, since one tile really is one specific form/
+  // group); "⋯" expands that tile in place into its full field list without
+  // navigating anywhere else.
+  const formGrid = el("div", { class: "form-grid" });
   if (visibleGroups.length === 0) {
-    formsContainer.append(el("p", { class: "empty-state" }, ["No forms match that filter."]));
+    formGrid.append(el("p", { class: "empty-state" }, ["No forms match that filter."]));
   }
   for (const group of visibleGroups) {
-    const caught = groupIsCaught(group, formPersonalBySlug);
-    // While actively filtering, auto-open every match instead of requiring an
-    // extra tap — the user is specifically looking for this group.
-    const forceOpen = normalizedFilter !== "";
-    const details = el("details", { id: domId(group.key), class: "form-group" }) as HTMLDetailsElement;
-    details.open = forceOpen || openKeysForRender.has(group.key);
-    details.addEventListener("toggle", () => {
-      if (details.open) openKeysForRender.add(group.key);
-      else openKeysForRender.delete(group.key);
+    const caught = groupFieldAllTrue(group, formPersonalBySlug, "caught");
+    const secondOn = groupFieldAllTrue(group, formPersonalBySlug, secondField);
+    const isExpanded = expandedKeysForRender.has(group.key);
+
+    const caughtToggle = el(
+      "button",
+      { type: "button", class: `form-mini-toggle${caught ? " on" : ""}`, "aria-pressed": String(caught), "aria-label": `Caught: ${caught ? "on" : "off"}` },
+      [INDICATOR_LABELS.caught.badge],
+    );
+    caughtToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      for (const form of group.forms) repo.setFormPersonalField(form.slug, "caught", !caught);
+      rerender();
     });
 
-    const summary = el("summary", {}, [
-      el("span", { class: "form-group-label" }, [group.label]),
-      el("span", { class: `form-group-status${caught ? " caught" : ""}` }, [caught ? "✓" : ""]),
-    ]);
-    details.append(summary);
+    const secondToggle = el(
+      "button",
+      { type: "button", class: `form-mini-toggle${secondOn ? " on" : ""}`, "aria-pressed": String(secondOn), "aria-label": `${INDICATOR_LABELS[secondField].full}: ${secondOn ? "on" : "off"}` },
+      [INDICATOR_LABELS[secondField].badge],
+    );
+    secondToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      for (const form of group.forms) repo.setFormPersonalField(form.slug, secondField, !secondOn);
+      rerender();
+    });
 
-    for (const { title, fields, availableWhen } of FORM_FIELD_GROUPS) {
-      if (availableWhen && !group.forms.some(availableWhen)) continue;
-      const fieldset = el("fieldset", {}, [el("legend", {}, [title])]);
-      for (const { field, label } of fields) {
-        const allChecked = group.forms.every((f) => formPersonalBySlug.get(f.slug)?.[field]);
-        fieldset.append(
-          labeledToggle(label, allChecked, (checked) => {
-            for (const form of group.forms) {
-              repo.setFormPersonalField(form.slug, field, checked);
-            }
-            rerender();
-          }),
-        );
+    const tile = el(
+      "div",
+      { class: `form-tile${isExpanded ? " active-tile" : ""}`, role: "button", tabindex: "0", "aria-expanded": String(isExpanded), "aria-label": `${group.label}, ${isExpanded ? "collapse" : "expand"}` },
+      [
+        el("span", { class: "form-tile-more" }, ["⋯"]),
+        el("img", { class: "form-tile-sprite", src: speciesSpritePath(species.dexNumber), alt: "", loading: "lazy" }),
+        el("div", { class: "form-tile-name" }, [group.label]),
+        el("div", { class: "form-tile-icons" }, [caughtToggle, secondToggle]),
+      ],
+    );
+    const toggleExpanded = () => {
+      if (isExpanded) expandedKeysForRender.delete(group.key);
+      else expandedKeysForRender.add(group.key);
+      rerender();
+    };
+    tile.addEventListener("click", toggleExpanded);
+    tile.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleExpanded();
       }
-      details.append(fieldset);
+    });
+    formGrid.append(tile);
+
+    if (isExpanded) {
+      const panel = el("div", { class: "form-expanded-panel", id: domId(group.key) }, [
+        el("div", { class: "form-expanded-title" }, [group.label]),
+      ]);
+      for (const { title, fields, availableWhen } of FORM_FIELD_GROUPS) {
+        if (availableWhen && !group.forms.some(availableWhen)) continue;
+        const fieldset = el("fieldset", {}, [el("legend", {}, [title])]);
+        for (const { field, label } of fields) {
+          const allChecked = groupFieldAllTrue(group, formPersonalBySlug, field);
+          fieldset.append(
+            labeledToggle(label, allChecked, (checked) => {
+              for (const form of group.forms) {
+                repo.setFormPersonalField(form.slug, field, checked);
+              }
+              rerender();
+            }),
+          );
+        }
+        panel.append(fieldset);
+      }
+      formGrid.append(panel);
     }
-    formsContainer.append(details);
   }
 
-  container.append(header, speciesFieldset);
-  // Only worth showing for species with enough forms that scanning them all
-  // isn't trivial — most species have a handful, a few (Pikachu, Unown,
-  // Vivillon, ...) have dozens to hundreds.
-  const FORM_FILTER_THRESHOLD = 8;
-  if (groups.length > FORM_FILTER_THRESHOLD) container.append(filterInput);
-  container.append(overview, formsContainer);
+  container.append(header, speciesFieldset, formToolbar, formGrid);
 }

@@ -1,18 +1,19 @@
 import { renderBootFailureRescue } from "./app-shell/boot-failure-rescue";
-import { renderHeader } from "./app-shell/header";
-import { renderNavDrawer } from "./app-shell/nav-drawer";
+import { renderHeader, updateFilterBadge } from "./app-shell/header";
+import { renderMoreList, renderSidebar, renderTabBar } from "./app-shell/nav-drawer";
 import { parseRoute, speciesDetailPath } from "./app-shell/router";
 import { applyTheme, getThemePreference } from "./app-shell/theme";
 import { mountWriteFailureBanner, reportWriteFailure } from "./app-shell/write-failure-banner";
 import { createSqliteRepository } from "./data/sqlite-repository";
-import type { Repository } from "./data/repository";
+import type { Repository, GridFilterField } from "./data/repository";
 import { renderSpeciesDetail } from "./features/data-entry/species-detail";
-import { renderSpeciesGrid, type GridState } from "./features/data-entry/species-grid";
+import { renderSpeciesGrid, renderFilterSheetContent, countActiveFilters, type GridState, type GridCallbacks } from "./features/data-entry/species-grid";
 import { renderBulkFormEditPage } from "./features/data-entry/bulk-form-edit";
 import { renderCoverageReportPage } from "./features/coverage-report/coverage-report-page";
 import { renderSettingsPage } from "./features/settings/settings-page";
 import { renderStatsPage } from "./features/stats/stats-page";
 import { renderAchievementsPage, renderSearchToolsPage, renderXpAssistantPage } from "./features/stubs";
+import { createOverlayPanel, bindEscapeToClose } from "./ui/overlay-panel";
 import { el } from "./ui/dom";
 
 const app = document.getElementById("app")!;
@@ -34,11 +35,27 @@ createSqliteRepository(reportWriteFailure)
 function bootstrap(repo: Repository) {
   applyTheme(getThemePreference(repo));
 
+  // Sidebar (>=720px) and tab bar (<720px) are both always rendered — which
+  // one is visible is pure CSS (@media), so there's no resize listener or
+  // layout-mode JS branching needed. The "More" flyout only ever gets opened
+  // from the tab bar (the sidebar shows every item, nothing to fold away).
+  const sidebarEl = el("nav", { class: "sidebar-nav" });
   const headerEl = el("header", { class: "app-header" });
-  const drawerEl = el("nav", { class: "nav-drawer", inert: "" });
-  const scrimEl = el("div", { class: "nav-scrim" });
   const contentEl = el("main", { class: "app-content" });
-  app.append(headerEl, drawerEl, scrimEl, contentEl);
+  const mainWrap = el("div", { class: "app-main" }, [headerEl, contentEl]);
+  const tabBarEl = el("nav", { class: "tab-bar" });
+  const moreDrawerEl = el("nav", { class: "nav-drawer more-drawer", inert: "" });
+  // "more-scrim" (in addition to nav-scrim) so the desktop sidebar CSS can
+  // hide this one specifically without also hiding the filter sheet's
+  // click-outside catcher, which is a plain .nav-scrim too and needs to
+  // stay clickable (just invisible) at that width.
+  const moreScrimEl = el("div", { class: "nav-scrim more-scrim" });
+  // Filter sheet (grid) / anchored panel (>=720px) — same pattern as the
+  // More flyout, lives outside contentEl so the grid's own clear()-and-rebuild
+  // cycle on every filter interaction never touches it.
+  const filterSheetEl = el("div", { class: "filter-sheet", inert: "" });
+  const filterScrimEl = el("div", { class: "nav-scrim" });
+  app.append(sidebarEl, mainWrap, tabBarEl, moreDrawerEl, moreScrimEl, filterSheetEl, filterScrimEl);
 
   const gridState: GridState = {
     filterText: "",
@@ -51,122 +68,105 @@ function bootstrap(repo: Repository) {
     bulkField: "registered",
     bulkValue: true,
   };
-  let drawerOpen = false;
 
-  function setDrawerOpen(open: boolean) {
-    const wasOpen = drawerOpen;
-    drawerOpen = open;
-    drawerEl.classList.toggle("open", drawerOpen);
-    scrimEl.classList.toggle("open", drawerOpen);
-    headerEl.querySelector<HTMLElement>(".hamburger-button")?.setAttribute("aria-expanded", String(drawerOpen));
-
-    if (drawerOpen) {
-      drawerEl.removeAttribute("inert");
-      drawerEl.querySelector<HTMLElement>(".nav-item")?.focus();
-    } else {
-      drawerEl.setAttribute("inert", "");
-      // Only steal focus back when we're actually closing an open drawer
-      // (Escape/scrim/nav-item click) — not on every route's hashchange,
-      // which calls this unconditionally even when the drawer was never open.
-      if (wasOpen) headerEl.querySelector<HTMLElement>(".hamburger-button")?.focus();
-    }
-  }
-
-  scrimEl.addEventListener("click", () => setDrawerOpen(false));
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && drawerOpen) setDrawerOpen(false);
-  });
+  // Created once against stable containers — renderTabBar rebuilds the
+  // button elements inside tabBarEl on every render(), so the trigger is
+  // looked up fresh each time (see createOverlayPanel's getTrigger param)
+  // rather than captured here.
+  const morePanel = createOverlayPanel(moreDrawerEl, moreScrimEl, () => tabBarEl.querySelector<HTMLElement>(".tab-item[aria-haspopup]"));
+  const filterPanel = createOverlayPanel(filterSheetEl, filterScrimEl, () => headerEl.querySelector<HTMLElement>(".filter-icon-button"));
+  bindEscapeToClose(morePanel, filterPanel);
 
   function render() {
     const route = parseRoute(location.hash);
 
-    renderNavDrawer(drawerEl, route.name, () => setDrawerOpen(false));
+    renderSidebar(sidebarEl, route.name, () => {});
+    renderTabBar(tabBarEl, route.name, () => morePanel.close(), () => morePanel.open());
+    renderMoreList(moreDrawerEl, route.name, () => morePanel.close());
 
     if (route.name === "data-entry-grid") {
-      const renderGrid = () =>
-        renderSpeciesGrid(contentEl, repo, gridState, {
-          onSelectSpecies: (slug) => {
-            location.hash = speciesDetailPath(slug);
-          },
-          onCaughtFilterChange: (value) => {
-            gridState.caughtFilter = value;
-            renderGrid();
-          },
-          onToggleRegion: (regionSlug) => {
-            if (gridState.collapsedRegions.has(regionSlug)) gridState.collapsedRegions.delete(regionSlug);
-            else gridState.collapsedRegions.add(regionSlug);
-            renderGrid();
-          },
-          onCycleFieldFilter: (field) => {
-            const current = gridState.fieldFilters[field];
-            if (current === undefined) gridState.fieldFilters[field] = "include";
-            else if (current === "include") gridState.fieldFilters[field] = "exclude";
-            else delete gridState.fieldFilters[field];
-            renderGrid();
-          },
-          onToggleMoreFilters: () => {
-            gridState.moreFiltersOpen = !gridState.moreFiltersOpen;
-            renderGrid();
-          },
-          onToggleSelectMode: () => {
-            gridState.selectMode = !gridState.selectMode;
-            if (!gridState.selectMode) gridState.selectedSpecies.clear();
-            renderGrid();
-          },
-          onBulkFieldChange: (field) => {
-            gridState.bulkField = field;
-            renderGrid();
-          },
-          onBulkValueChange: (value) => {
-            gridState.bulkValue = value;
-            renderGrid();
-          },
-          onApplyBulk: () => {
-            const slugs = [...gridState.selectedSpecies];
-            if (slugs.length === 0) return;
-            void repo.bulkSetSpeciesPersonalField(slugs, gridState.bulkField, gridState.bulkValue).then(() => {
-              gridState.selectedSpecies.clear();
-              renderGrid();
-            });
-          },
-          onClearSelection: () => {
+      const renderGrid = () => {
+        renderSpeciesGrid(contentEl, repo, gridState, gridCallbacks);
+        renderFilterSheetContent(filterSheetEl, repo, gridState, gridCallbacks);
+        updateFilterBadge(headerEl, countActiveFilters(gridState));
+      };
+      const gridCallbacks: GridCallbacks = {
+        onSelectSpecies: (slug: string) => {
+          location.hash = speciesDetailPath(slug);
+        },
+        onCaughtFilterChange: (value: GridState["caughtFilter"]) => {
+          gridState.caughtFilter = value;
+          renderGrid();
+        },
+        onToggleRegion: (regionSlug: string) => {
+          if (gridState.collapsedRegions.has(regionSlug)) gridState.collapsedRegions.delete(regionSlug);
+          else gridState.collapsedRegions.add(regionSlug);
+          renderGrid();
+        },
+        onCycleFieldFilter: (field: GridFilterField) => {
+          const current = gridState.fieldFilters[field];
+          if (current === undefined) gridState.fieldFilters[field] = "include";
+          else if (current === "include") gridState.fieldFilters[field] = "exclude";
+          else delete gridState.fieldFilters[field];
+          renderGrid();
+        },
+        onToggleMoreFilters: () => {
+          gridState.moreFiltersOpen = !gridState.moreFiltersOpen;
+          renderGrid();
+        },
+        onToggleSelectMode: () => {
+          gridState.selectMode = !gridState.selectMode;
+          if (!gridState.selectMode) gridState.selectedSpecies.clear();
+          renderGrid();
+        },
+        onBulkFieldChange: (field: GridState["bulkField"]) => {
+          gridState.bulkField = field;
+          renderGrid();
+        },
+        onBulkValueChange: (value: boolean) => {
+          gridState.bulkValue = value;
+          renderGrid();
+        },
+        onApplyBulk: () => {
+          const slugs = [...gridState.selectedSpecies];
+          if (slugs.length === 0) return;
+          void repo.bulkSetSpeciesPersonalField(slugs, gridState.bulkField, gridState.bulkValue).then(() => {
             gridState.selectedSpecies.clear();
             renderGrid();
-          },
-        });
-
-      renderHeader(
-        headerEl,
-        {
-          kind: "filter",
-          value: gridState.filterText,
-          onChange: (v) => {
-            gridState.filterText = v;
-            renderGrid();
-          },
+          });
         },
-        () => setDrawerOpen(!drawerOpen),
-        drawerOpen,
-      );
+        onClearSelection: () => {
+          gridState.selectedSpecies.clear();
+          renderGrid();
+        },
+      };
+
+      renderHeader(headerEl, {
+        kind: "filter",
+        value: gridState.filterText,
+        onChange: (v) => {
+          gridState.filterText = v;
+          renderGrid();
+        },
+        filterButton: {
+          activeCount: countActiveFilters(gridState),
+          onClick: () => filterPanel.toggle(),
+        },
+      });
       renderGrid();
     } else if (route.name === "data-entry-detail") {
-      renderHeader(
-        headerEl,
-        {
-          kind: "jump",
-          repo,
-          onSelect: (slug) => {
-            location.hash = speciesDetailPath(slug);
-          },
+      renderHeader(headerEl, {
+        kind: "jump",
+        repo,
+        onSelect: (slug) => {
+          location.hash = speciesDetailPath(slug);
         },
-        () => setDrawerOpen(!drawerOpen),
-        drawerOpen,
-      );
+      });
       renderSpeciesDetail(contentEl, repo, route.speciesSlug, () => {
         location.hash = "/data-entry";
       });
     } else {
-      renderHeader(headerEl, { kind: "none" }, () => setDrawerOpen(!drawerOpen), drawerOpen);
+      renderHeader(headerEl, { kind: "none" });
       switch (route.name) {
         case "bulk-form-edit":
           renderBulkFormEditPage(contentEl, repo);
@@ -194,7 +194,8 @@ function bootstrap(repo: Repository) {
   }
 
   window.addEventListener("hashchange", () => {
-    setDrawerOpen(false);
+    morePanel.close();
+    filterPanel.close();
     window.scrollTo(0, 0);
     render();
   });
