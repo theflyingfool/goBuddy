@@ -225,7 +225,10 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
         }
 
         if (rows.length === 0) continue;
-        const card = el("div", { class: "bulk-species-card" }, [el("div", { class: "bulk-species-name" }, [`#${species.dexNumber} ${species.name}`]), ...rows]);
+        const card = el("div", { class: "bulk-species-card" }, [
+          el("div", { class: "bulk-species-name" }, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
+          ...rows,
+        ]);
         listContainer.append(card);
       }
 

@@ -1,11 +1,127 @@
+/* ==========================================================================
+   Design tokens — "Night Studio": dark-first ink-blue/teal palette carried
+   by a restrained, modern layout system (soft 10px radii, hairline borders,
+   sentence-case type, monospace only for actual numeric data). Light is a
+   genuine second theme, not an inversion — both are hand-tuned.
+
+   Precedence: @media (prefers-color-scheme) sets the OS-driven default;
+   :root[data-theme] (stamped by the in-app Settings toggle) overrides it in
+   either direction. Components read tokens only, never raw colors.
+   ========================================================================== */
+
 :root {
   color-scheme: light dark;
   font-family: system-ui, sans-serif;
+
+  --bg: #eef2f4;
+  --surface: #ffffff;
+  --surface-2: #e4eaed;
+  --ink: #12181f;
+  --muted: #5c6b78;
+  --line: #dbe3e7;
+  --accent: #0b756c;
+  --on-accent: #eafdfb;
+
+  /* Positive/negative are self-contained filled controls (fixed fill + text
+     pair, contrast-checked against each other) — theme-independent, since the
+     button's own background makes the surrounding page bg irrelevant. */
+  --positive: #15803d;
+  --on-positive: #ffffff;
+  --negative: #dc2626;
+  --on-negative: #ffffff;
+  /* ...but plain colored text (no fill box) reads against the page/card
+     surface directly, so it does need a theme-tuned variant. */
+  --positive-text: #15803d;
+
+  --radius-xs: 4px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+
+  --accent-wash: color-mix(in srgb, var(--accent) 14%, transparent);
+  --overlay: color-mix(in srgb, var(--ink) 7%, transparent);
+  --overlay-strong: color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c1220;
+    --surface: #131b2c;
+    --surface-2: #1a2436;
+    --ink: #e4ebf4;
+    --muted: #7d8b9a;
+    --line: #232f42;
+    --accent: #3fd1c4;
+    --on-accent: #062522;
+    --positive-text: #34d399;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c1220;
+  --surface: #131b2c;
+  --surface-2: #1a2436;
+  --ink: #e4ebf4;
+  --muted: #7d8b9a;
+  --line: #232f42;
+  --accent: #3fd1c4;
+  --on-accent: #062522;
+  --positive-text: #34d399;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef2f4;
+  --surface: #ffffff;
+  --surface-2: #e4eaed;
+  --ink: #12181f;
+  --muted: #5c6b78;
+  --line: #dbe3e7;
+  --accent: #0b756c;
+  --on-accent: #eafdfb;
+  --positive-text: #15803d;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  margin: 0 0 0.5rem;
+}
+
+fieldset {
+  border-color: var(--line);
+}
+
+legend {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.dex-num {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
 #app {
@@ -14,6 +130,15 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Phones stay a comfortable single-reading-column width (480px is already
+   wider than any phone viewport, so this is a no-op there); tablets and up
+   get to actually use the screen instead of a narrow centered strip. */
+@media (min-width: 720px) {
+  #app {
+    max-width: min(1100px, 94vw);
+  }
 }
 
 /* ---- Header ---- */
@@ -26,16 +151,17 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem;
-  background: canvas;
-  border-bottom: 1px solid #8886;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .hamburger-button {
   font-size: 1.3rem;
   padding: 0.4rem 0.7rem;
   background: none;
-  border: 1px solid #8886;
-  border-radius: 6px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -49,8 +175,10 @@ body {
   box-sizing: border-box;
   padding: 0.6rem 0.7rem;
   font-size: 1rem;
-  border: 1px solid #8886;
-  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 
 .jump-results {
@@ -61,9 +189,9 @@ body {
   margin: 0;
   padding: 0;
   list-style: none;
-  background: canvas;
-  border: 1px solid #8886;
-  border-radius: 0 0 6px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   max-height: 60vh;
   overflow-y: auto;
   z-index: 20;
@@ -75,8 +203,9 @@ body {
   text-align: left;
   padding: 0.6rem 0.7rem;
   background: none;
+  color: var(--ink);
   border: none;
-  border-bottom: 1px solid #8883;
+  border-bottom: 1px solid var(--line);
   font-size: 1rem;
 }
 
@@ -89,8 +218,8 @@ body {
   left: 0;
   width: 260px;
   max-width: 80vw;
-  background: canvas;
-  border-right: 1px solid #8886;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
   padding: 1rem;
   box-sizing: border-box;
   transform: translateX(-100%);
@@ -134,14 +263,16 @@ body {
   text-align: left;
   padding: 0.75rem 0.5rem;
   font-size: 1.05rem;
+  color: var(--ink);
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .nav-item-current {
   font-weight: bold;
-  background: #8882;
+  color: var(--accent);
+  background: var(--accent-wash);
 }
 
 .nav-item-muted {
@@ -158,7 +289,7 @@ body {
 .empty-state,
 .stub-message,
 .app-loading {
-  color: #888;
+  color: var(--muted);
   padding: 1rem 0.5rem;
 }
 
@@ -199,34 +330,35 @@ body {
 .filter-chip {
   padding: 0.4rem 0.9rem;
   font-size: 0.9rem;
-  border: 1px solid #8886;
-  border-radius: 999px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
   background: none;
 }
 
 .filter-chip-active {
-  background: #2563eb;
-  color: white;
-  border-color: #2563eb;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
 }
 
 .filter-chip-include {
-  background: #16a34a;
-  color: white;
-  border-color: #16a34a;
+  background: var(--positive);
+  color: var(--on-positive);
+  border-color: var(--positive);
 }
 
 .filter-chip-exclude {
-  background: #dc2626;
-  color: white;
-  border-color: #dc2626;
+  background: var(--negative);
+  color: var(--on-negative);
+  border-color: var(--negative);
 }
 
 .more-filters-toggle {
   display: block;
   padding: 0.3rem 0.25rem;
   font-size: 0.85rem;
-  color: #888;
+  color: var(--muted);
   background: none;
   border: none;
 }
@@ -238,16 +370,18 @@ body {
   width: 100%;
   padding: 0.6rem 0.25rem;
   font-size: 1.1rem;
-  font-weight: bold;
+  font-weight: 650;
+  color: var(--ink);
   background: none;
   border: none;
-  border-bottom: 1px solid #8886;
+  border-bottom: 1px solid var(--line);
   margin-top: 0.5rem;
 }
 
 .region-collapse-caret {
   font-size: 0.8em;
   width: 1em;
+  color: var(--muted);
 }
 
 .species-grid {
@@ -263,9 +397,10 @@ body {
   align-items: center;
   gap: 0.15rem;
   padding: 0.5rem 0.25rem;
-  background: none;
-  border: 1px solid #8883;
-  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   position: relative;
 }
 
@@ -290,8 +425,9 @@ body {
 }
 
 .badge {
-  background: canvas;
-  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--ink);
+  border-radius: var(--radius-xs);
   padding: 1px 2px;
 }
 
@@ -320,6 +456,10 @@ body {
 .nav-chevron {
   padding: 0.5rem 0.75rem;
   font-size: 1rem;
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 
 .nav-chevron:disabled {
@@ -328,7 +468,7 @@ body {
 
 fieldset {
   margin: 0.5rem 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .form-overview-grid {
@@ -343,21 +483,22 @@ fieldset {
   font-size: 0.8rem;
   line-height: 1.2;
   text-align: center;
+  color: var(--ink);
   background: none;
-  border: 1px solid #8883;
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   opacity: 0.6;
 }
 
 .form-overview-tile.caught {
   opacity: 1;
-  border-color: #2563eb;
-  background: #2563eb22;
+  border-color: var(--accent);
+  background: var(--accent-wash);
 }
 
 .form-group {
   margin-bottom: 0.75rem;
-  border-top: 2px solid #8886;
+  border-top: 2px solid var(--line);
   padding-top: 0.25rem;
 }
 
@@ -368,17 +509,17 @@ fieldset {
   gap: 0.5rem;
   padding: 0.6rem 0.25rem;
   font-size: 1.05rem;
-  font-weight: bold;
+  font-weight: 650;
   cursor: pointer;
 }
 
 .form-group-status {
   font-size: 0.9rem;
-  color: #8888;
+  color: var(--muted);
 }
 
 .form-group-status.caught {
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .toggle-row {
@@ -414,7 +555,7 @@ fieldset {
 
 .gap-note {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--muted);
 }
 
 /* ---- Stats ---- */
@@ -434,11 +575,11 @@ fieldset {
   padding: 0.4rem 0.6rem;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 1px solid #8883;
+  border-bottom: 1px solid var(--line);
 }
 
 .stats-row-label {
-  font-weight: bold;
+  font-weight: 650;
 }
 
 .stats-cell {
@@ -450,19 +591,25 @@ fieldset {
   border: none;
   text-align: left;
   font-size: 0.85rem;
+  color: var(--ink);
 }
 
 .stats-cell-bar {
   width: 80px;
   height: 6px;
-  background: #8883;
-  border-radius: 3px;
+  background: var(--surface-2);
+  border-radius: var(--radius-xs);
   overflow: hidden;
 }
 
 .stats-cell-fill {
   height: 100%;
-  background: #2563eb;
+  background: var(--accent);
+}
+
+.stats-cell-text {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .stats-detail {
@@ -471,13 +618,13 @@ fieldset {
 }
 
 .stats-missing-list {
-  color: #888;
+  color: var(--muted);
 }
 
 .stats-more-lenses summary {
   padding: 0.4rem 0.25rem;
   font-size: 0.9rem;
-  color: #888;
+  color: var(--muted);
   cursor: pointer;
 }
 
@@ -494,13 +641,13 @@ fieldset {
 .grid-select-hint,
 .bulk-gating-note {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--muted);
 }
 
 .species-tile.selected {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
-  background: #2563eb18;
+  background: var(--accent-wash);
 }
 
 .select-check {
@@ -509,18 +656,19 @@ fieldset {
   left: 2px;
   width: 1.15rem;
   height: 1.15rem;
-  border: 1px solid #8888;
-  border-radius: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   font-size: 0.85rem;
   line-height: 1.15rem;
   text-align: center;
-  background: canvas;
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .select-check.on {
-  background: #2563eb;
-  color: white;
-  border-color: #2563eb;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
 }
 
 .bulk-action-bar {
@@ -530,20 +678,20 @@ fieldset {
   gap: 0.5rem;
   padding: 0.6rem;
   margin: 0.4rem 0;
-  border: 1px solid #8886;
-  border-radius: 10px;
-  background: #8881;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
   position: sticky;
   top: 0;
   z-index: 2;
 }
 
 .bulk-count {
-  font-weight: bold;
+  font-weight: 650;
 }
 
 .bulk-set-label {
-  color: #888;
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
@@ -552,9 +700,10 @@ fieldset {
 .bulk-region-select,
 .bulk-search {
   padding: 0.4rem 0.5rem;
-  border: 1px solid #8886;
-  border-radius: 8px;
-  background: canvas;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   font-size: 0.9rem;
 }
 
@@ -566,21 +715,22 @@ fieldset {
 .bulk-apply-button {
   padding: 0.45rem 0.9rem;
   border: none;
-  border-radius: 999px;
-  background: #16a34a;
-  color: white;
-  font-weight: bold;
+  border-radius: var(--radius-pill);
+  background: var(--positive);
+  color: var(--on-positive);
+  font-weight: 650;
 }
 
 .bulk-apply-button:disabled {
-  background: #8885;
-  color: #ccc;
+  background: var(--overlay-strong);
+  color: var(--muted);
 }
 
 .bulk-clear-button {
   padding: 0.45rem 0.9rem;
-  border: 1px solid #8886;
-  border-radius: 999px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
   background: none;
 }
 
@@ -608,14 +758,15 @@ fieldset {
 }
 
 .bulk-species-card {
-  border: 1px solid #8883;
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   padding: 0.4rem 0.6rem;
   margin-bottom: 0.5rem;
+  background: var(--surface);
 }
 
 .bulk-species-name {
-  font-weight: bold;
+  font-weight: 650;
   font-size: 0.9rem;
   margin-bottom: 0.2rem;
 }
@@ -626,8 +777,8 @@ fieldset {
 }
 
 .bulk-current {
-  color: #16a34a;
-  font-weight: bold;
+  color: var(--positive-text);
+  font-weight: 650;
   margin-left: auto;
 }
 
@@ -640,9 +791,16 @@ fieldset {
 .bulk-truncation-note,
 .page-intro {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--muted);
 }
 
 .page-title {
   margin: 0.25rem 0;
+}
+
+/* ---- Settings: theme picker ---- */
+
+.theme-options {
+  display: flex;
+  gap: 0.4rem;
 }

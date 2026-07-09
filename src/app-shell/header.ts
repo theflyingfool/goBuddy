@@ -36,7 +36,8 @@ export function renderHeader(container: HTMLElement, mode: HeaderMode, onHamburg
       const matches = mode.repo.searchSpecies(input.value);
       for (const species of matches) {
         const button = el("button", { type: "button", class: "jump-result" }, [
-          `#${species.dexNumber} ${species.name}`,
+          el("span", { class: "dex-num" }, [`#${species.dexNumber}`]),
+          ` ${species.name}`,
         ]);
         button.addEventListener("click", () => {
           input.value = "";

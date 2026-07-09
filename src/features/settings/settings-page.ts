@@ -1,15 +1,43 @@
 import { MAX_GRID_INDICATORS, type Repository } from "../../data/repository";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../../db/schema";
+import { type ThemePreference, getThemePreference, setThemePreference } from "../../app-shell/theme";
 import { clear, el, labeledToggle } from "../../ui/dom";
 import { INDICATOR_LABELS, INDICATOR_OPTIONS } from "../data-entry/indicator-labels";
 import { exportPersonalData, readPersonalDataFile } from "./personal-data-transfer";
 
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
 
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
 export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   clear(container);
 
   const heading = el("h2", {}, ["Settings"]);
+
+  const appearanceFieldset = el("fieldset", {}, [el("legend", {}, ["Appearance"])]);
+  const themeOptions = el("div", { class: "theme-options" });
+  function renderThemeOptions() {
+    clear(themeOptions);
+    const current = getThemePreference(repo);
+    for (const option of THEME_OPTIONS) {
+      const button = el(
+        "button",
+        { type: "button", class: `filter-chip${current === option.value ? " filter-chip-active" : ""}` },
+        [option.label],
+      );
+      button.addEventListener("click", () => {
+        setThemePreference(repo, option.value);
+        renderThemeOptions();
+      });
+      themeOptions.append(button);
+    }
+  }
+  renderThemeOptions();
+  appearanceFieldset.append(themeOptions);
 
   const collapseFieldset = el("fieldset", {}, [el("legend", {}, ["Display"])]);
   collapseFieldset.append(
@@ -111,5 +139,5 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
 
   dataFieldset.append(exportButton, importLabel, statusEl);
 
-  container.append(heading, collapseFieldset, indicatorFieldset, dataFieldset);
+  container.append(heading, appearanceFieldset, collapseFieldset, indicatorFieldset, dataFieldset);
 }
