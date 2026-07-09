@@ -9,10 +9,22 @@ that file (or a friend's trust in it) can currently be lost.*
 - [ ] **D4**: decide keystore backup location, then generate a dedicated
   release keystore, add `signingConfigs.release` to `android/app/build.gradle`,
   switch the build to `assembleRelease`. Back it up in ≥2 places.
-- [ ] Boot-failure rescue screen: on any DB-open/sync/migration error
+- [x] Boot-failure rescue screen: on any DB-open/sync/migration error
   (`src/main.ts`'s "Couldn't open the on-device database" path), still offer a
   raw "export personal data" action that reads the personal tables directly,
-  bypassing the failed boot path.
+  bypassing the failed boot path. Split into `src/data/boot-rescue-read.ts`
+  (pure, no jeep-sqlite dependency — table-by-table best-effort read, so one
+  unreadable table doesn't sink the whole rescue) and
+  `src/data/boot-rescue.ts` (wraps it with the real `getDb()`, returning
+  `null` only if the connection itself won't open) +
+  `src/app-shell/boot-failure-rescue.ts` (the UI). Reads the DB's actual
+  stored `schema_version` rather than assuming `CURRENT_PERSONAL_SCHEMA_VERSION`,
+  since a partial/failed migration is exactly the scenario this exists for.
+  Reuses the existing `PersonalDataExport` shape/Settings import path rather
+  than inventing a new format. Verified with a `node:sqlite` fixture across
+  4 scenarios: normal populated DB, missing `schema_version` table, missing
+  `form_personal` table entirely, and a completely empty (no tables) DB —
+  all recovered whatever was readable without throwing.
 - [x] Reference-sync orphan quarantine: in `src/db/reference-sync.ts`, detect
   personal rows whose slug no longer resolves after reference tables are
   recreated, and move them to a quarantine table instead of letting the

@@ -1,3 +1,4 @@
+import { renderBootFailureRescue } from "./app-shell/boot-failure-rescue";
 import { renderHeader } from "./app-shell/header";
 import { renderNavDrawer } from "./app-shell/nav-drawer";
 import { parseRoute, speciesDetailPath } from "./app-shell/router";
@@ -25,7 +26,8 @@ createSqliteRepository(reportWriteFailure)
   })
   .catch((err) => {
     console.error("Failed to open the on-device database:", err);
-    loadingEl.textContent = "Couldn't open the on-device database. Try reloading.";
+    loadingEl.remove();
+    renderBootFailureRescue(app, err);
   });
 
 function bootstrap(repo: Repository) {
