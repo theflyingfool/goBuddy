@@ -199,7 +199,10 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
             alt: species.name,
             loading: "lazy",
           }),
-          el("div", { class: "tile-label" }, [`#${species.dexNumber} ${species.name}`]),
+          el("div", { class: "tile-label" }, [
+            el("span", { class: "dex-num" }, [`#${species.dexNumber}`]),
+            ` ${species.name}`,
+          ]),
         ],
       );
       tile.addEventListener("click", () => {

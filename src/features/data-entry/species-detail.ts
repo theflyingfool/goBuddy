@@ -66,7 +66,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   const header = el("div", { class: "detail-header" }, [
     backButton,
     prevButton,
-    el("h2", {}, [`#${species.dexNumber} ${species.name}`]),
+    el("h2", {}, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
     nextButton,
   ]);
 

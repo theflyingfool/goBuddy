@@ -2,6 +2,7 @@ import { renderBootFailureRescue } from "./app-shell/boot-failure-rescue";
 import { renderHeader } from "./app-shell/header";
 import { renderNavDrawer } from "./app-shell/nav-drawer";
 import { parseRoute, speciesDetailPath } from "./app-shell/router";
+import { applyTheme, getThemePreference } from "./app-shell/theme";
 import { mountWriteFailureBanner, reportWriteFailure } from "./app-shell/write-failure-banner";
 import { createSqliteRepository } from "./data/sqlite-repository";
 import type { Repository } from "./data/repository";
@@ -31,6 +32,8 @@ createSqliteRepository(reportWriteFailure)
   });
 
 function bootstrap(repo: Repository) {
+  applyTheme(getThemePreference(repo));
+
   const headerEl = el("header", { class: "app-header" });
   const drawerEl = el("nav", { class: "nav-drawer" });
   const scrimEl = el("div", { class: "nav-scrim" });
