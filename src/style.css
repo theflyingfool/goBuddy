@@ -132,12 +132,22 @@ input[type="checkbox"] {
   flex-direction: column;
 }
 
+.app-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
 /* Phones stay a comfortable single-reading-column width (480px is already
    wider than any phone viewport, so this is a no-op there); tablets and up
-   get to actually use the screen instead of a narrow centered strip. */
+   get to actually use the screen instead of a narrow centered strip, and the
+   bottom tab bar becomes a persistent left sidebar instead. */
 @media (min-width: 720px) {
   #app {
     max-width: min(1100px, 94vw);
+    flex-direction: row;
+    align-items: stretch;
   }
 }
 
@@ -155,19 +165,44 @@ input[type="checkbox"] {
   border-bottom: 1px solid var(--line);
 }
 
-.hamburger-button {
-  font-size: 1.3rem;
-  padding: 0.4rem 0.7rem;
-  background: none;
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-}
-
 .header-search {
   position: relative;
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-search .search-input {
+  flex: 1;
+}
+
+.filter-icon-button {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  font-size: 1.05rem;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-icon-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.6rem;
+  line-height: 1.3;
+  border-radius: var(--radius-pill);
+  padding: 0 0.35rem;
 }
 
 .search-input {
@@ -258,7 +293,9 @@ input[type="checkbox"] {
 }
 
 .nav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   width: 100%;
   text-align: left;
   padding: 0.75rem 0.5rem;
@@ -267,6 +304,11 @@ input[type="checkbox"] {
   background: none;
   border: none;
   border-radius: var(--radius-sm);
+}
+
+.nav-item-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
 .nav-item-current {
@@ -279,11 +321,85 @@ input[type="checkbox"] {
   opacity: 0.5;
 }
 
+.nav-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 0.5rem 0.25rem;
+  list-style: none;
+}
+
+/* ---- Sidebar nav (>=720px) ---- */
+
+.sidebar-nav {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .sidebar-nav {
+    display: block;
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 1rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+
+  .tab-bar,
+  .more-drawer,
+  .nav-scrim {
+    display: none !important;
+  }
+}
+
+/* ---- Tab bar (<720px) ---- */
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.tab-item {
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.25rem 0.7rem;
+  border-radius: 0;
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.tab-item .nav-item-icon {
+  font-size: 1.25rem;
+}
+
+.tab-item.nav-item-current {
+  background: none;
+}
+
 /* ---- Content ---- */
 
 .app-content {
   flex: 1;
   padding: 0.5rem;
+  /* Clears the fixed tab bar (~64px) so the last row of content isn't
+     covered by it; the tab bar itself is display:none at this width so
+     this rule is scoped to the same breakpoint via the override below. */
+  padding-bottom: calc(0.5rem + 64px);
+}
+
+@media (min-width: 720px) {
+  .app-content {
+    padding-bottom: 0.5rem;
+  }
 }
 
 .empty-state,
@@ -316,6 +432,65 @@ input[type="checkbox"] {
   border-radius: 6px;
   background: none;
   color: inherit;
+}
+
+/* ---- Filter sheet / anchored panel ---- */
+
+.filter-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 75vh;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 1rem 1rem 1.5rem;
+  box-sizing: border-box;
+  transform: translateY(100%);
+  transition: transform 0.2s ease;
+  z-index: 30;
+  overflow-y: auto;
+}
+
+.filter-sheet.open {
+  transform: translateY(0);
+}
+
+.filter-sheet-title {
+  margin: 0 0 0.5rem;
+}
+
+@media (min-width: 720px) {
+  .filter-sheet {
+    left: auto;
+    right: 1rem;
+    bottom: auto;
+    top: 4.2rem;
+    width: 320px;
+    max-height: 70vh;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 34px -14px rgba(0, 0, 0, 0.5);
+    transform: translateY(-8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .filter-sheet.open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* The filter panel is a small anchored dropdown on wide screens, not a
+     full-screen modal — no dimmed backdrop, just an invisible click-outside
+     catcher (still needed since createOverlayPanel wires its close-on-click
+     to this element). */
+  .filter-sheet ~ .nav-scrim {
+    background: transparent;
+  }
 }
 
 /* ---- Species grid ---- */
