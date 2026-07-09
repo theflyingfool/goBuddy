@@ -13,6 +13,7 @@ npm run ingest:fetch      # 1. pull/cache PokeAPI data (rate-limited, resumable)
 npm run ingest:gigantamax # 2. parse the Gigantamax-capable species list
 npm run ingest:build      # 3. build src/data/reference.json from the cache + CSVs
 npm run ingest:events     # 4. parse event-sourced costume/Pokémon data
+npm run ingest:check-slugs # 5. fail loudly if a slug vanished without a rename
 ```
 
 Then, only if you have manual corrections to apply (a new costume, a slug
@@ -63,11 +64,12 @@ npm run ingest:csv:import     # merge a filled-in CSV back into reference.json
   class of mistake — trusting a stale cached/intermediate file instead of
   re-running its generator — has already caused a stale-data incident once
   (see `TODO.md`'s incident notes on stale mega-tracker data).
-- **Slug stability**: every ingestion pass should be checked against the
-  slug-stability script once it exists (`docs/v1-tasks/09-v2-watchlist.md`
-  tracks this) — until then, manually diff `reference.json`'s slug keys
-  against the last committed version and cross-check any disappearance
-  against `src/db/slug-renames.ts` before merging.
+- **Slug stability**: `npm run ingest:check-slugs`
+  (`scripts/ingest/check-slug-stability.ts`) diffs the working tree's
+  `reference.json` slugs against the last committed version and fails if a
+  form slug vanished without a matching `src/db/slug-renames.ts` entry, or if
+  any species/mega-variant slug vanished at all (neither has a rename
+  mechanism). Run it as part of every ingestion pass, before committing.
 
 ## Checkpoint before committing
 

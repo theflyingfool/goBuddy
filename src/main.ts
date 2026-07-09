@@ -1,6 +1,8 @@
+import { renderBootFailureRescue } from "./app-shell/boot-failure-rescue";
 import { renderHeader } from "./app-shell/header";
 import { renderNavDrawer } from "./app-shell/nav-drawer";
 import { parseRoute, speciesDetailPath } from "./app-shell/router";
+import { mountWriteFailureBanner, reportWriteFailure } from "./app-shell/write-failure-banner";
 import { createSqliteRepository } from "./data/sqlite-repository";
 import type { Repository } from "./data/repository";
 import { renderSpeciesDetail } from "./features/data-entry/species-detail";
@@ -15,15 +17,17 @@ import { el } from "./ui/dom";
 const app = document.getElementById("app")!;
 const loadingEl = el("p", { class: "app-loading" }, ["Loading your dex…"]);
 app.append(loadingEl);
+mountWriteFailureBanner(app);
 
-createSqliteRepository()
+createSqliteRepository(reportWriteFailure)
   .then((repo) => {
     loadingEl.remove();
     bootstrap(repo);
   })
   .catch((err) => {
     console.error("Failed to open the on-device database:", err);
-    loadingEl.textContent = "Couldn't open the on-device database. Try reloading.";
+    loadingEl.remove();
+    renderBootFailureRescue(app, err);
   });
 
 function bootstrap(repo: Repository) {

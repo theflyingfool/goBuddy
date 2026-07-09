@@ -77,10 +77,32 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
         `Import "${file.name}" (exported ${new Date(data.exportedAt).toLocaleString()})? This overwrites any matching entries — anything not in the file stays as-is.`,
       );
       if (!proceed) return;
+
+      // Safety-net snapshot of what's about to be overwritten, in case the
+      // import turns out to be the wrong file or otherwise goes sideways —
+      // see docs/v1-tasks/02-data-safety-net.md. Uses the same export flow
+      // as the button above, so it's the user's real save dialog/share
+      // sheet, not a silent background write.
+      statusEl.textContent = "Saving a safety backup of your current data first…";
+      const snapshotResult = await exportPersonalData(repo);
+      if (snapshotResult === "cancelled") {
+        const proceedWithoutBackup = window.confirm("Backup cancelled. Import anyway without a fresh backup?");
+        if (!proceedWithoutBackup) {
+          statusEl.textContent = "Cancelled.";
+          return;
+        }
+      }
+
       statusEl.textContent = "Importing…";
-      await repo.importPersonalData(data);
-      statusEl.textContent = "Imported. Reloading…";
-      window.location.reload();
+      const { skippedSpeciesSlugs, skippedFormSlugs } = await repo.importPersonalData(data);
+      const skipped = skippedSpeciesSlugs + skippedFormSlugs;
+      if (skipped > 0) {
+        statusEl.textContent = `Imported, but skipped ${skipped} row(s) with slugs this app's reference data doesn't recognize (likely from a different app version). Reloading…`;
+        setTimeout(() => window.location.reload(), 3000);
+      } else {
+        statusEl.textContent = "Imported. Reloading…";
+        window.location.reload();
+      }
     } catch (err) {
       statusEl.textContent = `Import failed: ${(err as Error).message}`;
     }

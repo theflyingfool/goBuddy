@@ -41,6 +41,34 @@ async function applySlugRenames(db: SQLiteDBConnection): Promise<void> {
   }
 }
 
+// Moves any row that fails `isValid` into personal_data_quarantine (see
+// schema.ts) instead of leaving it in place for the deferred FK check at
+// COMMIT to trip over — a real orphan (a slug reference-sync can't resolve,
+// not covered by a SLUG_RENAMES entry) would otherwise fail the *entire*
+// sync transaction, rolling back a legitimate reference-data update just
+// because one stale personal row exists. One DELETE per orphaned row rather
+// than a bulk "WHERE slug NOT IN (...)" — form_personal alone can have
+// thousands of valid slugs, past SQLite's default bound parameter limit.
+async function quarantineOrphans(
+  db: SQLiteDBConnection,
+  table: string,
+  pkColumns: string[],
+  isValid: (row: Record<string, unknown>) => boolean,
+): Promise<void> {
+  const result = await db.query(`SELECT * FROM ${table}`);
+  const now = new Date().toISOString();
+  for (const row of (result.values ?? []) as Record<string, unknown>[]) {
+    if (isValid(row)) continue;
+    await db.run(
+      "INSERT INTO personal_data_quarantine (source_table, slug, payload_json, quarantined_at) VALUES (?, ?, ?, ?)",
+      [table, String(row[pkColumns[0]]), JSON.stringify(row), now],
+      false,
+    );
+    const whereClause = pkColumns.map((c) => `${c} = ?`).join(" AND ");
+    await db.run(`DELETE FROM ${table} WHERE ${whereClause}`, pkColumns.map((c) => row[c]), false);
+  }
+}
+
 const b = (value: boolean) => (value ? 1 : 0);
 
 export async function syncReferenceData(db: SQLiteDBConnection, referenceData: ReferenceData): Promise<void> {
@@ -67,6 +95,24 @@ export async function syncReferenceData(db: SQLiteDBConnection, referenceData: R
     // Renames must land before the old form rows disappear below, or the
     // personal rows they'd otherwise remap would just get orphaned instead.
     await applySlugRenames(db);
+
+    // Quarantine any personal row a rename didn't account for — must run
+    // after renames land (so a just-renamed row reads as valid, not
+    // orphaned) and before the DROP TABLE below (so these rows are gone
+    // before the deferred FK check at COMMIT would otherwise trip on them).
+    const speciesSlugs = new Set(referenceData.species.map((s) => s.slug));
+    const formSlugs = new Set(referenceData.forms.map((f) => f.slug));
+    const backgroundSlugs = new Set(referenceData.backgrounds.map((bg) => bg.slug));
+    const megaVariantSlugs = new Set(referenceData.megaVariants.map((m) => m.slug));
+    await quarantineOrphans(db, "species_personal", ["species_slug"], (row) => speciesSlugs.has(row.species_slug as string));
+    await quarantineOrphans(db, "form_personal", ["form_slug"], (row) => formSlugs.has(row.form_slug as string));
+    await quarantineOrphans(
+      db,
+      "form_background_personal",
+      ["form_slug", "achievement_field", "background_slug"],
+      (row) => formSlugs.has(row.form_slug as string) && backgroundSlugs.has(row.background_slug as string),
+    );
+    await quarantineOrphans(db, "mega_personal", ["mega_variant_slug"], (row) => megaVariantSlugs.has(row.mega_variant_slug as string));
 
     // Drop (not just delete-from) in FK-safe order (children before
     // parents), then recreate from REFERENCE_SCHEMA_SQL below. A plain

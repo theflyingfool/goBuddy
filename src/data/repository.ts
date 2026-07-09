@@ -135,8 +135,18 @@ export interface Repository {
    * once the write-through to the real backing store has actually completed — callers that reload
    * the page right after importing (as Settings does) need that guarantee, not just that the
    * in-memory cache was updated.
+   *
+   * Rows whose slug doesn't resolve against the currently-loaded reference
+   * data (e.g. an export from an older/newer reference.json) are skipped
+   * rather than written — the returned counts let the caller report that
+   * instead of it happening invisibly.
    */
-  importPersonalData(data: PersonalDataExport): Promise<void>;
+  importPersonalData(data: PersonalDataExport): Promise<ImportResult>;
+}
+
+export interface ImportResult {
+  skippedSpeciesSlugs: number;
+  skippedFormSlugs: number;
 }
 
 export const MAX_GRID_INDICATORS = 4;
