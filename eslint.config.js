@@ -10,6 +10,8 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
+      "build/**",
+      ".claude/**",
       "dist/**",
       "android/**",
       "node_modules/**",
