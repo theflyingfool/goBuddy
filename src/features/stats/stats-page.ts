@@ -1,11 +1,18 @@
+import { navigate, speciesDetailPath } from "../../app-shell/router";
 import type { CompletionLens, CompletionLensResult, CompletionMissingSpecies, CompletionScope, Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
+import { speciesSpritePath } from "../../ui/sprites";
 import { ACHIEVEMENT_LENSES, PRIMARY_LENSES, lensKey, lensLabel, parseLensKey } from "./lens-labels";
 
 const STATS_LENS_SETTING_KEY = "stats_lenses";
 // Per the user: default to the two stats they specifically asked for first —
 // everything else is available via the checkboxes below.
 const DEFAULT_LENS_KEYS = ["registered", "achievement:lucky"];
+
+// A "missing" drill-down can be hundreds of species (e.g. "Shiny" globally) —
+// showing every tile would be unusably long/slow. Display-only guard, same
+// reasoning as bulk-form-edit's MAX_SPECIES_SHOWN.
+const MAX_MISSING_SHOWN = 150;
 
 function loadSelection(repo: Repository): Set<string> {
   const raw = repo.getAppSetting(STATS_LENS_SETTING_KEY);
@@ -28,9 +35,10 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
   container.append(el("h2", {}, ["Stats"]));
 
   const lensFieldset = el("fieldset", {});
+  const kpiRow = el("div", { class: "stats-kpi-row" });
   const bodyEl = el("div", { class: "stats-body" });
   const detailEl = el("div", { class: "stats-detail" });
-  container.append(lensFieldset, bodyEl, detailEl);
+  container.append(lensFieldset, kpiRow, bodyEl, detailEl);
 
   const selected = loadSelection(repo);
 
@@ -40,7 +48,7 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
       if (checked) selected.add(key);
       else selected.delete(key);
       repo.setAppSetting(STATS_LENS_SETTING_KEY, JSON.stringify([...selected]));
-      renderTable();
+      void renderTable();
     });
   }
 
@@ -56,25 +64,54 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
     lensFieldset.append(details);
   }
 
+  // Missing-species drill-down: a tappable sprite grid (not a comma-joined
+  // text blob) that jumps straight to the species' own detail page — the
+  // "cool stats you can easily drill into" the owner asked for.
   function showMissing(rowLabel: string, lens: CompletionLens, missingSpecies: CompletionMissingSpecies[]) {
     clear(detailEl);
+    detailEl.append(el("h3", {}, [`${rowLabel} — ${lensLabel(lens)}`]));
+    detailEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
     if (missingSpecies.length === 0) {
-      detailEl.append(el("p", {}, [`${rowLabel} — ${lensLabel(lens)}: nothing missing.`]));
+      detailEl.append(el("p", { class: "stats-missing-note" }, ["Nothing missing — fully complete."]));
       return;
     }
+
     const sorted = [...missingSpecies].sort((a, b) => a.dexNumber - b.dexNumber);
     detailEl.append(
-      el("p", {}, [`${rowLabel} — ${lensLabel(lens)}: missing ${sorted.length}`]),
-      el(
-        "p",
-        { class: "stats-missing-list" },
-        [sorted.map((s) => `#${s.dexNumber} ${s.name}`).join(", ")],
-      ),
+      el("p", { class: "stats-missing-note" }, [`Missing ${sorted.length} — tap one to jump to its page.`]),
     );
+
+    const shown = sorted.slice(0, MAX_MISSING_SHOWN);
+    const grid = el("div", { class: "stats-missing-grid" });
+    for (const species of shown) {
+      const tile = el("button", { type: "button", class: "stats-missing-tile" }, [
+        el("img", {
+          class: "stats-missing-sprite",
+          src: speciesSpritePath(species.dexNumber),
+          alt: species.name,
+          loading: "lazy",
+        }),
+        el("div", { class: "tile-label" }, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
+      ]);
+      tile.addEventListener("click", () => navigate(speciesDetailPath(species.slug)));
+      grid.append(tile);
+    }
+    detailEl.append(grid);
+
+    if (sorted.length > shown.length) {
+      detailEl.append(
+        el("p", { class: "stats-truncation-note" }, [`Showing the first ${shown.length} of ${sorted.length} — narrow to a single region for the rest.`]),
+      );
+    }
+  }
+
+  function completionPct(result: CompletionLensResult): number {
+    return result.total === 0 ? 100 : Math.round((result.complete / result.total) * 100);
   }
 
   function renderCell(rowLabel: string, result: CompletionLensResult): HTMLElement {
-    const pct = result.total === 0 ? 100 : Math.round((result.complete / result.total) * 100);
+    const pct = completionPct(result);
     const cell = el("button", { type: "button", class: "stats-cell" }, [
       el("div", { class: "stats-cell-bar" }, [el("div", { class: "stats-cell-fill", style: `width: ${pct}%` })]),
       el("div", { class: "stats-cell-text" }, [`${result.complete}/${result.total} (${pct}%)`]),
@@ -83,9 +120,24 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
     return cell;
   }
 
+  // Headline KPI cards for the global ("All regions") scope — the
+  // at-a-glance dashboard summary above the region-by-region breakdown.
+  function renderKpiCard(result: CompletionLensResult): HTMLElement {
+    const pct = completionPct(result);
+    const card = el("button", { type: "button", class: "stats-kpi-card" }, [
+      el("div", { class: "stats-kpi-label" }, [lensLabel(result.lens)]),
+      el("div", { class: "stats-kpi-value" }, [`${pct}%`]),
+      el("div", { class: "stats-cell-bar" }, [el("div", { class: "stats-cell-fill", style: `width: ${pct}%` })]),
+      el("div", { class: "stats-kpi-fraction" }, [`${result.complete} / ${result.total}`]),
+    ]);
+    card.addEventListener("click", () => showMissing("All regions", result.lens, result.missingSpecies));
+    return card;
+  }
+
   async function renderTable() {
     const lenses = [...selected].map(parseLensKey).filter((l): l is CompletionLens => l !== null);
     clear(detailEl);
+    clear(kpiRow);
 
     if (lenses.length === 0) {
       clear(bodyEl);
@@ -107,6 +159,12 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
     );
 
     clear(bodyEl);
+    clear(kpiRow);
+
+    for (const result of rows[0].results) {
+      kpiRow.append(renderKpiCard(result));
+    }
+
     const table = el("table", { class: "stats-table" });
     const headerRow = el("tr", {}, [el("th", {}, ["Region"]), ...lenses.map((lens) => el("th", {}, [lensLabel(lens)]))]);
     table.append(el("thead", {}, [headerRow]));
