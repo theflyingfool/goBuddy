@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS species (
   can_gigantamax INTEGER NOT NULL CHECK (can_gigantamax IN (0, 1))
 );
 
+CREATE INDEX IF NOT EXISTS idx_species_region_slug ON species(region_slug);
+
 CREATE TABLE IF NOT EXISTS form (
   slug TEXT PRIMARY KEY,
   species_slug TEXT NOT NULL REFERENCES species(slug),
@@ -47,6 +49,12 @@ CREATE TABLE IF NOT EXISTS form (
   regional_exclusive INTEGER NOT NULL CHECK (regional_exclusive IN (0, 1)),
   image_ref TEXT
 );
+
+-- completion-stats-sql.ts's per-lens queries correlate a subquery over the
+-- form table for every species row in scope (region or global) — without
+-- this, each of those subqueries does a full scan of every form row
+-- (~8,000+) per species, which is what made the Stats page slow to load.
+CREATE INDEX IF NOT EXISTS idx_form_species_slug ON form(species_slug);
 
 CREATE TABLE IF NOT EXISTS form_types (
   form_slug TEXT NOT NULL REFERENCES form(slug),
