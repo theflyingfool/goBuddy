@@ -3,6 +3,9 @@
 
 ## 11. Release candidate
 
+- [ ] The export on file import needs to be optional not forced
+- [ ] An Import should clear the user db before importing as well. Right now it seems like it appends, which would be fine if we had a clear
+  db button in app I guess
 - [ ] Real-device install + first-boot timing (resolves
   [§ 8](06-performance-and-quality-infra.md)'s contingency).
 - [ ] Upgrade-over-install test: v1 APK + real data → v2 APK, confirm data
