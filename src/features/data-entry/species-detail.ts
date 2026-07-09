@@ -2,6 +2,7 @@ import { navigate, speciesDetailPath } from "../../app-shell/router";
 import type { Form, FormPersonal } from "../../db/types";
 import type { Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
+import { speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
 
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
@@ -71,6 +72,11 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   const header = el("div", { class: "detail-header" }, [
     backButton,
     prevButton,
+    // Species-level sprite only — per-form/costume art (e.g. a party-hat
+    // Bulbasaur) is the separate, already-scoped image-pipeline task
+    // (docs/v1-tasks/05-image-pipeline.md, §7), blocked on sourcing a
+    // costume-ID→name lookup that doesn't exist yet.
+    el("img", { class: "detail-hero-sprite", src: speciesSpritePath(species.dexNumber), alt: "", loading: "lazy" }),
     el("h2", {}, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
     nextButton,
   ]);

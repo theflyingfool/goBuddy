@@ -566,6 +566,10 @@ input[type="checkbox"] {
   margin: 0.5rem 0 1rem;
 }
 
+.species-tile-wrap {
+  position: relative;
+}
+
 .species-tile {
   display: flex;
   flex-direction: column;
@@ -577,6 +581,35 @@ input[type="checkbox"] {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Sibling of .species-tile (see species-grid.ts) rather than nested inside
+   its <button> — <button> can't validly contain other interactive content.
+   Sits opposite the badge-row (top-left vs. top-right) to avoid overlap. */
+.registered-toggle {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.8rem;
+  line-height: 1;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.registered-toggle.on {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
 }
 
 .species-sprite {
@@ -625,6 +658,14 @@ input[type="checkbox"] {
 .detail-header h2 {
   margin: 0;
   flex: 1;
+}
+
+.detail-hero-sprite {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
 }
 
 .form-filter-input {

@@ -235,6 +235,7 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
         .map((field) => el("span", { class: "badge", title: INDICATOR_LABELS[field].full }, [INDICATOR_LABELS[field].badge]));
 
       const selected = state.selectMode && state.selectedSpecies.has(species.slug);
+      let isRegistered = caught;
       const tile = el(
         "button",
         { type: "button", class: `species-tile${caught ? "" : " uncaught"}${selected ? " selected" : ""}` },
@@ -276,7 +277,40 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
 
         refreshBulkBar();
       });
-      grid.append(tile);
+
+      // A real sibling <button>, not nested inside the tile button — <button>
+      // can't validly contain other interactive content, and a nested
+      // focusable control is unreliable for keyboard/screen-reader users.
+      // Positioned on top of the tile purely via CSS instead.
+      const tileWrap = el("div", { class: "species-tile-wrap" }, [tile]);
+      if (!state.selectMode) {
+        const registeredToggle = el(
+          "button",
+          { type: "button", class: `registered-toggle${isRegistered ? " on" : ""}`, "aria-pressed": String(isRegistered), "aria-label": `Registered: ${isRegistered ? "on" : "off"}` },
+          [isRegistered ? "✓" : ""],
+        );
+        // Only interactive quick-toggle on the tile: Registered, the
+        // species-level catch flag. Shiny/lucky/etc (the read-only badges
+        // above) are per-form facts an any-form OR can't unambiguously write
+        // back to, so those stay display-only here — full editing happens on
+        // the detail page where a tile is one specific form.
+        registeredToggle.addEventListener("click", (e) => {
+          e.stopPropagation();
+          isRegistered = !isRegistered;
+          repo.setSpeciesPersonalField(species.slug, "registered", isRegistered);
+          registeredToggle.classList.toggle("on", isRegistered);
+          registeredToggle.textContent = isRegistered ? "✓" : "";
+          registeredToggle.setAttribute("aria-pressed", String(isRegistered));
+          registeredToggle.setAttribute("aria-label", `Registered: ${isRegistered ? "on" : "off"}`);
+          // Patches this tile in place rather than a full renderGrid() — if
+          // the current Caught/Uncaught filter would now exclude it, it
+          // stays visible until the next full requery (filter change or
+          // navigation) rather than paying for a full requery on every tap.
+          tile.classList.toggle("uncaught", !isRegistered);
+        });
+        tileWrap.append(registeredToggle);
+      }
+      grid.append(tileWrap);
     }
     container.append(grid);
   }
