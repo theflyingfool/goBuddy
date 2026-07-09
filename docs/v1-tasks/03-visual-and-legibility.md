@@ -13,11 +13,11 @@ design work — not pre-decided in this planning pass.*
   above a 720px breakpoint; phones are unaffected since 480px was already
   wider than any real phone viewport. The species grid, stats table, etc.
   reflow into more columns/space automatically since they're already
-  responsive grids, no per-component change needed. **Not done**: the nav
-  stays a hamburger-triggered overlay drawer at every width — a permanent
-  sidebar on desktop would read more "dashboard-like" but is a real layout
-  decision (and one I can't visually verify in this environment), so I left
-  it as a candidate follow-up rather than build it blind.
+  responsive grids, no per-component change needed. **Update (mobile
+  ergonomics redesign, see bottom of this file):** the hamburger-triggered
+  overlay drawer candidate follow-up mentioned here is now done — nav is a
+  bottom tab bar on phone / a persistent left sidebar `>=720px`, both driven
+  by this same breakpoint.
 - [x] We are correctly defaulting to dark mode, but this should be a toggle —
   Night Studio is dark-first (dark is the primary design, light a fully
   hand-tuned second theme, not an inversion), and it's now overridable:
@@ -145,10 +145,11 @@ design work — not pre-decided in this planning pass.*
   change in this pass (no browser to visually confirm the interaction feels
   right) — reasoned through carefully rather than eyeballed; flagging for a
   real-device check.
-- [ ] Nav de-noising: collapse the stub pages (Search Tools, Achievements, XP
-  Assistant) under a muted "Coming later" group; move Coverage Report behind
-  Settings or a dev flag (`src/app-shell/nav-drawer.ts`). Not done — an IA/
-  layout call, see roughness-review notes below.
+- [x] Nav de-noising: resolved as part of the mobile ergonomics redesign
+  (see bottom of this file) — Dex/Bulk Edit/Stats/Settings are the 4 primary
+  tab-bar slots, everything else (Search Tools, Coverage Report,
+  Achievements, XP Assistant) folds under a "More" entry on phone (the
+  sidebar `>=720px` just shows all 8, no room constraint there).
 - [x] Stats drill-down: `scrollIntoView` on the missing-species detail panel,
   make species names link to `speciesDetailPath` (`src/features/stats/stats-page.ts`) —
   done as part of the §3 PowerBI-dashboard bullet above (same drill-down
@@ -158,11 +159,73 @@ design work — not pre-decided in this planning pass.*
   (`settings-page.ts`'s `statusEl`, `stats-page.ts`'s `bodyEl`) rather than
   inventing new ones, since both already only ever hold exactly this kind of
   transient text.
-- [ ] Species detail: rebuild only the toggled form group in place instead of
+- [ ] Species detail: rebuild only the toggled form tile in place instead of
   the whole page per checkbox (`src/features/data-entry/species-detail.ts`).
-  Not done this round — same risk shape as the grid in-place toggle above,
-  and I didn't want to stack a second unverified incremental-render change
-  in one pass. Good next candidate once the grid version is confirmed to
-  actually feel right on a device.
+  Still not done — the accordion this originally referred to is gone (see
+  the mobile ergonomics redesign at the bottom of this file, which replaced
+  it with a searchable form-tile grid), but every tile/field toggle still
+  triggers a full-page `rerender()`. Same deferred risk shape as before,
+  just on the new grid instead of the old accordion.
 - [x] Set `alt=""` on grid tile sprite images (currently duplicate the visible
   name label to screen readers) — `src/features/data-entry/species-grid.ts`.
+
+---
+
+## Mobile ergonomics redesign (post-§4, owner-directed)
+
+*Not part of the original §3/4 scope above — a follow-on pass the owner asked
+for after using the app on a phone and calling it "actively hostile." Pitched
+as mockups first (3 directions, then a merged/refined round after feedback),
+then built as one combined branch/PR per the owner's explicit call ("one
+giant PR instead of 5") rather than the originally-planned 5-PR sequence.*
+
+- **Nav**: bottom tab bar (phone, `<720px`) / persistent left sidebar
+  (`>=720px`) replaces the hamburger + overlay drawer at every width. 4
+  primary slots (Dex, Bulk Edit, Stats, Settings) plus a "More" tab folding
+  in Search Tools/Coverage Report/Achievements/XP Assistant on phone; the
+  sidebar shows all 8 with no folding, since there's room. Both driven by
+  the existing 720px breakpoint — no resize-listener/layout-mode JS.
+  (`src/app-shell/nav-drawer.ts`, `src/main.ts`)
+- **New shared primitive**: `src/ui/overlay-panel.ts` — generalizes the
+  backdrop + `inert` + focus-management logic that used to live only in
+  `main.ts`'s drawer code, so the nav's "More" flyout and the new filter
+  sheet below share one implementation.
+- **Search + callable filters**: the header's search bar (previously
+  replaced by a "Filters" button in an earlier mockup round, which was a
+  mistake the owner caught) is back and permanent; a small filter-icon
+  button next to it (active-count badge) opens the caught/classification/
+  achievement chips as a bottom sheet (`<720px`) or a small anchored panel
+  (`>=720px`) instead of always showing them inline.
+  (`src/app-shell/header.ts`, `src/features/data-entry/species-grid.ts`)
+- **Dex tile quick-toggle**: every grid tile gets one interactive toggle —
+  Registered (species-level, unambiguous) — as a sibling `<button>` over the
+  tile rather than nested inside its own `<button>` (nesting interactive
+  content in a `<button>` is invalid HTML). Shiny/lucky/etc. stay read-only
+  badges since they're per-form facts a species tile can't unambiguously
+  write back to. (`src/features/data-entry/species-grid.ts`)
+- **Species-detail form grid**: the `<details>` accordion (plus its separate
+  overview-grid shortcut) is replaced by one searchable grid of form tiles —
+  the actual fix for high-form-count species like Pikachu's 188 costumes,
+  where search narrows the grid directly. Each tile shows Caught (always) +
+  one configurable second achievement icon (new Settings picker: Shiny/
+  Lucky/Shadow); tapping a tile expands it in place for its full field list.
+  A per-species "Missing only" chip filters to uncaught forms. Search is now
+  always shown (previously gated behind an 8-group threshold).
+  (`src/features/data-entry/species-detail.ts`)
+- **Bulk Edit**: the checkbox-rows-under-a-species-card list becomes the
+  same tile grid as species-detail — tap to select/deselect, an "already
+  set" checkmark shows the targeted field's current value. Region/caught/
+  field-chip filters move behind the same search + filter-icon combo as the
+  Dex grid. (`src/features/data-entry/bulk-form-edit.ts`)
+- **Explicitly out of scope**: per-form/costume sprite art (still the
+  separate, already-scoped §7 image-pipeline task — form tiles use the
+  species-level sprite as a placeholder); a swipeable form-carousel (an
+  earlier mockup direction the owner said didn't feel right); making
+  achievement fields directly tappable from the *Dex* grid (per-form facts,
+  no single form for a species tile to write to — they're tappable from the
+  *form* grid instead, where one tile is one form).
+- **Real risk, not resolved by this pass**: whether tile grids actually hold
+  up at full scale (1024+ species, ~8,000+ form rows, Pikachu-scale
+  outliers) can't be verified in this environment (no browser) — a handful
+  of hand-picked tiles in a mockup always looks fine. This needs an on-device
+  check against the real dataset, not just lint/build passing.
