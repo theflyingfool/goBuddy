@@ -79,3 +79,40 @@ design, so fixes here are free today and permanent debt later.*
   legitimate (a real costume applied per size variant, already a documented
   known case in `parse-event-pokemon.ts`). Owner is continuing a manual
   review of the Coverage Report for further issues; more may follow.
+- [x] **Follow-up systematic scan** (dex-number/slug duplicate check,
+  referential-integrity check across all reference tables, a full read of
+  every remaining `possible-bogus-form`/`missing-types`/`unverified-gender`
+  gap): found and fixed 4 more real bugs, all confirmed against the cached
+  PokeAPI varieties before changing anything:
+  - **Grimer/Muk**: the tracker CSV mislabeled their real Alolan regional
+    variant as "Galarian" (PokeAPI only has `grimer-alola`/`muk-alola`, no
+    Galar variety) — both species were missing their real Alolan form
+    entirely while carrying a fake Galarian one. Renamed in the Forms CSV;
+    types now correctly resolve to Poison/Dark.
+  - **Slowking**: same mislabeling in reverse — tracker said "Paldean"
+    (doesn't exist for Slowking) instead of "Galarian" (real, evolves from
+    Galarian Slowpoke; PokeAPI only has `slowking-galar`). Renamed; types
+    now correctly resolve to Poison/Psychic.
+  - **Persian**: had a "Galarian" sub-row with no valid basis at all —
+    Persian's only real regional variant is Alolan (already correctly
+    present separately; PokeAPI has only `persian-alola`). Deleted the
+    bogus row.
+  - **Tauros**: Paldean breed forms were tagged `Paldean(Fight)`/`(Water)`/
+    `(Fire)`, but PokeAPI's real variety names use `combat`/`aqua`/`blaze`
+    — the lexical mismatch meant none of the three matched, so all three
+    silently fell back to base Tauros's Normal type instead of their real
+    Fighting/Fighting-Water/Fighting-Fire types. Renamed to
+    `Paldean(Combat)`/`(Aqua)`/`(Blaze)` (the actual in-game breed names),
+    which let the existing breed-matching logic resolve them correctly
+    with no code change.
+  - Ran the slug-stability script again afterward: all 11 disappeared form
+    slugs from this round match these fixes exactly, nothing unaccounted
+    for.
+  - Confirmed **not** bugs: Unown's 28 letters show as `missing-types` too,
+    but Unown is genuinely pure Psychic regardless of letter, so the
+    placeholder fallback happens to already be correct — cosmetic
+    gap-tracking noise, not a real issue.
+  - Still open, deliberately untouched (same "no official Z-A mega list"
+    deferral as before): the `possible-bogus-form` mega-capable flags for
+    Butterfree, Victreebel, Dragonite, Lugia, Uxie, Mesprit, Azelf,
+    Malamar, Falinks.
