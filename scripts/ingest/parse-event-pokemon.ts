@@ -174,6 +174,18 @@ interface CostumeEntry {
   evolves: boolean;
 }
 
+// Bulbapedia's "Event Pokémon (GO)" list mixes genuine alternate Formes in
+// among real costumes — its own "event-exclusive" framing covers both, but
+// this pipeline only knows how to model "costume on the Standard form".
+// Formes listed here are already correctly modeled as real forms by the
+// Forms-CSV/PokeAPI pipeline (see build-reference.ts) — importing them again
+// as a costume would create a second row for the same real-world individual
+// under a different form slug (e.g. "mewtwo-armored-unknown" vs
+// "mewtwo-standard-armored-mewtwo-unknown" for Armored Mewtwo, found during
+// a manual reference-data review). Matched against the wikitext's own Form
+// column text, before any cleanup/slugifying.
+const NOT_ACTUALLY_A_COSTUME = new Set(["Armored Mewtwo"]);
+
 function parseEventPokemon(wikitext: string): CostumeEntry[] {
   const startMarker = "==List of Event Pokémon==";
   const start = wikitext.indexOf(startMarker);
@@ -195,6 +207,10 @@ function parseEventPokemon(wikitext: string): CostumeEntry[] {
       cells = cells.slice(1);
     }
     if (cells.length < 3) {
+      skippedRows++;
+      continue;
+    }
+    if (NOT_ACTUALLY_A_COSTUME.has(currentFormName)) {
       skippedRows++;
       continue;
     }
