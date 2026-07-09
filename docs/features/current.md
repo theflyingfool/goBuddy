@@ -1,4 +1,4 @@
-# Current features — as of v0.10.0
+# Current features — as of v0.11.0
 
 What's actually built and shipped, as of the current release
 (`package.json`/`android/app/build.gradle` version). Where a feature is
@@ -52,3 +52,49 @@ properties in Obsidian, which is the UX bar this replaced. The cascade
 (`src/db/cascades.ts`) — checking "Shundo" auto-checks shiny/4★/caught/
 registered — is the single biggest reason this beats the Obsidian tapping
 speed.
+
+## Data safety net
+
+The app's entire value is the on-device SQLite file, so several independent
+guarantees exist so that file (or a friend's trust in it) can't quietly be
+lost:
+
+- **Boot-failure rescue** (`src/data/boot-rescue.ts`,
+  `src/app-shell/boot-failure-rescue.ts`): if the DB fails to open/migrate/
+  sync, the app still offers a raw personal-data export, reading tables
+  directly and best-effort (one unreadable table doesn't sink the rest).
+- **Reference-sync orphan quarantine** (`src/db/reference-sync.ts`):
+  personal rows that no longer resolve to a reference slug after a reference
+  refresh move to a `personal_data_quarantine` table instead of failing the
+  whole sync transaction.
+- **Migration-runner hardening** (`src/db/migrations.ts`): each migration
+  runs in its own transaction; boot refuses to proceed if the stored schema
+  version is *newer* than the app's (downgrade guard).
+- **Write-failure banner** (`src/app-shell/write-failure-banner.ts`):
+  swallowed write errors surface as a persistent in-app banner with retry,
+  not just `console.error`.
+- **Import safety**: import reports the count of skipped/unknown-slug rows
+  instead of silently dropping them, and an export snapshot is taken
+  automatically before any import is applied.
+- **Ingestion-time slug-stability check** (`scripts/ingest/check-slug-stability.ts`,
+  `npm run ingest:check-slugs`): fails the ingestion build if a reference
+  slug disappears without a matching `src/db/slug-renames.ts` entry — the
+  thing that would otherwise silently orphan personal data.
+
+## Visual design system
+
+Every UI surface reads design tokens (`src/style.css`'s `--bg`/`--surface`/
+`--ink`/`--muted`/`--line`/`--accent`/`--on-accent`/`--positive`/`--negative`/
+radii) — no hardcoded colors in component styles. Dark is the primary,
+hand-tuned theme (not a naive light-mode inversion); light is a fully
+hand-tuned second theme. Both are contrast-checked (WCAG AA) rather than
+eyeballed. Theme follows the OS by default
+(`color-scheme: light dark` + `@media (prefers-color-scheme)`), overridable
+per-user via Settings → Appearance → System/Light/Dark
+(`src/app-shell/theme.ts`), stamped as `data-theme` on `<html>`. System font
+stacks only — no bundled webfont — since this ships inside a sideloaded APK
+where every extra font is dead weight on the phone forever. `#app`'s layout
+widens above a 720px viewport so tablet/desktop use more of the screen
+instead of a fixed phone-width column; the nav itself is still a
+hamburger-triggered overlay drawer at every width (no persistent desktop
+sidebar yet).

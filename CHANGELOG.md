@@ -9,6 +9,31 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.11.0] — 2026-07-09
+
+- Applied a full visual design system ("Night Studio": dark-first ink-blue/
+  teal palette, soft radii, hairline borders, monospace reserved for numeric
+  data) across the app shell, species grid/detail, stats, and Settings —
+  replacing the previous browser-default styling. Added a manual
+  System/Light/Dark theme override, and widened the app's layout above a
+  720px viewport so tablet/desktop use more of the screen.
+- Reference-data correction pass: fixed Necrozma fusion names, gen-9 slug/
+  name typos, phantom "Standard" form rows (with a shiny-flag migration to
+  the real default form), added the six missing mega-variant rows (incl.
+  Mega Mewtwo X/Y) and Crowned Sword/Shield Zacian/Zamazenta. Found and
+  fixed further data-quality bugs via a systematic scan: a duplicate
+  Armored Mewtwo (modeled both as a Forme and a costume), Grimer/Muk/
+  Slowking region mislabels, a bogus Persian regional form, and a Tauros
+  breed-name mismatch that was silently defaulting three forms to the wrong
+  type.
+- Data-safety net: boot-failure rescue export, reference-sync orphan
+  quarantine, hardened migration runner (per-migration transactions +
+  downgrade guard), a persistent write-failure banner, import skip
+  reporting, pre-import auto-snapshot, and an ingestion-time slug-stability
+  check.
+- Reorganized `docs/` into a navigable, cross-linked structure; retired
+  `TODO.md` in favor of the versioned `docs/v1-tasks/`/`CHANGELOG.md` split.
+
 ## [0.10.0] — 2026-07-08
 
 - Modeled Gigantamax as distinct catchable form rows (not a separate
