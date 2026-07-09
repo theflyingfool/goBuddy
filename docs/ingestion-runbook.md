@@ -70,6 +70,18 @@ npm run ingest:csv:import     # merge a filled-in CSV back into reference.json
   form slug vanished without a matching `src/db/slug-renames.ts` entry, or if
   any species/mega-variant slug vanished at all (neither has a rename
   mechanism). Run it as part of every ingestion pass, before committing.
+- **`ingest:build` wipes previously-imported event-costume rows**:
+  `build-reference.ts` regenerates `reference.json` wholesale from the Forms
+  CSV + Gigantamax data only — it doesn't know about any event-costume rows
+  a past `ingest:csv:import data-authoring/event-pokemon.csv` merged in,
+  since those never round-trip back into the Forms CSV. Running `ingest:build`
+  alone after such an import silently drops every event-costume form slug
+  (confirmed via `ingest:check-slugs` reporting dozens of vanished Pikachu/
+  Ditto/Corsola/etc. costume slugs after a plain `ingest:build` run). If
+  you've ever run `ingest:csv:import` on this repo, **always re-run it again
+  after any `ingest:build`** (re-importing the same, unchanged
+  `event-pokemon.csv` is safe and lossless) — don't rely on `ingest:events`
+  alone regenerating that CSV to also re-merge it; that's still a manual step.
 
 ## Checkpoint before committing
 
