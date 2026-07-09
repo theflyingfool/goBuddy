@@ -71,7 +71,7 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
   return { speciesPersonal, formPersonal, appSettings };
 }
 
-export async function createSqliteRepository(): Promise<Repository> {
+export async function createSqliteRepository(onWriteFailure?: (message: string, retry: () => Promise<void>) => void): Promise<Repository> {
   const db = await getDb();
   await runPersonalMigrations(db);
   await syncReferenceData(db, referenceData);
@@ -92,9 +92,17 @@ export async function createSqliteRepository(): Promise<Repository> {
   // can't interleave against the same connection; logs rather than throws
   // since a failed write-through shouldn't crash the UI (the in-memory
   // cache — what the UI actually reads — is already updated by this point).
+  // A failure also gets surfaced to the caller-supplied onWriteFailure hook
+  // (this module doesn't know about DOM/UI — see write-failure-banner.ts,
+  // wired up in main.ts) with a `retry` that re-runs the exact same `fn`,
+  // bypassing the queue (which has already moved on by the time a user
+  // clicks Retry).
   let writeQueue: Promise<void> = Promise.resolve();
   function enqueueWrite(fn: () => Promise<void>): void {
-    writeQueue = writeQueue.then(fn).catch((err) => console.error("SQLite write-through failed:", err));
+    writeQueue = writeQueue.then(fn).catch((err) => {
+      console.error("SQLite write-through failed:", err);
+      onWriteFailure?.(err instanceof Error ? err.message : String(err), fn);
+    });
   }
 
   // When > 0, a bulk operation is in flight (see runBulk below). The
@@ -175,8 +183,9 @@ export async function createSqliteRepository(): Promise<Repository> {
     // importing need the real backing store updated first, not just the
     // in-memory cache.
     async importPersonalData(data) {
-      await repo.importPersonalData(data);
+      const result = await repo.importPersonalData(data);
       await writeQueue;
+      return result;
     },
     // Bulk overrides: run the shared in-memory cascade path (repo.bulkSet*)
     // but collapse its N per-row IndexedDB flushes into one transaction + one

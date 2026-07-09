@@ -162,6 +162,31 @@ body {
   padding: 1rem 0.5rem;
 }
 
+.write-failure-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: #b8433322;
+  border-bottom: 1px solid #b84333;
+  color: #b84333;
+  font-size: 0.9rem;
+}
+
+.write-failure-banner.visible {
+  display: flex;
+}
+
+.write-failure-retry {
+  flex-shrink: 0;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+}
+
 /* ---- Species grid ---- */
 
 .filter-bar {

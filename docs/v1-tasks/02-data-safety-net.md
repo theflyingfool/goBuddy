@@ -23,13 +23,23 @@ that file (or a friend's trust in it) can currently be lost.*
   `scripts/ingest/check-slug-stability.ts` (`npm run ingest:check-slugs`),
   which also satisfies §9's bullet below — see
   `docs/ingestion-runbook.md`.
-- [ ] Write-failure banner: surface `src/data/sqlite-repository.ts`'s
+- [x] Write-failure banner: surface `src/data/sqlite-repository.ts`'s
   swallowed write errors (~line 96-98) as a persistent in-app banner with
-  retry, instead of `console.error`-only.
-- [ ] Import: report the count of skipped/unknown-slug rows instead of
+  retry, instead of `console.error`-only. Done via a new
+  `src/app-shell/write-failure-banner.ts` (kept UI-agnostic on the data-layer
+  side: `createSqliteRepository` takes an optional `onWriteFailure(message,
+  retry)` hook, wired up in `main.ts`).
+- [x] Import: report the count of skipped/unknown-slug rows instead of
   silently dropping them (`src/data/in-memory-store.ts`'s import path).
-- [ ] Pre-import auto-snapshot: call the existing `exportPersonalData()`
+  `Repository.importPersonalData` now returns `{ skippedSpeciesSlugs,
+  skippedFormSlugs }`; Settings surfaces a count in the status message
+  instead of reloading immediately. Verified with a standalone Node script
+  exercising `createInMemoryRepository` directly (no test harness exists
+  yet — §9 still owes that).
+- [x] Pre-import auto-snapshot: call the existing `exportPersonalData()`
   before applying any import, in `src/features/settings/settings-page.ts`.
+  If the user cancels the snapshot's save dialog, they're asked to confirm
+  proceeding without one rather than silently skipping it.
 - [ ] Call `navigator.storage.persist()` on the web platform path
   (`src/db/sqlite-client.ts`).
 - [ ] Rotating Android auto-export: once-daily, keep last 3, via the

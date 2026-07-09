@@ -18,6 +18,7 @@ import {
   type CompletionMissingSpecies,
   type CompletionScope,
   type GridFilterField,
+  type ImportResult,
   type PersonalDataExport,
   type Repository,
   type SpeciesFilter,
@@ -334,12 +335,27 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       };
     },
 
-    async importPersonalData(data: PersonalDataExport): Promise<void> {
+    async importPersonalData(data: PersonalDataExport): Promise<ImportResult> {
+      let skippedSpeciesSlugs = 0;
+      let skippedFormSlugs = 0;
       for (const [slug, personal] of Object.entries(data.speciesPersonal)) {
+        // Slug no longer resolves against the currently-loaded reference data
+        // (e.g. imported from an older/newer reference.json) — writing it
+        // anyway would either dangle uselessly (dummy backend) or violate the
+        // species_personal FK (real SQLite backend, silently via the
+        // swallowed write-queue error). Skip and count instead.
+        if (!speciesBySlug.has(slug)) {
+          skippedSpeciesSlugs++;
+          continue;
+        }
         state.speciesPersonal[slug] = personal;
         hooks.onSpeciesPersonalChanged(slug, personal);
       }
       for (const [slug, personal] of Object.entries(data.formPersonal)) {
+        if (!speciesSlugByFormSlug.has(slug)) {
+          skippedFormSlugs++;
+          continue;
+        }
         state.formPersonal[slug] = personal;
         hooks.onFormPersonalChanged(slug, personal);
       }
@@ -355,6 +371,7 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       // Base implementation has nothing async to wait for (the dummy
       // backend's localStorage write is synchronous) — sqlite-repository.ts
       // overrides this to also await its pending write queue.
+      return { skippedSpeciesSlugs, skippedFormSlugs };
     },
   };
 }
