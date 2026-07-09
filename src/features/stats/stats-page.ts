@@ -28,7 +28,7 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
   container.append(el("h2", {}, ["Stats"]));
 
   const lensFieldset = el("fieldset", {});
-  const bodyEl = el("div", { class: "stats-body" });
+  const bodyEl = el("div", { class: "stats-body", "aria-live": "polite" });
   const detailEl = el("div", { class: "stats-detail" });
   container.append(lensFieldset, bodyEl, detailEl);
 

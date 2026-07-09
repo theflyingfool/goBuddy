@@ -97,12 +97,23 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
   searchInput.value = state.search;
   searchInput.addEventListener("input", () => {
     state.search = searchInput.value;
+    // rerender() rebuilds the whole page (see module comment), which would
+    // otherwise destroy and recreate this very input on every keystroke and
+    // drop focus/cursor position — restore both onto the freshly-created one.
+    const cursor = searchInput.selectionStart;
     rerender();
+    const newSearchInput = container.querySelector<HTMLInputElement>(".bulk-search");
+    newSearchInput?.focus();
+    if (cursor !== null) newSearchInput?.setSelectionRange(cursor, cursor);
   });
 
   const caughtBar = el("div", { class: "filter-bar" });
   for (const opt of CAUGHT_OPTIONS) {
-    const btn = el("button", { type: "button", class: `filter-chip${state.caught === opt.value ? " filter-chip-active" : ""}` }, [opt.label]);
+    const btn = el(
+      "button",
+      { type: "button", class: `filter-chip${state.caught === opt.value ? " filter-chip-active" : ""}`, "aria-pressed": String(state.caught === opt.value) },
+      [opt.label],
+    );
     btn.addEventListener("click", () => {
       state.caught = opt.value;
       rerender();
@@ -116,7 +127,12 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
     const label = gridFilterFieldLabel(field);
     const stateClass = current === "include" ? " filter-chip-include" : current === "exclude" ? " filter-chip-exclude" : "";
     const suffix = current === "include" ? " ✓" : current === "exclude" ? " ✕" : "";
-    const chip = el("button", { type: "button", class: `filter-chip${stateClass}`, title: label.full }, [`${label.badge}${suffix}`]);
+    const stateWord = current === "include" ? "included" : current === "exclude" ? "excluded" : "off";
+    const chip = el(
+      "button",
+      { type: "button", class: `filter-chip${stateClass}`, title: label.full, "aria-pressed": current ? "true" : "false", "aria-label": `${label.full}: ${stateWord}` },
+      [`${label.badge}${suffix}`],
+    );
     chip.addEventListener("click", () => {
       if (current === undefined) state.fieldFilters[field] = "include";
       else if (current === "include") state.fieldFilters[field] = "exclude";
@@ -155,7 +171,11 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
 
   const onOff = el("div", { class: "bulk-onoff" });
   for (const opt of [{ v: true, label: "On" }, { v: false, label: "Off" }] as const) {
-    const btn = el("button", { type: "button", class: `filter-chip${state.targetValue === opt.v ? " filter-chip-active" : ""}` }, [opt.label]);
+    const btn = el(
+      "button",
+      { type: "button", class: `filter-chip${state.targetValue === opt.v ? " filter-chip-active" : ""}`, "aria-pressed": String(state.targetValue === opt.v) },
+      [opt.label],
+    );
     btn.addEventListener("click", () => {
       state.targetValue = opt.v;
       rerender();

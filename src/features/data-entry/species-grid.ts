@@ -37,7 +37,6 @@ export interface GridCallbacks {
   onCycleFieldFilter: (field: GridFilterField) => void;
   onToggleMoreFilters: () => void;
   onToggleSelectMode: () => void;
-  onToggleSpeciesSelection: (speciesSlug: string) => void;
   onBulkFieldChange: (field: SpeciesBulkField) => void;
   onBulkValueChange: (value: boolean) => void;
   /** Apply the chosen field/value to every selected species (bulkSetSpeciesPersonalField), then clear + refresh. */
@@ -56,7 +55,18 @@ function fieldFilterChip(field: GridFilterField, state: GridState, callbacks: Gr
   const label = gridFilterFieldLabel(field);
   const stateClass = current === "include" ? " filter-chip-include" : current === "exclude" ? " filter-chip-exclude" : "";
   const suffix = current === "include" ? " ✓" : current === "exclude" ? " ✕" : "";
-  const chip = el("button", { type: "button", class: `filter-chip${stateClass}`, title: label.full }, [`${label.badge}${suffix}`]);
+  const stateWord = current === "include" ? "included" : current === "exclude" ? "excluded" : "off";
+  const chip = el(
+    "button",
+    {
+      type: "button",
+      class: `filter-chip${stateClass}`,
+      title: label.full,
+      "aria-pressed": current ? "true" : "false",
+      "aria-label": `${label.full}: ${stateWord}`,
+    },
+    [`${label.badge}${suffix}`],
+  );
   chip.addEventListener("click", () => callbacks.onCycleFieldFilter(field));
   return chip;
 }
@@ -73,7 +83,11 @@ function renderBulkBar(state: GridState, callbacks: GridCallbacks): HTMLElement 
 
   const onOff = el("div", { class: "bulk-onoff" });
   for (const opt of [{ v: true, label: "On" }, { v: false, label: "Off" }] as const) {
-    const btn = el("button", { type: "button", class: `filter-chip${state.bulkValue === opt.v ? " filter-chip-active" : ""}` }, [opt.label]);
+    const btn = el(
+      "button",
+      { type: "button", class: `filter-chip${state.bulkValue === opt.v ? " filter-chip-active" : ""}`, "aria-pressed": String(state.bulkValue === opt.v) },
+      [opt.label],
+    );
     btn.addEventListener("click", () => callbacks.onBulkValueChange(opt.v));
     onOff.append(btn);
   }
@@ -103,7 +117,7 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
   const selectToolbar = el("div", { class: "grid-select-toolbar" });
   const selectToggle = el(
     "button",
-    { type: "button", class: `filter-chip${state.selectMode ? " filter-chip-active" : ""}` },
+    { type: "button", class: `filter-chip${state.selectMode ? " filter-chip-active" : ""}`, "aria-pressed": String(state.selectMode) },
     [state.selectMode ? "✓ Selecting" : "Select"],
   );
   selectToggle.addEventListener("click", () => callbacks.onToggleSelectMode());
@@ -113,15 +127,31 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
   }
   container.append(selectToolbar);
 
-  if (state.selectMode && state.selectedSpecies.size > 0) {
-    container.append(renderBulkBar(state, callbacks));
+  // Lives in its own stable slot so toggling one tile's selection only
+  // touches this small bar in place, instead of rebuilding the entire
+  // (possibly 1000+ tile) grid below it on every tap.
+  const bulkBarSlot = el("div", {});
+  container.append(bulkBarSlot);
+  let bulkBarEl: HTMLElement | null = null;
+  function refreshBulkBar() {
+    const shouldShow = state.selectMode && state.selectedSpecies.size > 0;
+    if (shouldShow) {
+      const fresh = renderBulkBar(state, callbacks);
+      if (bulkBarEl) bulkBarEl.replaceWith(fresh);
+      else bulkBarSlot.append(fresh);
+      bulkBarEl = fresh;
+    } else if (bulkBarEl) {
+      bulkBarEl.remove();
+      bulkBarEl = null;
+    }
   }
+  refreshBulkBar();
 
   const filterBar = el("div", { class: "filter-bar" });
   for (const option of CAUGHT_FILTER_OPTIONS) {
     const button = el(
       "button",
-      { type: "button", class: `filter-chip${state.caughtFilter === option.value ? " filter-chip-active" : ""}` },
+      { type: "button", class: `filter-chip${state.caughtFilter === option.value ? " filter-chip-active" : ""}`, "aria-pressed": String(state.caughtFilter === option.value) },
       [option.label],
     );
     button.addEventListener("click", () => callbacks.onCaughtFilterChange(option.value));
@@ -196,7 +226,9 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
           el("img", {
             class: "species-sprite",
             src: speciesSpritePath(species.dexNumber),
-            alt: species.name,
+            // The name is already visible as text right below (tile-label) —
+            // an alt here would just make screen readers announce it twice.
+            alt: "",
             loading: "lazy",
           }),
           el("div", { class: "tile-label" }, [
@@ -206,8 +238,25 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
         ],
       );
       tile.addEventListener("click", () => {
-        if (state.selectMode) callbacks.onToggleSpeciesSelection(species.slug);
-        else callbacks.onSelectSpecies(species.slug);
+        if (!state.selectMode) {
+          callbacks.onSelectSpecies(species.slug);
+          return;
+        }
+        // In-place instead of a full renderGrid(): mutates the same Set the
+        // caller holds (no callback needed to "commit" it), then updates
+        // just this tile + the bulk bar, not the whole grid.
+        const nowSelected = !state.selectedSpecies.has(species.slug);
+        if (nowSelected) state.selectedSpecies.add(species.slug);
+        else state.selectedSpecies.delete(species.slug);
+
+        tile.classList.toggle("selected", nowSelected);
+        const check = tile.querySelector<HTMLElement>(".select-check");
+        if (check) {
+          check.classList.toggle("on", nowSelected);
+          check.textContent = nowSelected ? "✓" : "";
+        }
+
+        refreshBulkBar();
       });
       grid.append(tile);
     }

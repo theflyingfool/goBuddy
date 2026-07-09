@@ -452,6 +452,12 @@ input[type="checkbox"] {
   flex: 1;
 }
 
+.form-filter-input {
+  display: block;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
 .back-button,
 .nav-chevron {
   padding: 0.5rem 0.75rem;
