@@ -29,10 +29,18 @@ design work — not pre-decided in this planning pass.*
   have meant hard-coding dark regardless of OS setting; the toggle covers
   either intent, but which one *ships as the out-of-the-box default* is the
   owner's call to confirm.
-- [ ] The stats page should look like a well done powerBI dashboard or
-  similar — not yet addressed; the token/type pass below reskins the
-  existing table+bar-chart structure in place, but a real dashboard
-  treatment (KPI tiles, richer charts) is a further design pass of its own.
+- [x] The stats page should look like a well done powerBI dashboard or
+  similar — owner confirmed the underlying data/queries didn't need to
+  change, just the presentation. Added a headline KPI-card row above the
+  region table (`.stats-kpi-row`/`.stats-kpi-card` in `src/style.css`,
+  `renderKpiCard` in `src/features/stats/stats-page.ts`): one big-number
+  card per selected lens, pulled straight from the existing "All regions"
+  scope row (no new query). Replaced the missing-species drill-down's
+  comma-joined text blob with a tappable sprite grid
+  (`.stats-missing-grid`/`.stats-missing-tile`) that navigates straight to
+  a species' detail page on tap — this also knocks out §4's stats
+  drill-down item below (scrollIntoView + species-name links), since it's
+  the same code path.
 - [x] Define the visual direction: pitched 3 candidate directions (Field
   Ledger, Night Scan, Studio Neutral) as a live mockup artifact applied to
   real screens (header/search, species grid + chips, detail toggles) in both
@@ -141,6 +149,10 @@ design work — not pre-decided in this planning pass.*
   Assistant) under a muted "Coming later" group; move Coverage Report behind
   Settings or a dev flag (`src/app-shell/nav-drawer.ts`). Not done — an IA/
   layout call, see roughness-review notes below.
+- [x] Stats drill-down: `scrollIntoView` on the missing-species detail panel,
+  make species names link to `speciesDetailPath` (`src/features/stats/stats-page.ts`) —
+  done as part of the §3 PowerBI-dashboard bullet above (same drill-down
+  rework).
 - [x] Add an `aria-live="polite"` status region for async states (Computing…,
   Exporting…, Imported…) — added directly to the existing status elements
   (`settings-page.ts`'s `statusEl`, `stats-page.ts`'s `bodyEl`) rather than
