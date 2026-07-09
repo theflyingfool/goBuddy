@@ -17,9 +17,12 @@ that file (or a friend's trust in it) can currently be lost.*
   personal rows whose slug no longer resolves after reference tables are
   recreated, and move them to a quarantine table instead of letting the
   transaction commit fail.
-- [ ] Ingestion-time slug-disappearance check — pairs with
+- [x] Ingestion-time slug-disappearance check — pairs with
   [§ 9](06-performance-and-quality-infra.md)'s slug-stability script; fail
-  the build if a slug vanishes without a rename-registry entry.
+  the build if a slug vanishes without a rename-registry entry. Done as
+  `scripts/ingest/check-slug-stability.ts` (`npm run ingest:check-slugs`),
+  which also satisfies §9's bullet below — see
+  `docs/ingestion-runbook.md`.
 - [ ] Write-failure banner: surface `src/data/sqlite-repository.ts`'s
   swallowed write errors (~line 96-98) as a persistent in-app banner with
   retry, instead of `console.error`-only.

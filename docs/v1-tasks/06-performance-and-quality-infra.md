@@ -22,11 +22,13 @@ first-boot/device-specific items.*
 
 ## 9. Quality infrastructure
 
-- [ ] Slug-stability check script: diff new `reference.json` slugs against
+- [x] Slug-stability check script: diff new `reference.json` slugs against
   the last committed version; fail if any slug vanished without a matching
   entry in `src/db/slug-renames.ts`. (Feeds
   [§ 1](01-reference-data-correction.md) and
-  [§ 2](02-data-safety-net.md)'s checks.)
+  [§ 2](02-data-safety-net.md)'s checks.) Done as
+  `scripts/ingest/check-slug-stability.ts` (`npm run ingest:check-slugs`),
+  pulled forward from here into the §2 pass.
 - [ ] Migration fixture tests: a thin adapter running the real migration +
   sync code (`src/db/migrations.ts`, `src/db/reference-sync.ts`) against
   fixture databases via Node's built-in SQLite — reuse the prepared-statement
