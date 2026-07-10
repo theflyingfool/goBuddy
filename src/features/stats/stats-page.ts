@@ -2,7 +2,7 @@ import { navigate, speciesDetailPath } from "../../app-shell/router";
 import type { CompletionLens, CompletionLensResult, CompletionMissingSpecies, CompletionScope, Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
 import { speciesSpritePath } from "../../ui/sprites";
-import { ACHIEVEMENT_LENSES, PRIMARY_LENSES, lensKey, lensLabel, parseLensKey } from "./lens-labels";
+import { ACHIEVEMENT_LENSES, GIGANTAMAX_LENSES, MEGA_LENSES, PRIMARY_LENSES, lensKey, lensLabel, parseLensKey } from "./lens-labels";
 
 const STATS_LENS_SETTING_KEY = "stats_lenses";
 // Per the user: default to the two stats they specifically asked for first —
@@ -57,10 +57,11 @@ export async function renderStatsPage(container: HTMLElement, repo: Repository) 
     lensFieldset.append(el("legend", {}, ["Lenses"]));
     for (const lens of PRIMARY_LENSES) lensFieldset.append(lensToggle(lens));
 
-    const checkedAchievementCount = ACHIEVEMENT_LENSES.filter((lens) => selected.has(lensKey(lens))).length;
-    const details = el("details", { class: "stats-more-lenses" }, [el("summary", {}, [`More lenses (${ACHIEVEMENT_LENSES.length}${checkedAchievementCount ? `, ${checkedAchievementCount} checked` : ""})`])]);
-    if (checkedAchievementCount > 0) details.setAttribute("open", "true");
-    for (const lens of ACHIEVEMENT_LENSES) details.append(lensToggle(lens));
+    const moreLenses = [...ACHIEVEMENT_LENSES, ...MEGA_LENSES, ...GIGANTAMAX_LENSES];
+    const checkedMoreCount = moreLenses.filter((lens) => selected.has(lensKey(lens))).length;
+    const details = el("details", { class: "stats-more-lenses" }, [el("summary", {}, [`More lenses (${moreLenses.length}${checkedMoreCount ? `, ${checkedMoreCount} checked` : ""})`])]);
+    if (checkedMoreCount > 0) details.setAttribute("open", "true");
+    for (const lens of moreLenses) details.append(lensToggle(lens));
     lensFieldset.append(details);
   }
 

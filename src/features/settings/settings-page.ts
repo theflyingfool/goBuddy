@@ -1,4 +1,4 @@
-import { MAX_GRID_INDICATORS, type Repository } from "../../data/repository";
+import { EXCLUDE_REGIONAL_SETTING_KEY, MAX_GRID_INDICATORS, type Repository } from "../../data/repository";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../../db/schema";
 import { type ThemePreference, getThemePreference, setThemePreference } from "../../app-shell/theme";
 import { clear, el, labeledToggle } from "../../ui/dom";
@@ -43,6 +43,18 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   collapseFieldset.append(
     labeledToggle("Collapse gender-split forms", repo.getAppSetting(COLLAPSE_SETTING_KEY) === "1", (checked) => {
       repo.setAppSetting(COLLAPSE_SETTING_KEY, checked ? "1" : "0");
+    }),
+  );
+
+  // Off by default (today's behavior): some players can actually reach
+  // region-locked forms (an alt account, travel, trading) so Form-complete
+  // requiring them is fair; others genuinely never can, which makes the
+  // stat permanently unattainable for ~50 species. Per-install choice, not
+  // a fixed app-wide answer (D2, docs/v1-tasks/04-mega-and-gigantamax.md).
+  const statsFieldset = el("fieldset", {}, [el("legend", {}, ["Stats"])]);
+  statsFieldset.append(
+    labeledToggle("Exclude regional-exclusive forms from Form-complete", repo.getAppSetting(EXCLUDE_REGIONAL_SETTING_KEY) === "1", (checked) => {
+      repo.setAppSetting(EXCLUDE_REGIONAL_SETTING_KEY, checked ? "1" : "0");
     }),
   );
 
@@ -164,5 +176,5 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
 
   dataFieldset.append(exportButton, importLabel, statusEl);
 
-  container.append(heading, appearanceFieldset, collapseFieldset, formGridFieldset, indicatorFieldset, dataFieldset);
+  container.append(heading, appearanceFieldset, collapseFieldset, statsFieldset, formGridFieldset, indicatorFieldset, dataFieldset);
 }

@@ -15,14 +15,14 @@
 
 import type { ReferenceData } from "../db/reference-data";
 import { DEFAULT_APP_SETTINGS } from "../db/defaults";
-import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormPersonal, type SpeciesPersonal } from "../db/types";
+import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormBackgroundPersonal, type FormPersonal, type MegaPersonal, type SpeciesPersonal } from "../db/types";
 import { getDb, persistDb } from "../db/sqlite-client";
 import { runPersonalMigrations } from "../db/migrations";
 import { syncReferenceData } from "../db/reference-sync";
 import { getCompletionStatsSql } from "./completion-stats-sql";
 import referenceDataJson from "./reference.json";
 import { createInMemoryRepository, type PersonalState } from "./in-memory-store";
-import type { Repository } from "./repository";
+import { EXCLUDE_REGIONAL_SETTING_KEY, type Repository } from "./repository";
 
 const referenceData = referenceDataJson as unknown as ReferenceData;
 
@@ -68,7 +68,25 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     appSettings[row.key] = row.value;
   }
 
-  return { speciesPersonal, formPersonal, appSettings };
+  const megaPersonal: Record<string, MegaPersonal> = {};
+  for (const row of (await db.query("SELECT * FROM mega_personal")).values ?? []) {
+    megaPersonal[row.mega_variant_slug] = {
+      megaVariantSlug: row.mega_variant_slug,
+      evolved: !!row.evolved,
+      shinyEvolved: !!row.shiny_evolved,
+    };
+  }
+
+  const formBackgroundPersonal: FormBackgroundPersonal[] = [];
+  for (const row of (await db.query("SELECT * FROM form_background_personal")).values ?? []) {
+    formBackgroundPersonal.push({
+      formSlug: row.form_slug,
+      achievementField: row.achievement_field,
+      backgroundSlug: row.background_slug,
+    });
+  }
+
+  return { speciesPersonal, formPersonal, appSettings, megaPersonal, formBackgroundPersonal };
 }
 
 export async function createSqliteRepository(onWriteFailure?: (message: string, retry: () => Promise<void>) => void): Promise<Repository> {
@@ -142,6 +160,18 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
         await persistDb();
       });
     },
+    onMegaPersonalChanged(megaVariantSlug, personal) {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run(
+          `INSERT INTO mega_personal (mega_variant_slug, evolved, shiny_evolved) VALUES (?, ?, ?)
+           ON CONFLICT(mega_variant_slug) DO UPDATE SET evolved = excluded.evolved, shiny_evolved = excluded.shiny_evolved`,
+          [megaVariantSlug, personal.evolved ? 1 : 0, personal.shinyEvolved ? 1 : 0],
+          !inBulk,
+        );
+        if (!inBulk) await persistDb();
+      });
+    },
   });
 
   // Runs a batched in-memory apply (which fires N onXChanged hooks
@@ -175,7 +205,7 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
     // read a connection that's still mid-write.
     async getCompletionStats(scope, lenses) {
       await writeQueue;
-      return getCompletionStatsSql(db, scope, lenses);
+      return getCompletionStatsSql(db, scope, lenses, state.appSettings[EXCLUDE_REGIONAL_SETTING_KEY] === "1");
     },
     // Overrides the in-memory-store default to also wait for the writes it
     // just queued (via the onXChanged hooks above) to actually land in

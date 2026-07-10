@@ -2,12 +2,17 @@
 // capacitor-community/sqlite) will satisfy this same shape later — the UI
 // layer shouldn't need to change when that swap happens.
 
-import type { Form, FormPersonal, FormPersonalBooleanField, Region, Species, SpeciesPersonal } from "../db/types";
+import type { Form, FormBackgroundPersonal, FormPersonal, FormPersonalBooleanField, MegaPersonal, MegaVariant, Region, Species, SpeciesPersonal } from "../db/types";
 
 export interface SpeciesWithForms {
   species: Species;
   personal: SpeciesPersonal;
   forms: { form: Form; personal: FormPersonal }[];
+}
+
+export interface SpeciesMegaVariant {
+  variant: MegaVariant;
+  personal: MegaPersonal;
 }
 
 export interface SpeciesSummary {
@@ -37,7 +42,13 @@ export type SpeciesBooleanField = "xxl" | "xxs" | "purified";
 // classification" in the UI, not mixed into the achievement filter list.
 export type AvailabilityFilterField = "megaCapable" | "dynamaxCapable" | "gigantamaxCapable";
 
-export type GridFilterField = FormPersonalBooleanField | SpeciesBooleanField | RarityFilterField | AvailabilityFilterField;
+// Personal achievement, species-wide like registered/xxl/xxs/purified — but
+// tracked in mega_personal (see SpeciesMegaVariant below), not
+// species_personal, so it needs its own filter-field type rather than
+// folding into SpeciesBooleanField.
+export type MegaAchievementFilterField = "megaEvolved";
+
+export type GridFilterField = FormPersonalBooleanField | SpeciesBooleanField | RarityFilterField | AvailabilityFilterField | MegaAchievementFilterField;
 
 export interface SpeciesFilter {
   region?: string;
@@ -57,6 +68,9 @@ export type CompletionLens =
   | { kind: "registered" }
   | { kind: "formComplete" }
   | { kind: "costumeComplete" }
+  | { kind: "gigantamaxComplete" }
+  | { kind: "megaComplete" }
+  | { kind: "megaShinyComplete" }
   | { kind: "achievement"; field: FormPersonalBooleanField };
 
 export interface CompletionMissingSpecies {
@@ -86,6 +100,10 @@ export interface PersonalDataExport {
   speciesPersonal: Record<string, SpeciesPersonal>;
   formPersonal: Record<string, FormPersonal>;
   appSettings: Record<string, string>;
+  /** Keyed by mega_variant slug. Optional only for reading older export files that predate this field — always populated on export going forward. */
+  megaPersonal?: Record<string, MegaPersonal>;
+  /** No single natural slug key (composite PK: form + achievement field + background) — a flat array, same as the DB row shape. Same backward-compat note as megaPersonal. */
+  formBackgroundPersonal?: FormBackgroundPersonal[];
 }
 
 export interface Repository {
@@ -102,6 +120,16 @@ export interface Repository {
 
   setSpeciesPersonalField(speciesSlug: string, field: keyof Omit<SpeciesPersonal, "speciesSlug">, value: boolean): void;
   setFormPersonalField(formSlug: string, field: keyof Omit<FormPersonal, "formSlug">, value: boolean): void;
+
+  /**
+   * Mega is species-wide, not per-form — any non-Shadow individual of the
+   * species can be temporarily Mega Evolved regardless of which costume it
+   * is, so (unlike forms) this isn't gated by anything on the Form row.
+   * Returns the variant rows paired with their personal state (0 rows for
+   * most species, 1 for single-variant megas, 2 for Charizard).
+   */
+  getMegaVariantsForSpecies(speciesSlug: string): SpeciesMegaVariant[];
+  setMegaPersonalField(megaVariantSlug: string, field: keyof Omit<MegaPersonal, "megaVariantSlug">, value: boolean): void;
 
   /**
    * Batched equivalents of the two single setters above, for the bulk-edit
@@ -150,3 +178,9 @@ export interface ImportResult {
 }
 
 export const MAX_GRID_INDICATORS = 4;
+
+// Read by both backends' getCompletionStats (in-memory-store.ts directly,
+// sqlite-repository.ts to pass through to the SQL lens) and written by
+// Settings — public since it's a real cross-layer contract, not an
+// implementation detail of either backend.
+export const EXCLUDE_REGIONAL_SETTING_KEY = "exclude_regional_form_complete";

@@ -1,10 +1,17 @@
 import { navigate, speciesDetailPath } from "../../app-shell/router";
-import type { Form, FormPersonal, FormPersonalBooleanField } from "../../db/types";
+import type { Form, FormPersonal, FormPersonalBooleanField, MegaVariantKind } from "../../db/types";
 import type { Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
 import { speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
 import { INDICATOR_LABELS, getFormGridSecondField } from "./indicator-labels";
+
+// "Mega" for the single-variant case (null), "Mega X"/"Mega Y" for
+// Charizard/Mewtwo-style dual variants, "Primal" as-is (that's the real
+// in-game name — not "Mega Primal").
+function megaVariantLabel(variant: MegaVariantKind): string {
+  return variant === null ? "Mega" : variant === "Primal" ? "Primal" : `Mega ${variant}`;
+}
 
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
 
@@ -107,6 +114,31 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   const expandedKeysForRender = expandedKeys;
 
   const rerender = () => renderSpeciesDetail(container, repo, speciesSlug, onBack);
+
+  // Mega is species-wide, not per-form (any non-Shadow individual of the
+  // species can be temporarily Mega Evolved regardless of costume) — its own
+  // fieldset next to Species/Purified, not folded into the per-form grid
+  // below. 0 rows for most species, 1 for single-variant megas, 2 for
+  // Charizard/Mewtwo-style dual variants.
+  const megaVariants = repo.getMegaVariantsForSpecies(speciesSlug);
+  const megaFieldset = megaVariants.length > 0 ? el("fieldset", {}, [el("legend", {}, ["Mega"])]) : null;
+  if (megaFieldset) {
+    for (const { variant, personal: mp } of megaVariants) {
+      megaFieldset.append(
+        el("div", { class: "mega-variant-row" }, [
+          el("span", { class: "mega-variant-label" }, [megaVariantLabel(variant.variant)]),
+          labeledToggle("Evolved", mp.evolved, (checked) => {
+            repo.setMegaPersonalField(variant.slug, "evolved", checked);
+            rerender();
+          }),
+          labeledToggle("Shiny Evolved", mp.shinyEvolved, (checked) => {
+            repo.setMegaPersonalField(variant.slug, "shinyEvolved", checked);
+            rerender();
+          }),
+        ]),
+      );
+    }
+  }
 
   const filterText = formFilterBySpecies.get(speciesSlug) ?? "";
   const filterInput = el("input", {
@@ -229,5 +261,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     }
   }
 
-  container.append(header, speciesFieldset, formToolbar, formGrid);
+  container.append(header, speciesFieldset);
+  if (megaFieldset) container.append(megaFieldset);
+  container.append(formToolbar, formGrid);
 }

@@ -6,7 +6,7 @@
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
-import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormPersonal, type SpeciesPersonal } from "../db/types";
+import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormBackgroundPersonal, type FormPersonal, type MegaPersonal, type SpeciesPersonal } from "../db/types";
 import type { PersonalDataExport } from "./repository";
 
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {
@@ -21,10 +21,10 @@ async function tableExists(db: SQLiteDBConnection, table: string): Promise<boole
 //
 // Deliberately reuses the same PersonalDataExport shape personal-data-transfer.ts
 // writes in the normal export flow (so the same Settings import path can read
-// a rescue file back in later) — which means it shares that format's known
-// gap (no megaPersonal/formBackgroundPersonal fields yet, see
-// docs/v1-tasks/04-mega-and-gigantamax.md). This is a rescue of what the
-// normal export already covers, not a more-complete backup.
+// a rescue file back in later) — now including megaPersonal/
+// formBackgroundPersonal, closing the gap docs/v1-tasks/04-mega-and-gigantamax.md
+// flagged. This is a rescue of what the normal export covers, not a
+// more-complete backup.
 export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promise<PersonalDataExport> {
   let schemaVersion = CURRENT_PERSONAL_SCHEMA_VERSION;
   try {
@@ -83,5 +83,35 @@ export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promis
     console.error("Boot-rescue: couldn't read app_settings:", err);
   }
 
-  return { exportedAt: new Date().toISOString(), schemaVersion, speciesPersonal, formPersonal, appSettings };
+  const megaPersonal: Record<string, MegaPersonal> = {};
+  try {
+    if (await tableExists(db, "mega_personal")) {
+      for (const row of (await db.query("SELECT * FROM mega_personal")).values ?? []) {
+        megaPersonal[row.mega_variant_slug] = {
+          megaVariantSlug: row.mega_variant_slug,
+          evolved: !!row.evolved,
+          shinyEvolved: !!row.shiny_evolved,
+        };
+      }
+    }
+  } catch (err) {
+    console.error("Boot-rescue: couldn't read mega_personal:", err);
+  }
+
+  const formBackgroundPersonal: FormBackgroundPersonal[] = [];
+  try {
+    if (await tableExists(db, "form_background_personal")) {
+      for (const row of (await db.query("SELECT * FROM form_background_personal")).values ?? []) {
+        formBackgroundPersonal.push({
+          formSlug: row.form_slug,
+          achievementField: row.achievement_field,
+          backgroundSlug: row.background_slug,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Boot-rescue: couldn't read form_background_personal:", err);
+  }
+
+  return { exportedAt: new Date().toISOString(), schemaVersion, speciesPersonal, formPersonal, appSettings, megaPersonal, formBackgroundPersonal };
 }

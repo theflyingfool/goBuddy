@@ -1,5 +1,5 @@
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type FormPersonalBooleanField } from "../../db/types";
-import type { AvailabilityFilterField, GridFilterField, RarityFilterField, Repository, SpeciesBooleanField } from "../../data/repository";
+import type { AvailabilityFilterField, GridFilterField, MegaAchievementFilterField, RarityFilterField, Repository, SpeciesBooleanField } from "../../data/repository";
 
 export const INDICATOR_LABELS: Record<FormPersonalBooleanField, { badge: string; full: string }> = {
   caught: { badge: "●", full: "Caught" },
@@ -65,9 +65,18 @@ export const AVAILABILITY_FILTER_LABELS: Record<AvailabilityFilterField, { badge
   gigantamaxCapable: { badge: "G?", full: "Can Gigantamax" },
 };
 
+// Personal achievement (have I actually mega evolved this), not reference
+// availability (can it ever be) — that's AVAILABILITY_FILTER_LABELS'
+// megaCapable below. Grouped with the other personal achievement fields in
+// MORE_FILTER_FIELDS, not with rarity/availability in CLASSIFICATION_FIELDS.
+export const MEGA_ACHIEVEMENT_FILTER_LABELS: Record<MegaAchievementFilterField, { badge: string; full: string }> = {
+  megaEvolved: { badge: "Mega✓", full: "Mega evolved" },
+};
+
 export const RARITY_FILTER_OPTIONS: RarityFilterField[] = ["legendary", "mythical", "ultraBeast"];
 export const SPECIES_FILTER_OPTIONS: SpeciesBooleanField[] = ["xxl", "xxs", "purified"];
 export const AVAILABILITY_FILTER_OPTIONS: AvailabilityFilterField[] = ["megaCapable", "dynamaxCapable", "gigantamaxCapable"];
+export const MEGA_ACHIEVEMENT_FILTER_OPTIONS: MegaAchievementFilterField[] = ["megaEvolved"];
 
 // Species classification — reference data (rarity + what a species/form can
 // ever be), always visible on the grid rather than tucked into "More
@@ -76,13 +85,14 @@ export const AVAILABILITY_FILTER_OPTIONS: AvailabilityFilterField[] = ["megaCapa
 // achievement toggles like Shiny/Lucky/Shundo.
 export const CLASSIFICATION_FIELDS: GridFilterField[] = [...RARITY_FILTER_OPTIONS, ...AVAILABILITY_FILTER_OPTIONS];
 
-/** Fields shown in the grid's collapsed "More filters" section: every achievement field plus XXL/XXS/Purified. Rarity/availability live in CLASSIFICATION_FIELDS instead. */
-export const MORE_FILTER_FIELDS: GridFilterField[] = [...INDICATOR_OPTIONS, ...SPECIES_FILTER_OPTIONS];
+/** Fields shown in the grid's collapsed "More filters" section: every achievement field plus XXL/XXS/Purified/Mega evolved. Rarity/availability live in CLASSIFICATION_FIELDS instead. */
+export const MORE_FILTER_FIELDS: GridFilterField[] = [...INDICATOR_OPTIONS, ...SPECIES_FILTER_OPTIONS, ...MEGA_ACHIEVEMENT_FILTER_OPTIONS];
 
 export function gridFilterFieldLabel(field: GridFilterField): { badge: string; full: string } {
   if (field in RARITY_FILTER_LABELS) return RARITY_FILTER_LABELS[field as RarityFilterField];
   if (field in SPECIES_FILTER_LABELS) return SPECIES_FILTER_LABELS[field as SpeciesBooleanField];
   if (field in AVAILABILITY_FILTER_LABELS) return AVAILABILITY_FILTER_LABELS[field as AvailabilityFilterField];
+  if (field in MEGA_ACHIEVEMENT_FILTER_LABELS) return MEGA_ACHIEVEMENT_FILTER_LABELS[field as MegaAchievementFilterField];
   return INDICATOR_LABELS[field as FormPersonalBooleanField];
 }
 

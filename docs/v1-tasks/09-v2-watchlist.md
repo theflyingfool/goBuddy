@@ -25,3 +25,17 @@
   the launcher-script option).
 - Dark-mode manual toggle, one ≥768px desktop breakpoint (if not finished in
   [§ 3/§ 4](03-visual-and-legibility.md)).
+- **Reference/informational content beyond dex-tracking** — per the owner
+  (2026-07-09), "a shit load more info" eventually: Mega/Gigantamax candy
+  cost per species, Pokédex flavor text (species descriptions — "seed
+  Pokémon", etc.), CP at max level, full learnable-moveset lists (fast +
+  charged, per species/form), and a "best way to finish your XP for level
+  80" leveling-optimization guide. None of this is personal per-catch data —
+  it's static game-reference content (candy-cost/CP/movesets/dex-text) or a
+  computed-guidance feature (XP optimization), so per CLAUDE.md's own
+  design-awareness note it belongs in its own independent table(s)/feature
+  area, not bolted onto `species`/`form`. Route candy-cost/CP/movesets/dex-
+  text through the same reference-ingestion pipeline
+  (`docs/ingestion-runbook.md`) as everything else once a source is picked;
+  XP-optimization is closer to the already-watchlisted "in-game achievement
+  tracking, leveling optimization" future phase than to dex-tracking at all.
