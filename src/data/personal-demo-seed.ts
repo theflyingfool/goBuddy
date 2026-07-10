@@ -1,12 +1,11 @@
 // Hand-written personal-table demo overlay — there's still no real personal
 // progress data anywhere (confirmed: the source CSVs are blank trackers).
 // This just seeds a handful of toggles on real species/forms (now sourced
-// from the real ingested src/data/reference.json) so the UI has something
-// to demonstrate against on first load. Used only by dummy-repository.ts —
-// a fresh real (SQLite-backed) install should never see fake progress like
-// "Bulbasaur caught" or "Charizard shiny", so sqlite-repository.ts doesn't
-// import any of this except DEFAULT_APP_SETTINGS (re-exported from
-// db/defaults.ts, since app-setting defaults are real config, not demo data).
+// from the real ingested src/data/reference.json) so a generated dummy.sqlite
+// (scripts/build-dummy-db.ts, for manual DB inspection) has something to look
+// at. A fresh real on-device install never sees any of this — sqlite-repository.ts
+// doesn't import it (it seeds fresh installs from DEFAULT_APP_SETTINGS in
+// db/defaults.ts instead, which is real config, not demo data).
 
 import { emptyFormPersonal } from "../db/defaults";
 import type { FormBackgroundPersonal, FormPersonal, MegaPersonal, SpeciesPersonal } from "../db/types";
