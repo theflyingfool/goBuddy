@@ -38,12 +38,18 @@ first-boot/device-specific items.*
   stats counts, export/import, settings — the scenarios already verified
   manually per `TODO.md`, made repeatable.
 - [ ] CI workflow: `tsc -b --noEmit` + unit tests + the smoke suite on PR.
-- [ ] Delete dead code: `src/data/dummy-repository.ts`,
-  `src/data/personal-demo-seed.ts`, and the in-memory JS stats path
-  (`computeLens` in `src/data/in-memory-store.ts`) — make stats SQL-only via
-  `src/data/completion-stats-sql.ts`.
-- [ ] Remove the `INTERNET` permission from `AndroidManifest.xml` (the app
-  makes no runtime network calls; let the OS enforce it).
-- [ ] Move the stray 38MB `GoBuddy.apk` out of the repo root.
+- [x] Delete dead code: `src/data/dummy-repository.ts` deleted (confirmed
+  unreferenced — `main.ts` only ever imports `createSqliteRepository`) along
+  with the in-memory JS stats path (`computeLens` + the default
+  `getCompletionStats` in `src/data/in-memory-store.ts`, now `Omit<Repository,
+  "getCompletionStats">` — `sqlite-repository.ts`'s SQL override is the only
+  implementation left). **Kept** `src/data/personal-demo-seed.ts`: turned out
+  to still be a real, separate dependency of `scripts/build-dummy-db.ts` (the
+  `dummy.sqlite` fixture generator for manual DB inspection), not just
+  dummy-repository.ts's seed data — updated its header comment and
+  `docs/architecture.md` to describe that as the real remaining consumer.
+- [x] Removed the `INTERNET` permission from `AndroidManifest.xml`.
+- [x] Stray `GoBuddy.apk` — already gone (not present at repo root, not
+  tracked in git anywhere); nothing left to do here.
 - [ ] **D6**: pick one app name (PoGo Buddy vs GoBuddy) and align
   `appName`/export filenames/repo references.

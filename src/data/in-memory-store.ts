@@ -1,24 +1,22 @@
-// Shared in-memory query/filter engine backing both repository
-// implementations (src/data/dummy-repository.ts and
-// src/data/sqlite-repository.ts). Reference data is read-only once loaded;
-// personal data lives in a plain mutable object here, and every mutation
-// calls a hook so the caller can write it through to wherever it actually
-// persists (localStorage for the dummy backend, real SQLite for the other)
-// without this module needing to know which.
+// Shared in-memory query/filter engine backing the SQLite repository
+// implementation (src/data/sqlite-repository.ts). Reference data is
+// read-only once loaded; personal data lives in a plain mutable object here,
+// and every mutation calls a hook so the caller can write it through to real
+// SQLite.
+//
+// Completion stats are deliberately NOT computed here — that's real
+// parameterized SQL in completion-stats-sql.ts (CLAUDE.md asks for this, not
+// an in-memory scan). This module used to also carry an equivalent
+// plain-JS implementation for a since-deleted localStorage-backed dummy
+// repository; see docs/v1-tasks/06-performance-and-quality-infra.md.
 
 import { resolveFormFieldCascade } from "../db/cascades";
 import { emptyFormPersonal, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
-import { isGigantamaxForm } from "../features/data-entry/field-groups";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type Region, type Species, type SpeciesPersonal } from "../db/types";
 import {
-  EXCLUDE_REGIONAL_SETTING_KEY,
   MAX_GRID_INDICATORS,
-  type CompletionLens,
-  type CompletionLensResult,
-  type CompletionMissingSpecies,
-  type CompletionScope,
   type GridFilterField,
   type ImportResult,
   type PersonalDataExport,
@@ -50,7 +48,11 @@ export interface InMemoryStoreHooks {
   onMegaPersonalChanged(megaVariantSlug: string, personal: MegaPersonal): void;
 }
 
-export function createInMemoryRepository(referenceData: ReferenceData, state: PersonalState, hooks: InMemoryStoreHooks): Repository {
+export function createInMemoryRepository(
+  referenceData: ReferenceData,
+  state: PersonalState,
+  hooks: InMemoryStoreHooks,
+): Omit<Repository, "getCompletionStats"> {
   const speciesBySlug = new Map<string, Species>(referenceData.species.map((s) => [s.slug, s]));
   const speciesByDexOrder = [...referenceData.species].sort((a, b) => a.dexNumber - b.dexNumber);
   const formsBySpecies = new Map<string, Form[]>();
@@ -127,25 +129,6 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
   function setAppSetting(key: string, value: string) {
     state.appSettings[key] = value;
     hooks.onAppSettingChanged(key, value);
-  }
-
-  function speciesInScope(scope: CompletionScope): Species[] {
-    switch (scope.kind) {
-      case "region":
-        return referenceData.species.filter((s) => s.regionSlug === scope.regionSlug);
-      case "species":
-        return referenceData.species.filter((s) => s.slug === scope.speciesSlug);
-      case "global":
-        return referenceData.species;
-    }
-  }
-
-  function toMissing(s: Species): CompletionMissingSpecies {
-    return { slug: s.slug, name: s.name, dexNumber: s.dexNumber };
-  }
-
-  function formCaught(form: Form): boolean {
-    return (state.formPersonal[form.slug] ?? emptyFormPersonal(form.slug)).caught;
   }
 
   function isFormPersonalBooleanField(field: keyof Omit<FormPersonal, "formSlug">): field is FormPersonalBooleanField {
@@ -235,58 +218,6 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
     hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
 
-  function computeLens(lens: CompletionLens, scoped: Species[]): CompletionLensResult {
-    if (lens.kind === "registered") {
-      const missing = scoped.filter((s) => !(state.speciesPersonal[s.slug] ?? emptySpeciesPersonal(s.slug)).registered);
-      return { lens, total: scoped.length, complete: scoped.length - missing.length, missingSpecies: missing.map(toMissing) };
-    }
-
-    if (lens.kind === "formComplete") {
-      // Gigantamax always excluded (own gigantamaxComplete lens instead, same
-      // carve-out costumeComplete already does for costumes); regional-
-      // exclusive exclusion is a per-install Settings choice (D2 — some
-      // players can actually reach regionals via an alt/travel, others can't).
-      const excludeRegional = state.appSettings[EXCLUDE_REGIONAL_SETTING_KEY] === "1";
-      const eligible = (f: Form) => f.costumeName === null && !isGigantamaxForm(f) && (!excludeRegional || !f.regionalExclusive);
-      const missing = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter(eligible).some((f) => !formCaught(f)));
-      return { lens, total: scoped.length, complete: scoped.length - missing.length, missingSpecies: missing.map(toMissing) };
-    }
-
-    if (lens.kind === "costumeComplete") {
-      // Denominator is species that actually have a costume — most species
-      // never got one, and counting them as trivially "complete" would make
-      // this stat meaningless (inflated by species with nothing to catch).
-      const withCostumes = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).some((f) => f.costumeName !== null));
-      const missing = withCostumes.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter((f) => f.costumeName !== null).some((f) => !formCaught(f)));
-      return { lens, total: withCostumes.length, complete: withCostumes.length - missing.length, missingSpecies: missing.map(toMissing) };
-    }
-
-    if (lens.kind === "gigantamaxComplete") {
-      // Same "only count species that actually have one" denominator as
-      // costumeComplete/megaComplete.
-      const withGigantamax = scoped.filter((s) => (formsBySpecies.get(s.slug) ?? []).some(isGigantamaxForm));
-      const missing = withGigantamax.filter((s) => (formsBySpecies.get(s.slug) ?? []).filter(isGigantamaxForm).some((f) => !formCaught(f)));
-      return { lens, total: withGigantamax.length, complete: withGigantamax.length - missing.length, missingSpecies: missing.map(toMissing) };
-    }
-
-    if (lens.kind === "megaComplete" || lens.kind === "megaShinyComplete") {
-      // Same "only count species that actually have one" denominator as
-      // costumeComplete above. "Complete" means every mega_variant row for
-      // that species (both X and Y for Charizard) has the field true, not
-      // just one — same all-of convention groupFieldAllTrue uses for forms.
-      const megaField: keyof MegaPersonal = lens.kind === "megaShinyComplete" ? "shinyEvolved" : "evolved";
-      const withMega = scoped.filter((s) => (megaVariantsBySpecies.get(s.slug) ?? []).length > 0);
-      const missing = withMega.filter((s) =>
-        (megaVariantsBySpecies.get(s.slug) ?? []).some((mv) => !(state.megaPersonal[mv.slug] ?? emptyMegaPersonal(mv.slug))[megaField]),
-      );
-      return { lens, total: withMega.length, complete: withMega.length - missing.length, missingSpecies: missing.map(toMissing) };
-    }
-
-    // achievement: a species "has" the lens if ANY of its forms has that boolean true.
-    const missing = scoped.filter((s) => !(formsBySpecies.get(s.slug) ?? []).some((f) => (state.formPersonal[f.slug] ?? emptyFormPersonal(f.slug))[lens.field]));
-    return { lens, total: scoped.length, complete: scoped.length - missing.length, missingSpecies: missing.map(toMissing) };
-  }
-
   return {
     listRegions(): Region[] {
       return referenceData.regions;
@@ -372,9 +303,8 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
 
     // Bulk variants: loop the slugs applying the same per-row cascade path as
     // the single setters. Each row still fires its hook (that's what persists);
-    // the SQLite backend overrides these to batch those N writes into one
-    // transaction + one flush. Base impl (dummy backend) just persists per row,
-    // same as it does for single edits.
+    // sqlite-repository.ts overrides these to batch those N writes into one
+    // transaction + one flush instead of persisting per row.
     async bulkSetFormPersonalField(formSlugs, field, value) {
       for (const formSlug of formSlugs) applyFormPersonalField(formSlug, field, value);
     },
@@ -404,11 +334,6 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       setAppSetting(INDICATOR_SETTING_KEY, JSON.stringify(fields.slice(0, MAX_GRID_INDICATORS)));
     },
 
-    async getCompletionStats(scope: CompletionScope, lenses: CompletionLens[]): Promise<CompletionLensResult[]> {
-      const scoped = speciesInScope(scope);
-      return lenses.map((lens) => computeLens(lens, scoped));
-    },
-
     exportPersonalData(): PersonalDataExport {
       return {
         exportedAt: new Date().toISOString(),
@@ -427,8 +352,7 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
       for (const [slug, personal] of Object.entries(data.speciesPersonal)) {
         // Slug no longer resolves against the currently-loaded reference data
         // (e.g. imported from an older/newer reference.json) — writing it
-        // anyway would either dangle uselessly (dummy backend) or violate the
-        // species_personal FK (real SQLite backend, silently via the
+        // anyway would violate the species_personal FK (silently, via the
         // swallowed write-queue error). Skip and count instead.
         if (!speciesBySlug.has(slug)) {
           skippedSpeciesSlugs++;
@@ -464,8 +388,7 @@ export function createInMemoryRepository(referenceData: ReferenceData, state: Pe
         if (key === IMPORT_SKIP_SETTING_KEY) continue;
         setAppSetting(key, value);
       }
-      // Base implementation has nothing async to wait for (the dummy
-      // backend's localStorage write is synchronous) — sqlite-repository.ts
+      // Base implementation has nothing async to wait for — sqlite-repository.ts
       // overrides this to also await its pending write queue.
       return { skippedSpeciesSlugs, skippedFormSlugs };
     },
