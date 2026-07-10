@@ -41,12 +41,26 @@ that's a much smaller/self-contained problem.*
   boolean). `MEGA`/`MEGA_X`/`MEGA_Y`/`PRIMAL` tokens are looked up against
   `(speciesSlug, variant)` and copied to `public/sprites/mega/{mega.slug}
   [-shiny].png`, tracked in a new manifest (`src/data/mega-sprite-slugs.json`)
-  and a new `megaSpritePath()` helper in `src/ui/sprites.ts`. All 50 mega
-  variants in `reference.json` got matching art (100 files incl. shiny) —
-  verified Mega Charizard X by eye. Six non-canon "concept mega" files in
-  the PokeMiners dump (Dragonite, Skarmory, Raichu X/Y, Malamar, Victreebel,
-  Falinks — none of these have a real Mega Evolution) correctly fall through
-  to the hand-check CSV instead of silently matching nothing.
+  and a new `megaSpritePath()` helper in `src/ui/sprites.ts`. All 57 mega
+  variants in `reference.json` got matching art (114 files incl. shiny) —
+  verified Mega Charizard X and Mega Raichu X by eye.
+  **Also fixed a real `reference.json` bug found via this pass**: six
+  species initially looked like non-canon "concept mega" fan content
+  (Dragonite, Skarmory, Raichu X/Y, Malamar, Victreebel, Falinks) but the
+  owner confirmed all six are real, current Mega Evolutions in GO. Root
+  cause: `build-reference.ts` only trusted a PokeAPI mega variety if it
+  belonged to a mainline version_group (`x-y`/`omega-ruby-alpha-sapphire`)
+  — structurally impossible for any GO-exclusive Mega release, since
+  PokeAPI mirrors the mainline games, not GO's own schedule. Fixed
+  `build-reference.ts` to trust the GO tracker CSV's Mega column for
+  availability, using PokeAPI's variety list only to determine variant
+  shape (plain/X/Y/Primal); also corrected two stale tracker cells (Raichu,
+  Skarmory were marked unavailable despite having real art) and confirmed 5
+  *other* newly-surfaced rows (Butterfree, Lugia, Uxie, Mesprit, Azelf) were
+  genuinely bogus tracker entries — no art exists for any of them — and
+  marked those unavailable rather than shipping them. Ran the full
+  ingestion order (`docs/ingestion-runbook.md`) and `ingest:check-slugs`
+  passed clean.
 - [x] Gender-tagged (`.g`) files: owner confirmed the convention — `.g2` is
   always "female", and there is no `.g1` anywhere in the dump (independently
   verified: every gender-tagged file in all 3,631 icons is `.g2`; the
@@ -59,24 +73,26 @@ that's a much smaller/self-contained problem.*
   form + gender combo. Verified Rhyhorn's `-female` sprite by eye and by hash
   (distinct file from the male/base sprite, not a duplicate).
 - [x] Costume name translation: `scripts/ingest/costume-lookup.json`
-  (committed, starts empty) maps a costume codename (e.g. `HOLIDAY_2022`) to
-  this app's existing `costume_name` display string (e.g. `"Festive hat"`) —
-  these don't textually match so can't be auto-derived. The script consults
-  this file and auto-matches/copies once an entry exists; re-running after
+  (committed) maps a costume codename (e.g. `HOLIDAY_2022`) to this app's
+  existing `costume_name` display string (e.g. `"Festive hat"`) — these
+  don't textually match so can't be auto-derived. The script consults this
+  file and auto-matches/copies once an entry exists; re-running after
   adding entries only surfaces genuinely-new codenames going forward (the
-  "only ever check new things" loop). **Still empty** — owner is hand-filling
-  this from the CSV below.
+  "only ever check new things" loop). One real entry so far
+  (`JAN_2020_NOEVOLVE` -> `"Party hat (red)"`, owner-confirmed from the
+  actual art — cleared this costume for every species that has it, not just
+  the one it was confirmed on) — owner is hand-filling the rest from the
+  CSV below.
 - [x] Hand-check deliverables, written next to a scratch copy of the actual
   files in `Refs from Obsidian/image-pipeline-staging/` (uncommitted —
   that whole directory is outside the git repo, per the owner's call):
-  `extra-images.csv` (1,360 files, down from the original 1,686 now that
-  Mega/Gigantamax/gender are resolved — remaining reasons are almost all
-  "form token not in the confident-match whitelist" (778, e.g. Unown letters,
-  Deoxys/Rotom/Burmy multiforms) and "costume codename not yet in
-  costume-lookup.json" (566), plus a handful of non-canon concept-mega files
-  and 4 unmatched dex numbers) and `forms-missing-images.csv` (148 forms with
-  genuinely zero art anywhere in the dump — distinct from "extra," which is
-  "a file exists but wasn't confidently assigned").
+  `extra-images.csv` (1,256 files, down from the original 1,686 now that
+  Mega/Gigantamax/gender/Unown are resolved — remaining reasons are almost
+  all "form token not in the confident-match whitelist" (e.g. Deoxys/Rotom/
+  Burmy multiforms) and "costume codename not yet in costume-lookup.json",
+  plus 4 unmatched dex numbers) and `forms-missing-images.csv` (148 forms
+  with genuinely zero art anywhere in the dump — distinct from "extra,"
+  which is "a file exists but wasn't confidently assigned").
 - [ ] Cross-referencing into `form.imageRef`/`build-reference.ts` — not done;
   the sprite-slug manifest (`src/data/form-sprite-slugs.json`, below) served
   the same "does this form have art" purpose without needing this yet. Revisit
