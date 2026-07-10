@@ -4,12 +4,20 @@
 // than the opaque numeric form/costume IDs the task doc originally expected,
 // discovered while triaging this task. Deliberately conservative: only ships
 // art this script can match with real confidence (species base icons; a
-// small whitelist of unambiguous regional-form tokens; costumes previously
-// confirmed via costume-lookup.json). Everything else — including every
-// gender-tagged (.g) file, since g1/g2's exact meaning isn't confirmed, and
-// every unwhitelisted/ambiguous form token (Unown's bare letters collide with
-// Mewtwo's "A" = Armored, Deoxys/Rotom/Vivillon/Burmy multiforms, etc.) —
-// goes to a scratch-dir CSV for hand review instead of being guessed.
+// small whitelist of unambiguous regional/Mega/Gigantamax form tokens;
+// costumes previously confirmed via costume-lookup.json; gender-tagged
+// files — see below). Everything else — every unwhitelisted/ambiguous form
+// token (Unown's bare letters collide with Mewtwo's "A" = Armored,
+// Deoxys/Rotom/Vivillon/Burmy multiforms, etc.) — goes to a scratch-dir CSV
+// for hand review instead of being guessed.
+//
+// Gender tag convention (owner-confirmed, and independently verified against
+// the dump — every .g file found is .g2, .g1 never appears): the untagged
+// file already serves as the "male" (or only/unknown-gender) art; .g2 is
+// specifically the "female" variant. `parsed` is processed male-first
+// (see the sort below) so a later .g2 match can correct a slug a male-first
+// pass provisionally filled in, rather than racily depending on directory
+// order.
 //
 // Re-run after adding entries to costume-lookup.json (committed, starts
 // empty) to auto-match previously-unresolved costumes — this is the
@@ -21,7 +29,7 @@ import { fileURLToPath } from "node:url";
 
 import referenceDataJson from "../../src/data/reference.json";
 import type { ReferenceData } from "../../src/db/reference-data";
-import type { Form } from "../../src/db/types";
+import type { Form, MegaVariant, MegaVariantKind } from "../../src/db/types";
 import costumeLookupJson from "./costume-lookup.json";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -29,14 +37,17 @@ const REPO_ROOT = resolve(__dirname, "../..");
 const ASSET_DIR = resolve(REPO_ROOT, "Refs from Obsidian/pogo_assets/Images/Pokemon - 256x256/Addressable Assets");
 const SPRITES_DIR = resolve(REPO_ROOT, "public/sprites");
 const FORM_SPRITES_DIR = resolve(SPRITES_DIR, "forms");
+const MEGA_SPRITES_DIR = resolve(SPRITES_DIR, "mega");
 const SCRATCH_DIR = resolve(REPO_ROOT, "Refs from Obsidian/image-pipeline-staging");
 
 const referenceData = referenceDataJson as unknown as ReferenceData;
 const costumeLookup = costumeLookupJson as Record<string, string>;
 
-// Regional-form tokens confident enough to auto-match without hand-checking.
-// Deliberately excludes single letters (Unown A–Z / Mewtwo's "A" = Armored
-// collide) and anything else ambiguous.
+// Regional/Mega/Gigantamax form tokens confident enough to auto-match
+// without hand-checking. Deliberately excludes single letters (Unown A–Z /
+// Mewtwo's "A" = Armored collide) and anything else ambiguous. Mega/Primal
+// aren't in this table — they're matched against the separate `megaVariants`
+// reference table below, not `forms`.
 const FORM_TOKEN_WHITELIST: Record<string, string> = {
   ALOLA: "Alolan",
   GALARIAN: "Galarian",
@@ -45,6 +56,18 @@ const FORM_TOKEN_WHITELIST: Record<string, string> = {
   PALDEA_AQUA: "Paldean(Aqua)",
   PALDEA_BLAZE: "Paldean(Blaze)",
   PALDEA: "Paldean",
+  GIGANTAMAX: "Gigantamax",
+};
+
+// Mega/Primal art lives in its own reference table (megaVariants), not
+// `forms` — see CLAUDE.md's note that not every future fact is per-form.
+// Maps a file's form token to the `variant` value used to key a
+// (speciesSlug, variant) lookup into that table.
+const MEGA_FORM_TOKEN_TO_VARIANT: Record<string, MegaVariantKind> = {
+  MEGA: null,
+  MEGA_X: "X",
+  MEGA_Y: "Y",
+  PRIMAL: "Primal",
 };
 
 interface ParsedFile {
@@ -109,6 +132,25 @@ function main() {
     }
   }
 
+  const megaVariantsBySpeciesToken = new Map<string, MegaVariant>();
+  for (const mv of referenceData.megaVariants) {
+    const token = Object.entries(MEGA_FORM_TOKEN_TO_VARIANT).find(([, v]) => v === mv.variant)?.[0];
+    if (token) megaVariantsBySpeciesToken.set(`${mv.speciesSlug}|${token}`, mv);
+  }
+
+  // Only "-female" is ever a real ambiguity to resolve — every array here
+  // realistically holds at most one "-male" and one "-female" slug (or a
+  // single "-unknown" for genderless species, where forms.length is 1 and
+  // this is a no-op). A file with no gender tag keeps the pre-existing
+  // broad-copy behavior (copy to every matched slug) so single-image
+  // costumes/forms without a distinct female file still cover both slugs;
+  // a .g2 file narrows to just the "-female" slug(s) so it doesn't stomp
+  // the male slug with female art.
+  function pickFormsForFile(forms: Form[], genderToken: string | null): Form[] {
+    if (genderToken === null || forms.length <= 1) return forms;
+    return forms.filter((f) => f.slug.endsWith("-female"));
+  }
+
   const allFiles = readdirSync(ASSET_DIR).filter((f) => f.endsWith(".icon.png"));
   const parsed: ParsedFile[] = [];
   const parseFailures: string[] = [];
@@ -117,18 +159,25 @@ function main() {
     if (p) parsed.push(p);
     else parseFailures.push(f);
   }
+  // Male-tagged (i.e. untagged) files first, so a later .g2 pass can correct
+  // a slug the untagged pass provisionally filled in — Array.prototype.sort
+  // is a stable sort, so this only reorders across the null/non-null split.
+  parsed.sort((a, b) => (a.genderToken === null ? 0 : 1) - (b.genderToken === null ? 0 : 1));
 
   mkdirSync(SPRITES_DIR, { recursive: true });
   mkdirSync(FORM_SPRITES_DIR, { recursive: true });
+  mkdirSync(MEGA_SPRITES_DIR, { recursive: true });
   if (existsSync(SCRATCH_DIR)) rmSync(SCRATCH_DIR, { recursive: true });
   mkdirSync(SCRATCH_DIR, { recursive: true });
 
   const extraRows: ExtraRow[] = [];
   const matchedFormSlugs = new Set<string>();
+  const matchedMegaSlugs = new Set<string>();
   const dexWithAnyBaseIcon = new Set<number>();
   const dexWithAnyAltTaggedFile = new Set<number>();
   let speciesBaseCopied = 0;
   let formMatchesCopied = 0;
+  let megaMatchesCopied = 0;
 
   function copyTo(destDir: string, destBaseName: string, srcFileName: string, shiny: boolean) {
     const suffix = shiny ? "-shiny" : "";
@@ -150,7 +199,7 @@ function main() {
   }
 
   for (const p of parsed) {
-    if (p.formToken || p.costumeToken) dexWithAnyAltTaggedFile.add(p.dex);
+    if (p.formToken || p.costumeToken || p.genderToken) dexWithAnyAltTaggedFile.add(p.dex);
 
     const species = speciesByDex.get(p.dex);
     if (!species) {
@@ -158,31 +207,22 @@ function main() {
       continue;
     }
 
-    // Never auto-match a gender-tagged variant — g1/g2's exact meaning isn't
-    // confirmed against this app's -male/-female slugs, and a wrong guess
-    // here is worse than a CSV row.
-    if (p.genderToken !== null) {
-      toExtra(p, "gender-tagged variant (.g) — meaning not confirmed, needs hand-check");
-      continue;
-    }
-
     if (!p.formToken && !p.costumeToken) {
-      // Species base icon.
-      dexWithAnyBaseIcon.add(p.dex);
-      copyTo(SPRITES_DIR, String(p.dex).padStart(3, "0"), p.fileName, p.shiny);
-      speciesBaseCopied++;
-      continue;
-    }
-
-    if (p.costumeToken) {
-      const displayName = costumeLookup[p.costumeToken];
-      if (!displayName) {
-        toExtra(p, "costume codename not yet in costume-lookup.json");
+      if (p.genderToken === null) {
+        // Species base icon.
+        dexWithAnyBaseIcon.add(p.dex);
+        copyTo(SPRITES_DIR, String(p.dex).padStart(3, "0"), p.fileName, p.shiny);
+        speciesBaseCopied++;
         continue;
       }
-      const forms = formsBySpeciesCostumeName.get(`${species.slug}|${displayName}`) ?? [];
+      // Bare gender variant (.g2 = female, see module comment) of the plain
+      // Standard form — formsBySpeciesFormName also holds every costume that
+      // happens to share formName "Standard" (e.g. Pikachu's hats), so filter
+      // down to the actual costume-less Standard form(s) first.
+      const standardForms = (formsBySpeciesFormName.get(`${species.slug}|Standard`) ?? []).filter((f) => f.costumeName === null);
+      const forms = pickFormsForFile(standardForms, p.genderToken);
       if (forms.length === 0) {
-        toExtra(p, `costume-lookup.json maps to "${displayName}" but no matching form.costumeName for this species`);
+        toExtra(p, "gender-tagged Standard-form variant but no matching Standard form for this species");
         continue;
       }
       for (const form of forms) {
@@ -193,15 +233,57 @@ function main() {
       continue;
     }
 
-    // formToken present, no costumeToken.
+    if (p.costumeToken) {
+      const displayName = costumeLookup[p.costumeToken];
+      if (!displayName) {
+        toExtra(p, "costume codename not yet in costume-lookup.json");
+        continue;
+      }
+      const rawForms = formsBySpeciesCostumeName.get(`${species.slug}|${displayName}`) ?? [];
+      if (rawForms.length === 0) {
+        toExtra(p, `costume-lookup.json maps to "${displayName}" but no matching form.costumeName for this species`);
+        continue;
+      }
+      const forms = pickFormsForFile(rawForms, p.genderToken);
+      if (forms.length === 0) {
+        toExtra(p, `gender-tagged costume file but no "-female" form slug found for "${displayName}"`);
+        continue;
+      }
+      for (const form of forms) {
+        copyTo(FORM_SPRITES_DIR, form.slug, p.fileName, p.shiny);
+        matchedFormSlugs.add(form.slug);
+      }
+      formMatchesCopied++;
+      continue;
+    }
+
+    // formToken present, no costumeToken. Mega/Primal come from a separate
+    // reference table (megaVariants), not `forms` — handle that first.
+    if (p.formToken! in MEGA_FORM_TOKEN_TO_VARIANT) {
+      const mega = megaVariantsBySpeciesToken.get(`${species.slug}|${p.formToken}`);
+      if (!mega) {
+        toExtra(p, `mega/primal token "${p.formToken}" but no matching megaVariant for this species`);
+        continue;
+      }
+      copyTo(MEGA_SPRITES_DIR, mega.slug, p.fileName, p.shiny);
+      matchedMegaSlugs.add(mega.slug);
+      megaMatchesCopied++;
+      continue;
+    }
+
     const translated = FORM_TOKEN_WHITELIST[p.formToken!];
     if (!translated) {
       toExtra(p, "form token not in the confident-match whitelist");
       continue;
     }
-    const forms = formsBySpeciesFormName.get(`${species.slug}|${translated}`) ?? [];
-    if (forms.length === 0) {
+    const rawForms = formsBySpeciesFormName.get(`${species.slug}|${translated}`) ?? [];
+    if (rawForms.length === 0) {
       toExtra(p, `whitelisted form token "${p.formToken}" -> "${translated}" but no matching form.formName for this species`);
+      continue;
+    }
+    const forms = pickFormsForFile(rawForms, p.genderToken);
+    if (forms.length === 0) {
+      toExtra(p, `gender-tagged file for whitelisted form token "${p.formToken}" but no "-female" slug among matches`);
       continue;
     }
     for (const form of forms) {
@@ -293,18 +375,24 @@ function main() {
     );
   }
 
-  // Committed manifest (src/data/, alongside reference.json) so
-  // src/ui/sprites.ts's formSpritePath() knows which form.slugs actually got
-  // art without needing a runtime file-exists check (this is a bundled
-  // static public/ folder, not a queryable filesystem at runtime).
+  // Committed manifests (src/data/, alongside reference.json) so
+  // src/ui/sprites.ts's formSpritePath()/megaSpritePath() know which
+  // slugs actually got art without needing a runtime file-exists check
+  // (this is a bundled static public/ folder, not a queryable filesystem
+  // at runtime).
   writeFileSync(
     resolve(REPO_ROOT, "src/data/form-sprite-slugs.json"),
     JSON.stringify([...matchedFormSlugs].sort(), null, 2) + "\n",
+  );
+  writeFileSync(
+    resolve(REPO_ROOT, "src/data/mega-sprite-slugs.json"),
+    JSON.stringify([...matchedMegaSlugs].sort(), null, 2) + "\n",
   );
 
   console.log(`Parsed ${parsed.length}/${allFiles.length} .icon.png files (${parseFailures.length} didn't match the naming pattern).`);
   console.log(`Species base icons copied: ${speciesBaseCopied} files -> ${SPRITES_DIR}`);
   console.log(`Confident form matches copied: ${formMatchesCopied} files -> ${FORM_SPRITES_DIR} (${matchedFormSlugs.size} distinct form slugs)`);
+  console.log(`Mega/Primal matches copied: ${megaMatchesCopied} files -> ${MEGA_SPRITES_DIR} (${matchedMegaSlugs.size} distinct mega variant slugs)`);
   console.log(`Extra (unmatched, needs hand-check): ${extraRows.length} files -> ${SCRATCH_DIR}/extra-images.csv (+ copies)`);
   console.log(`Forms with no art anywhere in the dump: ${missingRows.length} -> ${SCRATCH_DIR}/forms-missing-images.csv`);
 }

@@ -2,7 +2,7 @@ import { navigate, speciesDetailPath } from "../../app-shell/router";
 import type { Form, FormPersonal, FormPersonalBooleanField, MegaVariantKind } from "../../db/types";
 import type { Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
-import { formSpritePath, speciesSpritePath } from "../../ui/sprites";
+import { formSpritePath, megaSpritePath, speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
 import { INDICATOR_LABELS, getFormGridSecondField } from "./indicator-labels";
 
@@ -145,6 +145,12 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     for (const { variant, personal: mp } of megaVariants) {
       megaFieldset.append(
         el("div", { class: "mega-variant-row" }, [
+          el("img", {
+            class: "mega-variant-sprite",
+            src: megaSpritePath(variant.slug, species.dexNumber, shinyView),
+            alt: "",
+            loading: "lazy",
+          }),
           el("span", { class: "mega-variant-label" }, [megaVariantLabel(variant.variant)]),
           labeledToggle("Evolved", mp.evolved, (checked) => {
             repo.setMegaPersonalField(variant.slug, "evolved", checked);

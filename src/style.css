@@ -842,6 +842,12 @@ fieldset {
   border-top: none;
 }
 
+.mega-variant-sprite {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
 .mega-variant-label {
   font-weight: 650;
   min-width: 4.5rem;

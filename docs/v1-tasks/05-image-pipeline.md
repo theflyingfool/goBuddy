@@ -23,18 +23,41 @@ that's a much smaller/self-contained problem.*
   eye — Read-rendered Pikachu (025), Charizard (006), Rayquaza (384), and
   Poltchageist (1013, a very new gen-9 species) and confirmed each is the
   right creature, not just a plausible-looking file.
-- [x] Regional forms: the same script auto-matches a small, deliberately
-  conservative whitelist of unambiguous form codenames (`ALOLA`, `GALARIAN`,
-  `HISUIAN`, `PALDEA`, `PALDEA_COMBAT`, `PALDEA_AQUA`, `PALDEA_BLAZE`) against
-  `reference.json`'s `form_name`, copying matches into
-  `public/sprites/forms/{form.slug}[-shiny].png` (102 distinct form slugs
-  matched this way so far). Verified Galarian Articuno and Paldean Blaze
-  Breed Tauros by eye. **Deliberately not auto-matched**: any single-letter
-  form token (Unown's A–Z collide with Mewtwo's "A" = Armored — confirmed by
-  inspecting the actual files, not assumed) and any gender-tagged (`.g`)
-  variant (g1/g2's exact meaning isn't confirmed against this app's
-  `-male`/`-female` slugs) — both go to the hand-check CSV instead of being
-  guessed.
+- [x] Regional forms + Gigantamax: the same script auto-matches a small,
+  deliberately conservative whitelist of unambiguous form codenames (`ALOLA`,
+  `GALARIAN`, `HISUIAN`, `PALDEA`, `PALDEA_COMBAT`, `PALDEA_AQUA`,
+  `PALDEA_BLAZE`, `GIGANTAMAX`) against `reference.json`'s `form_name`,
+  copying matches into `public/sprites/forms/{form.slug}[-shiny].png` (230
+  distinct form slugs matched this way so far, up from 102 — `GIGANTAMAX`
+  alone added all 17 Gigantamax-capable species PokeMiners has art for, each
+  cleanly resolving to the single `formName` `"Gigantamax"`). Verified
+  Galarian Articuno and Paldean Blaze Breed Tauros by eye. **Deliberately
+  not auto-matched**: any single-letter form token (Unown's A–Z collide with
+  Mewtwo's "A" = Armored — confirmed by inspecting the actual files, not
+  assumed).
+- [x] Mega/Primal: matched separately from regular forms, since Mega is its
+  own reference table (`megaVariants`, not `forms` — per this project's
+  own design note that not every future fact is per-form/per-species
+  boolean). `MEGA`/`MEGA_X`/`MEGA_Y`/`PRIMAL` tokens are looked up against
+  `(speciesSlug, variant)` and copied to `public/sprites/mega/{mega.slug}
+  [-shiny].png`, tracked in a new manifest (`src/data/mega-sprite-slugs.json`)
+  and a new `megaSpritePath()` helper in `src/ui/sprites.ts`. All 50 mega
+  variants in `reference.json` got matching art (100 files incl. shiny) —
+  verified Mega Charizard X by eye. Six non-canon "concept mega" files in
+  the PokeMiners dump (Dragonite, Skarmory, Raichu X/Y, Malamar, Victreebel,
+  Falinks — none of these have a real Mega Evolution) correctly fall through
+  to the hand-check CSV instead of silently matching nothing.
+- [x] Gender-tagged (`.g`) files: owner confirmed the convention — `.g2` is
+  always "female", and there is no `.g1` anywhere in the dump (independently
+  verified: every gender-tagged file in all 3,631 icons is `.g2`; the
+  untagged file already serves as "male"). The script now resolves these
+  instead of hand-checking them: files are processed male-first (untagged,
+  then `.g2`, via a stable sort) so a `.g2` match can correct a slug the
+  male-first pass provisionally filled with the male art, without needing to
+  hold state across two lookups. This covers three cases: a bare Standard-
+  form gender file (e.g. Rhyhorn), a costume + gender combo, and a whitelisted
+  form + gender combo. Verified Rhyhorn's `-female` sprite by eye and by hash
+  (distinct file from the male/base sprite, not a duplicate).
 - [x] Costume name translation: `scripts/ingest/costume-lookup.json`
   (committed, starts empty) maps a costume codename (e.g. `HOLIDAY_2022`) to
   this app's existing `costume_name` display string (e.g. `"Festive hat"`) —
@@ -46,9 +69,12 @@ that's a much smaller/self-contained problem.*
 - [x] Hand-check deliverables, written next to a scratch copy of the actual
   files in `Refs from Obsidian/image-pipeline-staging/` (uncommitted —
   that whole directory is outside the git repo, per the owner's call):
-  `extra-images.csv` (1,686 files: every unwhitelisted form token, every
-  gender-tagged file, and every costume codename not yet in
-  costume-lookup.json) and `forms-missing-images.csv` (148 forms with
+  `extra-images.csv` (1,360 files, down from the original 1,686 now that
+  Mega/Gigantamax/gender are resolved — remaining reasons are almost all
+  "form token not in the confident-match whitelist" (778, e.g. Unown letters,
+  Deoxys/Rotom/Burmy multiforms) and "costume codename not yet in
+  costume-lookup.json" (566), plus a handful of non-canon concept-mega files
+  and 4 unmatched dex numbers) and `forms-missing-images.csv` (148 forms with
   genuinely zero art anywhere in the dump — distinct from "extra," which is
   "a file exists but wasn't confidently assigned").
 - [ ] Cross-referencing into `form.imageRef`/`build-reference.ts` — not done;
@@ -56,15 +82,17 @@ that's a much smaller/self-contained problem.*
   the same "does this form have art" purpose without needing this yet. Revisit
   once costume-lookup.json has real entries and the extra-images backlog
   shrinks.
-- [x] `formSpritePath()` added to `src/ui/sprites.ts`, falling back to
-  `speciesSpritePath()` via a committed manifest
-  (`src/data/form-sprite-slugs.json`, regenerated by the ingest script) of
-  which form slugs actually have art — checking `public/`'s filesystem at
+- [x] `formSpritePath()`/`megaSpritePath()` added to `src/ui/sprites.ts`,
+  both falling back to `speciesSpritePath()` via their own committed
+  manifests (`src/data/form-sprite-slugs.json` and
+  `src/data/mega-sprite-slugs.json`, both regenerated by the ingest script)
+  of which slugs actually have art — checking `public/`'s filesystem at
   runtime isn't possible for a bundled static folder.
-- [x] Wired `src/features/data-entry/species-detail.ts` (hero + form tiles)
-  and `src/features/data-entry/bulk-form-edit.ts` (form tiles) to prefer
-  per-form art via `formSpritePath()`. `species-grid.ts` intentionally left
-  on `speciesSpritePath()` — its tiles are one per species, not per form, so
+- [x] Wired `src/features/data-entry/species-detail.ts` (hero + form tiles +
+  each Mega variant row) and `src/features/data-entry/bulk-form-edit.ts`
+  (form tiles) to prefer per-form/per-mega art via `formSpritePath()`/
+  `megaSpritePath()`. `species-grid.ts` intentionally left on
+  `speciesSpritePath()` — its tiles are one per species, not per form, so
   there's no per-form context to prefer there.
 - [x] Shiny view toggle: species-detail gets a small "✨" button on the hero
   sprite (view-only, independent of the caught-shiny achievement field — the
