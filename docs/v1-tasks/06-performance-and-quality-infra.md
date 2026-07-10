@@ -29,15 +29,36 @@ first-boot/device-specific items.*
   [§ 2](02-data-safety-net.md)'s checks.) Done as
   `scripts/ingest/check-slug-stability.ts` (`npm run ingest:check-slugs`),
   pulled forward from here into the §2 pass.
-- [ ] Migration fixture tests: a thin adapter running the real migration +
-  sync code (`src/db/migrations.ts`, `src/db/reference-sync.ts`) against
-  fixture databases via Node's built-in SQLite — reuse the prepared-statement
-  pattern already proven in `scripts/build-dummy-db.ts`.
-- [ ] Export/import round-trip unit tests (`src/data/in-memory-store.ts`).
+- [x] Migration fixture tests: `test/node-sqlite-connection.ts` is a thin
+  adapter exposing just the `SQLiteDBConnection` surface
+  `src/db/migrations.ts`/`src/db/reference-sync.ts` actually call
+  (query/execute/run/begin·commit·rollbackTransaction), backed by Node's
+  built-in `node:sqlite` `DatabaseSync` instead of the real Capacitor plugin —
+  reuses the prepared-statement style from `scripts/build-dummy-db.ts`.
+  `test/migrations.test.ts` covers a fresh install (every table created,
+  stamped at `CURRENT_PERSONAL_SCHEMA_VERSION`), replaying a pending
+  migration for a device stamped at an older version, a no-op replay at the
+  current version, and the newer-than-known-version downgrade guard.
+  `test/reference-sync.test.ts` covers a from-scratch populate, a same-content
+  no-op (personal data untouched), and orphaned personal-row quarantining
+  when a species/form disappears from a new `reference.json`. Run via
+  `npm run test` (Node's built-in test runner through `tsx --test`, no new
+  runtime dependency); `test/` added to `tsconfig.json`'s `include` so it's
+  also covered by typechecking.
+- [x] Export/import round-trip unit tests: `test/export-import-round-trip.test.ts`
+  — round-trips species/form/app-setting personal data through
+  `createInMemoryRepository`'s `exportPersonalData`/`importPersonalData`
+  (including the xxl→registered cascade surviving the trip), confirms
+  unresolvable slugs are skipped and counted rather than written, and confirms
+  import never overwrites `reference_data_version` from another device's export.
 - [ ] Committed Playwright smoke suite: boot, toggle+reload persistence,
   stats counts, export/import, settings — the scenarios already verified
-  manually per `TODO.md`, made repeatable.
-- [ ] CI workflow: `tsc -b --noEmit` + unit tests + the smoke suite on PR.
+  manually per `TODO.md`, made repeatable. **Not done** — bigger lift (new
+  dependency, browser automation setup) than the other items here; left for a
+  dedicated pass.
+- [x] CI workflow: `.github/workflows/ci.yml` — lint + `tsc -b --force`
+  (typecheck) + `npm run test` on every PR and push to `master`. **Not
+  included**: the Playwright smoke suite above, since it doesn't exist yet.
 - [x] Delete dead code: `src/data/dummy-repository.ts` deleted (confirmed
   unreferenced — `main.ts` only ever imports `createSqliteRepository`) along
   with the in-memory JS stats path (`computeLens` + the default

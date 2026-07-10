@@ -88,6 +88,19 @@ instead, linked from here.*
 For the order these run in during a real data update, see
 [docs/ingestion-runbook.md](ingestion-runbook.md).
 
+## Tests (`test/`)
+
+Unit tests via Node's built-in test runner (`npm run test`, `node:test` +
+`node:assert/strict` run through `tsx --test` — no test-framework dependency).
+`node-sqlite-connection.ts` is a thin adapter exposing just the
+`SQLiteDBConnection` surface `src/db/migrations.ts`/`src/db/reference-sync.ts`
+call, backed by `node:sqlite` instead of the real Capacitor plugin, so those
+two modules run unmodified against disposable in-memory fixture databases.
+`migrations.test.ts` and `reference-sync.test.ts` use it;
+`export-import-round-trip.test.ts` tests `in-memory-store.ts`'s
+export/import directly (no SQLite involved). `.github/workflows/ci.yml` runs
+lint + typecheck + this suite on every PR and push to `master`.
+
 ## Data-authoring inputs (pre-build sources, not generated)
 
 - Root-level `Blank Pokedex Project (Living Column) - Forms w_ Dynamax.csv` — the species/form skeleton.
