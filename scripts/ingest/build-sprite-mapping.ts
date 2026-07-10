@@ -43,11 +43,14 @@ const SCRATCH_DIR = resolve(REPO_ROOT, "Refs from Obsidian/image-pipeline-stagin
 const referenceData = referenceDataJson as unknown as ReferenceData;
 const costumeLookup = costumeLookupJson as Record<string, string>;
 
-// Regional/Mega/Gigantamax form tokens confident enough to auto-match
-// without hand-checking. Deliberately excludes single letters (Unown A–Z /
-// Mewtwo's "A" = Armored collide) and anything else ambiguous. Mega/Primal
-// aren't in this table — they're matched against the separate `megaVariants`
-// reference table below, not `forms`.
+// Regional/Mega/Gigantamax/Unown form tokens confident enough to auto-match
+// without hand-checking. Mega/Primal aren't in this table — they're matched
+// against the separate `megaVariants` reference table below, not `forms`.
+//
+// Unown's letters are namespaced `UNOWN_A`..`UNOWN_Z` (+ `UNOWN_EXCLAMATION_
+// POINT`/`UNOWN_QUESTION_MARK`) in the file dump, distinct from Mewtwo's bare
+// `A` (Armored) token — confirmed by listing both species' actual files
+// side by side, no real collision here after all.
 const FORM_TOKEN_WHITELIST: Record<string, string> = {
   ALOLA: "Alolan",
   GALARIAN: "Galarian",
@@ -57,6 +60,10 @@ const FORM_TOKEN_WHITELIST: Record<string, string> = {
   PALDEA_BLAZE: "Paldean(Blaze)",
   PALDEA: "Paldean",
   GIGANTAMAX: "Gigantamax",
+  A: "Armored",
+  UNOWN_EXCLAMATION_POINT: "!",
+  UNOWN_QUESTION_MARK: "?",
+  ...Object.fromEntries("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => [`UNOWN_${letter}`, letter])),
 };
 
 // Mega/Primal art lives in its own reference table (megaVariants), not
