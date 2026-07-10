@@ -660,12 +660,37 @@ input[type="checkbox"] {
   flex: 1;
 }
 
+.detail-hero-sprite-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .detail-hero-sprite {
   width: 2.75rem;
   height: 2.75rem;
-  flex-shrink: 0;
+  display: block;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
+}
+
+.shiny-view-toggle {
+  position: absolute;
+  bottom: -0.25rem;
+  right: -0.25rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+}
+
+.shiny-view-toggle.on {
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface-2));
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .form-toolbar {

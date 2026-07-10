@@ -2,7 +2,7 @@ import { navigate, speciesDetailPath } from "../../app-shell/router";
 import type { Form, FormPersonal, FormPersonalBooleanField, MegaVariantKind } from "../../db/types";
 import type { Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
-import { speciesSpritePath } from "../../ui/sprites";
+import { formSpritePath, speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
 import { INDICATOR_LABELS, getFormGridSecondField } from "./indicator-labels";
 
@@ -63,12 +63,19 @@ const expandedGroupKeysBySpecies = new Map<string, Set<string>>();
 const formFilterBySpecies = new Map<string, string>();
 const missingOnlyBySpecies = new Map<string, boolean>();
 
+// View-only "show shiny art instead" toggle — deliberately independent of
+// any caught-shiny achievement field, since the point is to be able to look
+// at what shiny looks like regardless of whether you've actually caught one.
+// Same per-species/rerender-survives-toggle pattern as the maps above.
+const shinyViewBySpecies = new Map<string, boolean>();
+
 export function renderSpeciesDetail(container: HTMLElement, repo: Repository, speciesSlug: string, onBack: () => void) {
   clear(container);
 
   const { species, personal, forms } = repo.getSpeciesWithForms(speciesSlug);
   const collapseGender = repo.getAppSetting(COLLAPSE_SETTING_KEY) === "1";
   const { prev, next } = repo.getAdjacentSpecies(speciesSlug);
+  const shinyView = shinyViewBySpecies.get(speciesSlug) ?? false;
 
   const backButton = el("button", { type: "button", class: "back-button" }, ["← Back"]);
   backButton.addEventListener("click", onBack);
@@ -79,14 +86,26 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   const nextButton = el("button", { type: "button", class: "nav-chevron", disabled: next ? undefined : "true" }, ["›"]);
   if (next) nextButton.addEventListener("click", () => navigate(speciesDetailPath(next.slug)));
 
+  // View-only — flips which art this page's sprites show, independent of
+  // any caught-shiny achievement. Affects the hero sprite and every form
+  // tile below at once, so "going back and forth" is one tap either way.
+  const shinyToggle = el(
+    "button",
+    { type: "button", class: `shiny-view-toggle${shinyView ? " on" : ""}`, "aria-pressed": String(shinyView), "aria-label": `Show shiny art: ${shinyView ? "on" : "off"}`, title: "View shiny art" },
+    ["✨"],
+  );
+  shinyToggle.addEventListener("click", () => {
+    shinyViewBySpecies.set(speciesSlug, !shinyView);
+    rerender();
+  });
+
   const header = el("div", { class: "detail-header" }, [
     backButton,
     prevButton,
-    // Species-level sprite only — per-form/costume art (e.g. a party-hat
-    // Bulbasaur) is the separate, already-scoped image-pipeline task
-    // (docs/v1-tasks/05-image-pipeline.md, §7), blocked on sourcing a
-    // costume-ID→name lookup that doesn't exist yet.
-    el("img", { class: "detail-hero-sprite", src: speciesSpritePath(species.dexNumber), alt: "", loading: "lazy" }),
+    el("div", { class: "detail-hero-sprite-wrap" }, [
+      el("img", { class: "detail-hero-sprite", src: speciesSpritePath(species.dexNumber, shinyView), alt: "", loading: "lazy" }),
+      shinyToggle,
+    ]),
     el("h2", {}, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
     nextButton,
   ]);
@@ -218,7 +237,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
       { class: `form-tile${isExpanded ? " active-tile" : ""}`, role: "button", tabindex: "0", "aria-expanded": String(isExpanded), "aria-label": `${group.label}, ${isExpanded ? "collapse" : "expand"}` },
       [
         el("span", { class: "form-tile-more" }, ["⋯"]),
-        el("img", { class: "form-tile-sprite", src: speciesSpritePath(species.dexNumber), alt: "", loading: "lazy" }),
+        el("img", { class: "form-tile-sprite", src: formSpritePath(group.forms[0].slug, species.dexNumber, shinyView), alt: "", loading: "lazy" }),
         el("div", { class: "form-tile-name" }, [group.label]),
         el("div", { class: "form-tile-icons" }, [caughtToggle, secondToggle]),
       ],

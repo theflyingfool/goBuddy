@@ -3,29 +3,73 @@
 
 ## 7. Image pipeline (new, expanded scope)
 
-*The image folder is a git checkout of `PokeMiners/pogo_assets` — official
-Niantic-sourced extraction, 2,213 PNGs, dex 1–867, at
-`Refs from Obsidian/pogo_assets/Images/Pokemon - 256x256`.*
+*The image folder is a git checkout of `PokeMiners/pogo_assets` at
+`Refs from Obsidian/pogo_assets/Images/Pokemon - 256x256`. **Revised approach**
+(found while starting this section): the plain numeric-ID icon set this
+section originally pointed at (2,213 PNGs, dex 1–867) has a much better
+sibling — `Addressable Assets/`, 3,727 PNGs named like
+`pm100.fHISUIAN.icon.png` / `pm133.cHOLIDAY_2022.icon.png`, covering dex up to
+1019, with **human-readable form/costume codenames instead of opaque numeric
+IDs**. That sidesteps the original "source the game-master's numeric ID enum"
+blocker entirely — codenames still need a name translation (see below), but
+that's a much smaller/self-contained problem.*
 
-- [ ] Species-level art swap: copy/convert `pokemon_icon_{dex:3}_00.png` (and
-  `_shiny` variants) into `public/sprites/`, replacing the current 001–809 set
-  and extending through 1024 where PokeMiners has coverage (dex 1–867 today —
-  note some of the newest species may still be missing from PokeMiners itself
-  and need a fallback).
-- [ ] Build the form/costume numeric-ID → name lookup table: source the
-  Pokémon GO game-master's form/costume ID enum (publicly documented via
-  PokeMiners' companion repos or derived community JSON dumps) and check it
-  into the repo (e.g. `scripts/ingest/pogo-form-ids.json`).
-- [ ] Cross-reference that table against `reference.json`'s
-  `form_name`/`costume_name` strings to populate `form.imageRef` for the
-  first time (currently reserved, unused, always null) —
-  `scripts/ingest/build-reference.ts`.
-- [ ] Copy the matched per-form PNGs (including `_shiny` variants) into a
-  form-level asset directory (e.g. `public/sprites/forms/`).
-- [ ] Add `formSpritePath()` to `src/ui/sprites.ts`, falling back to
-  `speciesSpritePath()` when a form has no confident match.
-- [ ] Wire `src/features/data-entry/species-grid.ts` and
-  `src/features/data-entry/species-detail.ts` to prefer per-form art where
-  available.
-- [ ] Decide whether the shiny achievement toggle should swap displayed art to
-  the `_shiny` PokeMiners variant, and implement if yes.
+- [x] Species-level art swap: `scripts/ingest/build-sprite-mapping.ts`
+  (`npm run ingest:sprites`) copies every base `pm{dex}.icon.png` (+ `.s.` shiny
+  variant) into `public/sprites/{dex:3}[-shiny].png`, replacing the old
+  801-species set — 953 distinct species now covered (up from 809), through
+  dex 1019, with 66 gaps where PokeMiners itself has no base icon yet (listed
+  in `forms-missing-images.csv`, see below). Verified species identity by
+  eye — Read-rendered Pikachu (025), Charizard (006), Rayquaza (384), and
+  Poltchageist (1013, a very new gen-9 species) and confirmed each is the
+  right creature, not just a plausible-looking file.
+- [x] Regional forms: the same script auto-matches a small, deliberately
+  conservative whitelist of unambiguous form codenames (`ALOLA`, `GALARIAN`,
+  `HISUIAN`, `PALDEA`, `PALDEA_COMBAT`, `PALDEA_AQUA`, `PALDEA_BLAZE`) against
+  `reference.json`'s `form_name`, copying matches into
+  `public/sprites/forms/{form.slug}[-shiny].png` (102 distinct form slugs
+  matched this way so far). Verified Galarian Articuno and Paldean Blaze
+  Breed Tauros by eye. **Deliberately not auto-matched**: any single-letter
+  form token (Unown's A–Z collide with Mewtwo's "A" = Armored — confirmed by
+  inspecting the actual files, not assumed) and any gender-tagged (`.g`)
+  variant (g1/g2's exact meaning isn't confirmed against this app's
+  `-male`/`-female` slugs) — both go to the hand-check CSV instead of being
+  guessed.
+- [x] Costume name translation: `scripts/ingest/costume-lookup.json`
+  (committed, starts empty) maps a costume codename (e.g. `HOLIDAY_2022`) to
+  this app's existing `costume_name` display string (e.g. `"Festive hat"`) —
+  these don't textually match so can't be auto-derived. The script consults
+  this file and auto-matches/copies once an entry exists; re-running after
+  adding entries only surfaces genuinely-new codenames going forward (the
+  "only ever check new things" loop). **Still empty** — owner is hand-filling
+  this from the CSV below.
+- [x] Hand-check deliverables, written next to a scratch copy of the actual
+  files in `Refs from Obsidian/image-pipeline-staging/` (uncommitted —
+  that whole directory is outside the git repo, per the owner's call):
+  `extra-images.csv` (1,686 files: every unwhitelisted form token, every
+  gender-tagged file, and every costume codename not yet in
+  costume-lookup.json) and `forms-missing-images.csv` (148 forms with
+  genuinely zero art anywhere in the dump — distinct from "extra," which is
+  "a file exists but wasn't confidently assigned").
+- [ ] Cross-referencing into `form.imageRef`/`build-reference.ts` — not done;
+  the sprite-slug manifest (`src/data/form-sprite-slugs.json`, below) served
+  the same "does this form have art" purpose without needing this yet. Revisit
+  once costume-lookup.json has real entries and the extra-images backlog
+  shrinks.
+- [x] `formSpritePath()` added to `src/ui/sprites.ts`, falling back to
+  `speciesSpritePath()` via a committed manifest
+  (`src/data/form-sprite-slugs.json`, regenerated by the ingest script) of
+  which form slugs actually have art — checking `public/`'s filesystem at
+  runtime isn't possible for a bundled static folder.
+- [x] Wired `src/features/data-entry/species-detail.ts` (hero + form tiles)
+  and `src/features/data-entry/bulk-form-edit.ts` (form tiles) to prefer
+  per-form art via `formSpritePath()`. `species-grid.ts` intentionally left
+  on `speciesSpritePath()` — its tiles are one per species, not per form, so
+  there's no per-form context to prefer there.
+- [x] Shiny view toggle: species-detail gets a small "✨" button on the hero
+  sprite (view-only, independent of the caught-shiny achievement field — the
+  point is being able to look at shiny art regardless of whether you've
+  actually caught one) that flips both the hero and every form-tile sprite
+  on that page to their `-shiny` variant. **Not visually verified** — no
+  browser in this environment; on-device review needed before considering
+  this actually done.
