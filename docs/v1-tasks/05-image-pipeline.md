@@ -78,10 +78,12 @@ that's a much smaller/self-contained problem.*
   don't textually match so can't be auto-derived. The script consults this
   file and auto-matches/copies once an entry exists; re-running after
   adding entries only surfaces genuinely-new codenames going forward (the
-  "only ever check new things" loop). One real entry so far
-  (`JAN_2020_NOEVOLVE` -> `"Party hat (red)"`, owner-confirmed from the
-  actual art — cleared this costume for every species that has it, not just
-  the one it was confirmed on) — owner is hand-filling the rest from the
+  "only ever check new things" loop). All remaining codename keys are
+  pre-filled (empty values) so new entries can't be typo'd/duplicated; an
+  automated first pass has since filled many of them in from image
+  inspection — see **[costume-lookup-verification.md](../costume-lookup-verification.md)**
+  for the full per-codename reasoning and confidence level, and which ones
+  still need a human look. Owner is hand-filling/verifying the rest from the
   CSV below.
 - [x] Hand-check deliverables, written next to a scratch copy of the actual
   files in `Refs from Obsidian/image-pipeline-staging/` (uncommitted —
