@@ -140,9 +140,101 @@ here rather than silently left to look like a regression.
 **Separately, unrelated to costumes**: while checking those 8, found that
 **Espurr (dex #677) has no species row in `reference.json` at all** — the
 only missing dex number anywhere in 1–1025. `pm677.icon.png` exists fine in
-the PokeMiners dump; this is purely a `reference.json`/Forms-CSV-ingestion
-gap, not an image-pipeline problem. Worth a dedicated look, not something
-fixed here.
+the PokeMiners dump. Root-caused and fixed — see "Espurr fix" below.
+
+---
+
+## Batch 3 (all remaining tokens)
+
+Every token that had a species with exactly one costume option resolved
+automatically (that species can't be anything else); tokens spanning
+multiple species with a shared unique option resolved the same way. Only
+the genuinely ambiguous ones got a visual check.
+
+### High confidence
+
+| Codename | Value written | Evidence |
+|---|---|---|
+| `HALLOWEEN_2017` | `Witch hat` | Raichu wearing a purple witch hat, unmistakable. |
+| `HALLOWEEN_2021_NOEVOLVE` | `Halloween Mischief` | Drifblim's only costume option. |
+| `HOENN_2020_NOEVOLVE` | `Rayquaza hat` | Pikachu wearing a green/teal Rayquaza-head hat — Rayquaza is Hoenn's box legendary. Confirmed male and female files show the same costume, just different Pikachu render. |
+| `HOLIDAY_2016` | `Festive hat` | Raichu wearing the classic red/white Santa-style hat. |
+| `HOLIDAY_2023` | `Holiday outfit` | Golduck's only option. |
+| `HORIZONS_2025_NOEVOLVE` | `Hat with Liko's pin` | Floragato's only option — Liko is the protagonist of the current Pokémon Horizons anime, ties in with the codename's "HORIZONS" directly. |
+| `INDONESIA_2025_NOEVOLVE` | `Indonesia Football Jersey` | Pikachu in a red jersey with a shield crest — direct match. |
+| `JAN_2022_NOEVOLVE` | `New Year's outfit` | Hoothoot/Noctowl's shared-and-only option. |
+| `JAN_2023_NOEVOLVE` | `New Year's hat` | Pikachu wearing a dark hat with stars — festive/New Year look, January fits. |
+| `JAN_2024` | `Ribbon` | Jigglypuff/Wigglytuff's shared-and-only option. |
+| `JOHTO_2020_NOEVOLVE` | `Umbreon hat` | Pikachu wearing a dark hat with yellow rings matching Umbreon — an iconic Johto-region Pokémon. |
+| `KANTO_2020_NOEVOLVE` | `Charizard hat` | Pikachu wearing an orange hat matching Charizard — Kanto's mascot starter-evolution. |
+| `MAY_2019_NOEVOLVE` | `Straw hat` | Pikachu wearing a straw hat with a red band, direct match. |
+| `MAY_2023` | `Cherry blossoms` | The 8 non-Eevee eeveelutions' shared white/petal collar-style accessory — one of only 4 costumes they all have; visually a flower/petal collar, fits "Cherry blossoms" best of the 4. |
+| `May_2023` (odd casing, one file only) | `Explorer hat` | Eevee wearing a distinct cream/tan safari-style cap — visually confirmed **different** from `MAY_2023`'s collar, so these two near-identical codenames really are two different real costumes, not a typo of each other. |
+| `NIGHTCAP` | `Nightcap` | Direct textual match — one of Snorlax's three options. |
+| `NOVEMBER_2018` | `Flower crown` | Chansey (and Blissey/Happiny)'s only option; image shows literal small flowers on the head. |
+| `PI` | `Detective Pikachu` | Raichu wearing the same brown deerstalker hat as `FEB_2019` — "PI" = Private Investigator, a fitting second wave reusing the same art. |
+| `PI_NOEVOLVE` | `Hat` | Slowpoke wearing a plain brown hat, not glasses — picks the right one of its two options. |
+| `ROYAL_NOEVOLVE` | `Crown` | Nidoqueen/Nidoking's shared-and-only option — thematically obvious ("Royal" + "Crown"). |
+| `SAFARI_2020_NOEVOLVE` | `Safari hat` | Pikachu wearing a khaki safari hat, direct match. |
+| `SINNOH_2020_NOEVOLVE` | `Lucario hat` | Pikachu wearing a blue/black hat matching Lucario — debuted in Sinnoh. |
+| `SPRING_2020_NOEVOLVE` | `Pikachu visor` | Bulbasaur with a tiny Pikachu perched on its head — unmistakable, direct name match. |
+| `SPRING_2023` | `Flower crown` | Eevee wearing pink flowers on its head, direct visual match. |
+| `SPRING_2023_INSTINCT` | `Spark-themed accessory` | Electabuzz/Elekid/Electivire's shared-and-only option — "INSTINCT" = Team Instinct, led by Spark. Strong semantic + textual fit. |
+| `SPRING_2023_MYSTIC` | `Blanche-themed accessory` | Lapras's other option besides "Scarf" — "MYSTIC" = Team Mystic, led by Blanche. Same semantic pattern as Instinct/Valor. |
+| `SPRING_2023_VALOR` | `Candela-themed accessory` | Rapidash's only option, and one of Ponyta's two — "VALOR" = Team Valor, led by Candela. Confirms the same three-team pattern (Instinct/Mystic/Valor all resolved by team-leader name). |
+| `SPRING_2024` | `Flower crown` | Cottonee/Whimsicott's shared-and-only option. |
+| `SUMMER_2018` | `Squirtle Squad sunglasses` | Squirtle wearing sunglasses, direct match. **Partial**: Pichu/Pikachu/Raichu also carry this codename but don't have this costume name at all (they likely got a different item, maybe "Summer-style" — unconfirmed) — safe to leave unresolved for them. |
+| `SUMMER_2024` | `Visor` | Slakoth/Vigoroth/Slaking's shared-and-only option. |
+| `TCG_2022_NOEVOLVE` | `Pokémon TCG hat` | Pikachu wearing a blue cap with a small Poké Ball-style emblem, direct name match. |
+| `WINTER_2018` | `Holiday outfit` | Stantler's only option. |
+| `WINTER_2024` | `Holiday Attire` | Dedenne/Wooloo/Dubwool's shared-and-only option. |
+
+### Medium confidence
+
+| Codename | Value written | Why only medium |
+|---|---|---|
+| `HALLOWEEN_2025` | `Witch hat` | Teddiursa/Ursaring/Ursaluna share this and it's visually confirmed (purple witch hat on Teddiursa). **Partial**: Noibat/Noivern also carry this codename but their own option is "Headband" — a different real costume, left unresolved rather than guessed. |
+| `HOLIDAY_2021_NOEVOLVE` | `Holiday outfit` | Spheal's only option, confident for Spheal. **Partial**: Glaceon also carries this codename but doesn't have "Holiday outfit" in its list at all (it has "Holiday hat" instead) — different costume, left unresolved for Glaceon. |
+| `HOLIDAY_2022` | `Holiday hat` | Eevee wearing a small red/green holiday-style cap — fits, but "Holiday hat" vs. the textually-similar "Holiday outfit" (used elsewhere) required a visual call rather than being obvious from text alone. |
+| `ONE_YEAR_ANNIVERSARY` | `H.F. Custom Cap` | Raichu wearing a red/white/green cap. Picked mostly by elimination — it's the last unclaimed "cap"-sounding option in Raichu's list — not a confirmed meaning for what "H.F." stands for. **Also**: Mewtwo and Lugia carry this same codename but have **zero** costume options in `reference.json` at all (their art shows no visible costume either) — almost certainly non-canon/placeholder files, not a real costume; no value can make these resolve, and none should. |
+
+### Left blank / blocked
+
+| Codename | Species affected | Why it's blocked |
+|---|---|---|
+| `GOTOUR_2023_BANDANA_NOEVOLVE` | Pikachu | Same red/black/white bandana as `GOTOUR_2023_BANDANA` (already blank) — confirmed visually identical. No matching costumeName exists anywhere in `reference.json`; real data gap. |
+| `GOTOUR_2023_HAT` | Pikachu | A white/black cap with a small red emblem. Nothing in Pikachu's list was a confident match — closest guesses ("Captain Pikachu", "Rei's cap") aren't strongly supported enough to write down, and Pikachu has ~90 options where a wrong guess risks a real (if incorrect) match rather than a safe non-match. |
+| `GOTOUR_2023_HAT_NOEVOLVE` | Pikachu | Same cap as `GOTOUR_2023_HAT`, same uncertainty. |
+
+---
+
+## Espurr fix (dex #677)
+
+Root cause found: `Blank Pokedex Project (Living Column) - Forms w_ Dynamax.csv`
+had a **duplicated row label**. Furfrou's (dex 676) ten trim sub-rows are
+correctly listed (Natural, Matron, Heart, Dandy, Star, La Reine, Diamond,
+Kabuki, Debutante, Pharaoh — all ten real Furfrou trims, nothing missing
+there), but the row immediately after them — which should have been
+`"677 Espurr"` starting the next species — instead re-used the label
+`"Pharaoh"` a second time, with every other column matching a species-row's
+shape exactly (blank Shiny/Hundo/Lucky/XXL/XXS, dashed Mega/Dynamax/Shadow,
+gen `7`). `parseFormsCsv`'s species-row regex requires a leading dex number,
+so this line matched neither a species row nor a real Furfrou sub-row
+correctly, and Espurr silently never got a row at all — not caught by
+`ingest:check-slugs` since a species that never existed can't "vanish."
+
+Fixed by correcting that one cell to `"677 Espurr"` (same column width/
+padding as neighboring rows). Ran the full ingestion order per
+[ingestion-runbook.md](ingestion-runbook.md) (`ingest:fetch` — already had
+Espurr cached, since that step iterates the raw 1–1025 dex range independent
+of the Forms CSV parse — then `ingest:gigantamax`, `ingest:build`,
+`ingest:events`, `ingest:csv:import data-authoring/event-pokemon.csv`,
+`ingest:check-slugs`). Result: 1,025 species (up from 1,024), Espurr present
+with sane data (Kalos, gen 6, Standard male/female forms, no Mega/Gigantamax/
+Shadow — matches the CSV's dashes). `ingest:check-slugs` passed clean.
+Re-ran `ingest:sprites` afterward; Espurr's base sprite (`public/sprites/
+677.png` + shiny) now matches and was visually confirmed as the right
+Pokémon.
 
 ---
 
@@ -155,3 +247,9 @@ fixed here.
   bogus Ponyta/Zigzagoon "-standard-" slugs removed), 1,144 extra-images
   rows (Ponyta's and Zigzagoon's Galarian+Meloetta-hat files correctly moved
   to the hand-check pile instead of being silently mismatched).
+- After batch 3: 560 form slugs matched, 852 extra-images rows remaining.
+  Only 9 codenames remain unresolved in `costume-lookup.json`, all
+  documented above as genuinely blocked (a data gap, a script limitation,
+  or insufficient visual confidence) rather than simply unattempted.
+- After the Espurr fix: 1,025 species (up from 1,024), 1,833 species base
+  sprites matched (up from 1,831).

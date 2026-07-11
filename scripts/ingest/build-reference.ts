@@ -245,18 +245,22 @@ async function main() {
     // release, since those can never belong to a mainline version group —
     // confirmed wrong for Dragonite/Skarmory/Raichu/Malamar/Victreebel/
     // Falinks, all real in GO despite PokeAPI only ever tagging their mega
-    // varieties under its non-canonical "Mega Dimension" fan-content pack.
-    // So: once the tracker says yes, use PokeAPI's variety list (whatever
-    // pack it's tagged under) purely to figure out the variant *shape*
-    // (plain/X/Y/Primal) — still gated behind the tracker flag, since Mega
-    // Dimension does fabricate entries for species with no real Mega
-    // Evolution at all (e.g. a fully invented "Mega Meganium").
+    // varieties under its "Mega Dimension" pack — which, contrary to an
+    // earlier version of this comment, is the **official Pokémon Legends:
+    // Z-A DLC** (~21 new megas), not fan content. So: once the tracker says
+    // yes, use PokeAPI's variety list (whatever pack it's tagged under)
+    // purely to figure out the variant *shape* (plain/X/Y/Primal) — still
+    // gated behind the tracker flag, since not every Mega Dimension entry
+    // has actually reached GO yet. Owner-confirmed (2026-07-10) still-bogus
+    // despite Mega Dimension listing them: Uxie, Mesprit, Azelf, Butterfree,
+    // Lugia — re-verify against a real Z-A mega list before trusting any of
+    // these again, per docs/v1-roadmap/02-reference-data-corrections.md §6.
     const candidateMegaNames = pokeSpecies?.varieties.map((v) => v.pokemon.name).filter((n) => /-mega(-[xy])?$|-primal$/.test(n)) ?? [];
     if (candidateMegaNames.length > 0 && !parsed.canMegaEvolve) {
       gaps.push({
         kind: "mega-discrepancy",
         speciesSlug: slug,
-        note: `PokeAPI lists a mega variety (${candidateMegaNames.join(", ")}) but the GO tracker CSV marks Mega as unavailable — the tracker may predate this species' mega release, or PokeAPI's fan-content "Mega Dimension" pack may be wrong here. Verify manually.`,
+        note: `PokeAPI lists a mega variety (${candidateMegaNames.join(", ")}) but the GO tracker CSV marks Mega as unavailable — the tracker may predate this species' mega release, or this Mega Dimension (Legends: Z-A) entry may not have reached GO yet. Verify manually.`,
       });
     }
     if (parsed.canMegaEvolve) {
@@ -273,7 +277,7 @@ async function main() {
         gaps.push({
           kind: "possible-bogus-form",
           speciesSlug: slug,
-          note: "The GO tracker CSV marks this species as Mega-capable, but PokeAPI (including its Mega Dimension fan-content pack) shows nothing for it — generated a single-variant placeholder; verify manually whether this is a real Mega Evolution and, if so, whether it's actually X/Y/Primal.",
+          note: "The GO tracker CSV marks this species as Mega-capable, but PokeAPI (including its Mega Dimension / Legends: Z-A pack) shows nothing for it — generated a single-variant placeholder; verify manually whether this is a real Mega Evolution and, if so, whether it's actually X/Y/Primal.",
         });
       } else {
         // PokeAPI fetch failed entirely for this species — can't verify either way, so keep the old conservative placeholder.
