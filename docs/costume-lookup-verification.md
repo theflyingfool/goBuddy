@@ -94,14 +94,64 @@ looks up `(speciesSlug, costumeName)` — it doesn't currently consider the
 form token at all when both are present on the same file. For species like
 Pumpkaboo where the "size" is modeled as part of `costumeName` (e.g.
 `"Spooky Festival (Small)"`) rather than `formName`, no value in
-`costume-lookup.json` can make this resolve — the script itself needs to
-also branch on the form token when both are present. Not fixed as part of
-this pass; flagged here so it isn't mistaken for a missing lookup entry next
-time someone triages `extra-images.csv`.
+`costume-lookup.json` can make this resolve — still flagged as blocked, see
+below for what part of this **was** fixed.
+
+**Update — this wasn't just a "safe, under-resolves" situation.** Filling in
+`GOFEST_2021_NOEVOLVE -> "Meloetta hat"` this batch actually exercised the
+bug for real: Galarian Ponyta's and Galarian Zigzagoon's `fGALARIAN.cGOFEST_
+2021_NOEVOLVE` files got matched purely on `(species, costumeName)`, with no
+check that the matched `form.slug` was also the Galarian one — and
+`reference.json` only has a `"Standard"`-formName row for this costume for
+both species. The Galarian-colored art (visually confirmed: Galarian
+Ponyta's white/purple palette, Galarian Zigzagoon's black/white palette) was
+getting copied to the **`-standard-`** slug, i.e. mislabeled as the
+non-Galarian form's art.
+
+**Fixed** in `build-sprite-mapping.ts`: when a file carries both a costume
+token and a form token, the costume match now also requires the form's
+`formName` to equal the form token's whitelisted translation; if the form
+token isn't whitelisted at all, it's routed to `extra-images.csv` instead of
+guessing. Pumpkaboo/Gourgeist sizes remain genuinely blocked (their "size"
+isn't a `formName` at all, so no translation exists to check against) — that
+part of the limitation stands.
+
+**Also fixed while investigating**: `ingest:sprites` was never clearing
+`public/sprites/{, forms/, mega/}` between runs (only the scratch/CSV dir got
+this treatment) — so the two mislabeled files above would have silently
+survived even after the matching-logic fix, since nothing in the new run
+would have overwritten those exact paths. Now every generated output dir is
+wholesale-replaced each run, same as the reference-data principle in
+CLAUDE.md. This also retroactively exposed **32 species** whose
+`public/sprites/{dex}.png` was actually a stale leftover from the pre-
+PokeMiners (Obsidian-vault) sprite set — PokeMiners has no plain base icon
+for any of them, but the old file had never been cleaned up across every
+`ingest:sprites` run since the swap, so they'd been silently showing
+old-style art this whole time instead of the documented gap. 24 of the 32
+were already listed in `forms-missing-images.csv`; **8 were not**, because
+that report's "missing base icon" check only ever looks at forms literally
+named `"Standard"` — species whose forms are *all* non-Standard-named
+(Vivillon's patterns, Genesect's drives, Basculin's colors, Furfrou's
+trims, Zygarde's formes, Oricorio's styles, plus Unown, already known)
+never hit that check at all. Not fixed in this pass (a real second gap in
+the missing-report's own logic, separate from the costume work) — flagged
+here rather than silently left to look like a regression.
+
+**Separately, unrelated to costumes**: while checking those 8, found that
+**Espurr (dex #677) has no species row in `reference.json` at all** — the
+only missing dex number anywhere in 1–1025. `pm677.icon.png` exists fine in
+the PokeMiners dump; this is purely a `reference.json`/Forms-CSV-ingestion
+gap, not an image-pipeline problem. Worth a dedicated look, not something
+fixed here.
 
 ---
 
 ## Running totals
 
 - After batch 1: 284 form slugs matched, 1,202 extra-images rows remaining.
-- After batch 2: 375 form slugs matched, 1,140 extra-images rows remaining.
+- After batch 2 (before the mislabeling fix): 375 form slugs matched, 1,140
+  extra-images rows remaining.
+- After the form/costume-token mismatch fix: 371 form slugs matched (the 2
+  bogus Ponyta/Zigzagoon "-standard-" slugs removed), 1,144 extra-images
+  rows (Ponyta's and Zigzagoon's Galarian+Meloetta-hat files correctly moved
+  to the hand-check pile instead of being silently mismatched).

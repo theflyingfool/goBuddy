@@ -171,11 +171,17 @@ function main() {
   // is a stable sort, so this only reorders across the null/non-null split.
   parsed.sort((a, b) => (a.genderToken === null ? 0 : 1) - (b.genderToken === null ? 0 : 1));
 
-  mkdirSync(SPRITES_DIR, { recursive: true });
-  mkdirSync(FORM_SPRITES_DIR, { recursive: true });
-  mkdirSync(MEGA_SPRITES_DIR, { recursive: true });
-  if (existsSync(SCRATCH_DIR)) rmSync(SCRATCH_DIR, { recursive: true });
-  mkdirSync(SCRATCH_DIR, { recursive: true });
+  // Wholesale-replace every generated output dir on each run — a stale file
+  // from a previous run (e.g. one a matching-logic fix now correctly
+  // rejects) must not silently survive just because this run didn't
+  // overwrite that exact path. Confirmed this actually happened: a form-
+  // token/costume-token interaction bug briefly mislabeled Galarian Ponyta/
+  // Zigzagoon art under their "-standard-" slugs, and simply fixing the
+  // matching logic didn't remove the already-copied bad files.
+  for (const dir of [SPRITES_DIR, FORM_SPRITES_DIR, MEGA_SPRITES_DIR, SCRATCH_DIR]) {
+    if (existsSync(dir)) rmSync(dir, { recursive: true });
+    mkdirSync(dir, { recursive: true });
+  }
 
   const extraRows: ExtraRow[] = [];
   const matchedFormSlugs = new Set<string>();
@@ -246,9 +252,26 @@ function main() {
         toExtra(p, "costume codename not yet in costume-lookup.json");
         continue;
       }
-      const rawForms = formsBySpeciesCostumeName.get(`${species.slug}|${displayName}`) ?? [];
+      let rawForms = formsBySpeciesCostumeName.get(`${species.slug}|${displayName}`) ?? [];
+      if (p.formToken) {
+        // A file can carry both tokens at once (e.g. Galarian Zigzagoon's
+        // "Meloetta hat", Pumpkaboo's sized "Spooky Festival") — matching on
+        // costumeName alone isn't enough there, since formsBySpeciesCostumeName
+        // ignores formName and can return a "Standard"-form row for what's
+        // actually Galarian-form art, mislabeling it (confirmed happening for
+        // Zigzagoon/Ponyta before this check existed — the Galarian sprite was
+        // getting copied to the "-standard-" slug). Require the form to also
+        // match a whitelisted translation of the form token; if the token
+        // isn't whitelisted, don't guess.
+        const translatedForm = FORM_TOKEN_WHITELIST[p.formToken];
+        if (!translatedForm) {
+          toExtra(p, `costume file also carries an unwhitelisted form token "${p.formToken}" — can't verify which form this belongs to`);
+          continue;
+        }
+        rawForms = rawForms.filter((f) => f.formName === translatedForm);
+      }
       if (rawForms.length === 0) {
-        toExtra(p, `costume-lookup.json maps to "${displayName}" but no matching form.costumeName for this species`);
+        toExtra(p, `costume-lookup.json maps to "${displayName}" but no matching form.costumeName for this species${p.formToken ? ` with form "${p.formToken}"` : ""}`);
         continue;
       }
       const forms = pickFormsForFile(rawForms, p.genderToken);
