@@ -19,5 +19,5 @@ in either direction.
 **Done.**
 
 - Species fetched: 1025 / 1025 (100.0%)
-- Last updated: 2026-07-01T08:45:16.661Z
+- Last updated: 2026-07-10T07:09:25.340Z
 - Resume command: `npm run ingest:fetch`

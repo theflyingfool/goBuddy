@@ -37,18 +37,27 @@ design, so fixes here are free today and permanent debt later.*
   **Deliberately deferred**: owner doesn't have the current rollout list
   handy; okay leaving all 32 marked available for now. Revisit when that
   list is available.
-- [ ] Correct the "Mega Dimension" documentation error: it's official *Legends:
-  Z-A* DLC, not fan content (fix the claim in `TODO.md`/ingestion comments).
-  Re-verify the Uxie/Mesprit/Azelf/Malamar/Falinks "bogus mega-capable" flags
-  against the official Z-A mega list before "correcting" them — they may be
-  the tracker being *ahead* of the pipeline. Fix the false "Audino has no
-  official Mega" claim (Mega Audino is ORAS-era and already in the data).
-  **Deliberately deferred**: owner doesn't have an official Z-A mega list
-  handy either. Note this is more than a doc fix — `build-reference.ts`'s
-  mega-variety filter (only accepts PokeAPI `version_group` `x-y`/
-  `omega-ruby-alpha-sapphire`, rejecting `mega-dimension` as "fan content")
-  may be silently excluding real Z-A megas for Uxie/Mesprit/Azelf/Malamar/
-  Falinks right now — needs the real list before touching that filter.
+- [x] Correct the "Mega Dimension" documentation error and its downstream
+  filter bug. Fixed via the §7 image-pipeline work (unrelated task, found
+  along the way): `build-reference.ts`'s mega-variety filter required a
+  mainline `version_group` (`x-y`/`omega-ruby-alpha-sapphire`), which
+  structurally can never match a GO-exclusive Mega — it was silently
+  rejecting real, current GO megas for Dragonite/Skarmory/Raichu/Malamar/
+  Victreebel/Falinks (all confirmed real by the owner, all only ever tagged
+  under PokeAPI's "Mega Dimension" pack). Fixed to trust the GO tracker CSV
+  for availability and use whatever variety PokeAPI exposes for variant
+  shape (plain/X/Y/Primal), regardless of pack. **Re-verified the Uxie/
+  Mesprit/Azelf/Malamar/Falinks question this item asked for** — owner
+  confirmed (2026-07-10) all five are still bogus tracker entries despite
+  Mega Dimension listing them (no supporting art exists for any of them),
+  *plus* two more the same fix surfaced that weren't on this list at all:
+  Butterfree and Lugia, also confirmed bogus. All seven marked unavailable
+  in the tracker CSV. Audino's claim was already fine (`audino-mega` +
+  `canMegaEvolve: true` both already present, nothing to fix there). Ingestion
+  comments corrected to say "official *Legends: Z-A* DLC," not fan content.
+  Full writeup: `docs/costume-lookup-verification.md`'s "Cross-cutting"
+  section (filed there since that's where the discovery happened, not
+  because it's a costume issue).
 - [ ] **D7**: confirm the ~11 costume code identifications against Bulbapedia
   sprite images before slugging (Cap Pikachu O=Original/W=World; Flying
   Pikachu Fly/Fly5/FlyOkinawa/FlyGreen/FlyPurple/FlyOrange/FlyRed — see

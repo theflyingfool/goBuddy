@@ -236,50 +236,50 @@ async function main() {
     }
     dexToFamilySlug.set(parsed.dexNumber, familySlug);
 
-    // Mega variants: only for species the GO tracker (Forms CSV) says can
-    // mega evolve — but flag if PokeAPI shows a mega variety exists and the
-    // tracker disagrees, since that tracker can go stale (e.g. Kangaskhan).
-    //
-    // PokeAPI's dataset includes a non-canonical fan-content pack ("Mega
-    // Dimension") that fabricates "-mega" varieties for species with no
-    // official Mega Evolution at all (confirmed: "Mega Meganium" with a
-    // made-up ability, version_group "mega-dimension"). Real Mega/Primal
-    // forms only ever belong to version_group "x-y" or
-    // "omega-ruby-alpha-sapphire" — filter on that rather than trusting
-    // the variety name pattern alone.
+    // Mega variants: the GO tracker (Forms CSV)'s per-species Mega column is
+    // the source of truth for whether a species has one at all — Pokémon
+    // GO's Mega roster is Niantic's own release schedule, which can (and
+    // does) run ahead of or diverge from the mainline games PokeAPI mirrors.
+    // A version_group allowlist here (this used to require "x-y" or
+    // "omega-ruby-alpha-sapphire") silently rejects every GO-exclusive Mega
+    // release, since those can never belong to a mainline version group —
+    // confirmed wrong for Dragonite/Skarmory/Raichu/Malamar/Victreebel/
+    // Falinks, all real in GO despite PokeAPI only ever tagging their mega
+    // varieties under its "Mega Dimension" pack — which, contrary to an
+    // earlier version of this comment, is the **official Pokémon Legends:
+    // Z-A DLC** (~21 new megas), not fan content. So: once the tracker says
+    // yes, use PokeAPI's variety list (whatever pack it's tagged under)
+    // purely to figure out the variant *shape* (plain/X/Y/Primal) — still
+    // gated behind the tracker flag, since not every Mega Dimension entry
+    // has actually reached GO yet. Owner-confirmed (2026-07-10) still-bogus
+    // despite Mega Dimension listing them: Uxie, Mesprit, Azelf, Butterfree,
+    // Lugia — re-verify against a real Z-A mega list before trusting any of
+    // these again, per docs/v1-roadmap/02-reference-data-corrections.md §6.
     const candidateMegaNames = pokeSpecies?.varieties.map((v) => v.pokemon.name).filter((n) => /-mega(-[xy])?$|-primal$/.test(n)) ?? [];
-    const megaVarietyNames: string[] = [];
-    for (const candidate of candidateMegaNames) {
-      const form = await fetchPokeApi<{ version_group: { name: string } }>("pokemon-form", candidate);
-      if (form.version_group.name === "x-y" || form.version_group.name === "omega-ruby-alpha-sapphire") {
-        megaVarietyNames.push(candidate);
-      }
-    }
-    if (megaVarietyNames.length > 0 && !parsed.canMegaEvolve) {
+    if (candidateMegaNames.length > 0 && !parsed.canMegaEvolve) {
       gaps.push({
         kind: "mega-discrepancy",
         speciesSlug: slug,
-        note: `PokeAPI lists a mega variety (${megaVarietyNames.join(", ")}) but the GO tracker CSV marks Mega as unavailable — the tracker may predate this species' mega release. Verify manually.`,
+        note: `PokeAPI lists a mega variety (${candidateMegaNames.join(", ")}) but the GO tracker CSV marks Mega as unavailable — the tracker may predate this species' mega release, or this Mega Dimension (Legends: Z-A) entry may not have reached GO yet. Verify manually.`,
       });
     }
     if (parsed.canMegaEvolve) {
-      for (const varietyName of megaVarietyNames) {
-        const variant = varietyName.endsWith("-mega-x") ? "X" : varietyName.endsWith("-mega-y") ? "Y" : varietyName.endsWith("-primal") ? "Primal" : null;
-        megaVariants.push({ slug: megaVariantSlug(slug, variant), speciesSlug: slug, variant });
-      }
-      // Don't fabricate a placeholder mega_variant row when the tracker
-      // says yes but PokeAPI can't confirm a real (canonical, non-fan-content)
-      // mega evolution exists at all — that's more likely a tracker
-      // data-entry error (confirmed for a few species: Uxie/Mesprit/Azelf/
-      // Audino/Malamar/Falinks are marked mega-capable despite having no
-      // official Mega Evolution) than a real gap to fill in.
-      if (megaVarietyNames.length === 0 && pokeSpecies) {
+      if (candidateMegaNames.length > 0) {
+        for (const varietyName of candidateMegaNames) {
+          const variant = varietyName.endsWith("-mega-x") ? "X" : varietyName.endsWith("-mega-y") ? "Y" : varietyName.endsWith("-primal") ? "Primal" : null;
+          megaVariants.push({ slug: megaVariantSlug(slug, variant), speciesSlug: slug, variant });
+        }
+      } else if (pokeSpecies) {
+        // Tracker says yes but PokeAPI has nothing at all for this species,
+        // not even a Mega Dimension entry — keep a conservative single-
+        // variant placeholder rather than guessing at X/Y/Primal.
+        megaVariants.push({ slug: megaVariantSlug(slug, null), speciesSlug: slug, variant: null });
         gaps.push({
           kind: "possible-bogus-form",
           speciesSlug: slug,
-          note: "The GO tracker CSV marks this species as Mega-capable, but PokeAPI shows no official Mega Evolution for it at all — likely a tracker data-entry error. No mega_variant row was generated; verify manually.",
+          note: "The GO tracker CSV marks this species as Mega-capable, but PokeAPI (including its Mega Dimension / Legends: Z-A pack) shows nothing for it — generated a single-variant placeholder; verify manually whether this is a real Mega Evolution and, if so, whether it's actually X/Y/Primal.",
         });
-      } else if (megaVarietyNames.length === 0) {
+      } else {
         // PokeAPI fetch failed entirely for this species — can't verify either way, so keep the old conservative placeholder.
         megaVariants.push({ slug: megaVariantSlug(slug, null), speciesSlug: slug, variant: null });
       }

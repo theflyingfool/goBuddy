@@ -14,7 +14,7 @@
 import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repository";
 import type { Form, FormPersonal, FormPersonalBooleanField } from "../../db/types";
 import { clear, el } from "../../ui/dom";
-import { speciesSpritePath } from "../../ui/sprites";
+import { formSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS } from "./field-groups";
 import { gridFilterFieldLabel, MORE_FILTER_FIELDS } from "./indicator-labels";
 import { groupForms } from "./species-detail";
@@ -272,7 +272,7 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
             },
             [
               alreadySet ? el("span", { class: "form-tile-more" }, ["✓"]) : "",
-              el("img", { class: "form-tile-sprite", src: speciesSpritePath(species.dexNumber), alt: "", loading: "lazy" }),
+              el("img", { class: "form-tile-sprite", src: formSpritePath(group.forms[0].slug, species.dexNumber), alt: "", loading: "lazy" }),
               el("div", { class: "form-tile-name" }, [`${species.name} · ${group.label}`]),
             ],
           );

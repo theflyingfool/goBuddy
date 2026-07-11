@@ -19,6 +19,7 @@
     "ingest:events": "tsx scripts/ingest/parse-event-pokemon.ts",
     "ingest:gigantamax": "tsx scripts/ingest/parse-gigantamax.ts",
     "ingest:check-slugs": "tsx scripts/ingest/check-slug-stability.ts",
+    "ingest:sprites": "tsx scripts/ingest/build-sprite-mapping.ts",
     "android:sync": "vite build && npx cap sync android",
     "android:build": "npm run android:sync && cd android && ./gradlew assembleDebug"
   },
