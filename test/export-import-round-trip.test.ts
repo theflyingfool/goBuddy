@@ -43,13 +43,14 @@ const referenceData: ReferenceData = {
 };
 
 function emptyState(): PersonalState {
-  return { speciesPersonal: {}, formPersonal: {}, appSettings: {} };
+  return { speciesPersonal: {}, formPersonal: {}, appSettings: {}, megaPersonal: {}, formBackgroundPersonal: [] };
 }
 
 const noopHooks = {
   onSpeciesPersonalChanged() {},
   onFormPersonalChanged() {},
   onAppSettingChanged() {},
+  onMegaPersonalChanged() {},
 };
 
 test("export/import round-trips species, form, and app-setting personal data", async () => {
