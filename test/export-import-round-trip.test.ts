@@ -51,6 +51,7 @@ const noopHooks = {
   onFormPersonalChanged() {},
   onAppSettingChanged() {},
   onMegaPersonalChanged() {},
+  onPersonalDataCleared() {},
 };
 
 test("export/import round-trips species, form, and app-setting personal data", async () => {
@@ -98,6 +99,32 @@ test("import skips rows whose slug no longer resolves against the loaded referen
   assert.equal(result.skippedSpeciesSlugs, 1);
   assert.equal(result.skippedFormSlugs, 0);
   assert.equal(dest.getSpeciesWithForms("bulbasaur").personal.registered, true);
+});
+
+test("import replaces the current collection instead of merging with it", async () => {
+  const destState = emptyState();
+  const dest = createInMemoryRepository(referenceData, destState, noopHooks);
+
+  // Local data that the about-to-be-imported file knows nothing about.
+  dest.setSpeciesPersonalField("bulbasaur", "xxl", true);
+  dest.setFormPersonalField("bulbasaur-standard", "shiny", true);
+  dest.setAppSetting("grid_indicators", JSON.stringify(["shiny"]));
+
+  const result = await dest.importPersonalData({
+    exportedAt: new Date().toISOString(),
+    schemaVersion: 1,
+    speciesPersonal: {},
+    formPersonal: {},
+    appSettings: {},
+  });
+
+  assert.deepEqual(result, { skippedSpeciesSlugs: 0, skippedFormSlugs: 0 });
+  const withForms = dest.getSpeciesWithForms("bulbasaur");
+  assert.equal(withForms.personal.xxl, false);
+  assert.equal(withForms.personal.registered, false);
+  assert.equal(withForms.forms[0].personal.shiny, false);
+  // App settings/preferences are a separate table, untouched by the clear.
+  assert.equal(dest.getAppSetting("grid_indicators"), JSON.stringify(["shiny"]));
 });
 
 test("import never overwrites reference_data_version from another device's export", async () => {

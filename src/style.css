@@ -409,6 +409,33 @@ input[type="checkbox"] {
   padding: 1rem 0.5rem;
 }
 
+.help-intro {
+  color: var(--muted);
+  padding: 0.3rem 0.25rem 0.6rem;
+  line-height: 1.4;
+}
+
+.help-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.4rem 0.25rem;
+  border-top: 1px solid var(--line);
+  line-height: 1.4;
+}
+
+.help-row:first-of-type {
+  border-top: none;
+}
+
+.help-badge {
+  flex-shrink: 0;
+  min-width: 1.6rem;
+  text-align: center;
+  color: var(--accent);
+  font-weight: 650;
+}
+
 .write-failure-banner {
   display: none;
   align-items: center;

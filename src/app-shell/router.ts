@@ -6,6 +6,7 @@ export type Route =
   | { name: "search-tools" }
   | { name: "coverage-report" }
   | { name: "settings" }
+  | { name: "help" }
   | { name: "achievements" }
   | { name: "xp-assistant" };
 
@@ -25,6 +26,8 @@ export function parseRoute(hash: string): Route {
       return { name: "coverage-report" };
     case "/settings":
       return { name: "settings" };
+    case "/help":
+      return { name: "help" };
     case "/achievements":
       return { name: "achievements" };
     case "/xp-assistant":

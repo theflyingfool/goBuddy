@@ -124,6 +124,11 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
       statusEl.textContent = `Export failed: ${(err as Error).message}`;
     }
   });
+  // This file is the only backup that exists — nothing here syncs to any
+  // account or server. Sits right under the button rather than in a
+  // tooltip/help page, since it's the moment someone decides whether to
+  // bother exporting at all.
+  const exportGuidance = el("p", { class: "gap-note" }, ["This file is your only backup — export it after play sessions, and before updating or reinstalling the app."]);
 
   const importInput = el("input", { type: "file", accept: "application/json" }) as HTMLInputElement;
   importInput.addEventListener("change", async () => {
@@ -139,22 +144,24 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
         if (!proceed) return;
       }
       const proceed = window.confirm(
-        `Import "${file.name}" (exported ${new Date(data.exportedAt).toLocaleString()})? This overwrites any matching entries — anything not in the file stays as-is.`,
+        `Import "${file.name}" (exported ${new Date(data.exportedAt).toLocaleString()})? This REPLACES all of your current species/form/mega data with what's in this file — anything caught locally that isn't in the file will be gone. Settings/preferences aren't affected.`,
       );
       if (!proceed) return;
 
-      // Safety-net snapshot of what's about to be overwritten, in case the
-      // import turns out to be the wrong file or otherwise goes sideways —
-      // see docs/v1-tasks/02-data-safety-net.md. Uses the same export flow
-      // as the button above, so it's the user's real save dialog/share
-      // sheet, not a silent background write.
-      statusEl.textContent = "Saving a safety backup of your current data first…";
-      const snapshotResult = await exportPersonalData(repo);
-      if (snapshotResult === "cancelled") {
-        const proceedWithoutBackup = window.confirm("Backup cancelled. Import anyway without a fresh backup?");
-        if (!proceedWithoutBackup) {
-          statusEl.textContent = "Cancelled.";
-          return;
+      // Backup-before-import is offered, not forced — see
+      // docs/v1-tasks/02-data-safety-net.md. A "yes" runs the same export
+      // flow as the button above (the user's real save dialog/share sheet,
+      // not a silent background write); a "no" skips straight to import.
+      const wantsBackup = window.confirm("Back up your current data first, before it's replaced? (Recommended)");
+      if (wantsBackup) {
+        statusEl.textContent = "Saving a backup of your current data first…";
+        const snapshotResult = await exportPersonalData(repo);
+        if (snapshotResult === "cancelled") {
+          const proceedWithoutBackup = window.confirm("Backup cancelled. Import anyway without one?");
+          if (!proceedWithoutBackup) {
+            statusEl.textContent = "Cancelled.";
+            return;
+          }
         }
       }
 
@@ -174,7 +181,10 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   });
   const importLabel = el("label", { class: "toggle-row" }, ["Import personal data", importInput]);
 
-  dataFieldset.append(exportButton, importLabel, statusEl);
+  dataFieldset.append(exportButton, exportGuidance, importLabel, statusEl);
 
-  container.append(heading, appearanceFieldset, collapseFieldset, statsFieldset, formGridFieldset, indicatorFieldset, dataFieldset);
+  const aboutFieldset = el("fieldset", {}, [el("legend", {}, ["About"])]);
+  aboutFieldset.append(el("p", { class: "gap-note" }, [`Version ${__APP_VERSION__}`]));
+
+  container.append(heading, appearanceFieldset, collapseFieldset, statsFieldset, formGridFieldset, indicatorFieldset, dataFieldset, aboutFieldset);
 }
