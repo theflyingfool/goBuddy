@@ -73,11 +73,11 @@ Companion to [`docs/v1-tasks/05-image-pipeline.md`](v1-tasks/05-image-pipeline.m
 | `GEMS_2_2021_NOEVOLVE` | `Dawn's hat` | Turtwig wearing a white/cream beanie with the same leaf sprout. | Same reasoning as above, inverted (Dawn = white/pink in-game). |
 | `GOFEST_2022_NOEVOLVE` | `Cowboy hat` | Snorlax wearing a brown cowboy-style hat, matching one of its three costume options ("Cowboy hat", "Nightcap", "Studded Jacket"). | Confident for Snorlax specifically (unambiguous once you see the hat), but Pikachu also carries this codename with an unrelated subtle floral accessory that doesn't match anything obvious in Pikachu's list — left unresolved for Pikachu. |
 
-### Left blank / blocked
+### Left blank / blocked (at the time — see Batch 4, now resolved)
 
 | Codename | Species affected | Why it's blocked |
 |---|---|---|
-| `GOTOUR_2023_BANDANA` | Pikachu | Red/black/white striped bandana. Checked every costumeName in the entire `reference.json` for anything containing "bandana" or "tour" — nothing exists. This looks like a real costume the app's reference data is simply missing, not a lookup-value problem. |
+| `GOTOUR_2023_BANDANA` | Pikachu | Red/black/white striped bandana. Checked every costumeName in the entire `reference.json` for anything containing "bandana" or "tour" — nothing exists (the real name doesn't contain either word, see Batch 4). |
 
 ---
 
@@ -198,13 +198,41 @@ the genuinely ambiguous ones got a visual check.
 | `HOLIDAY_2022` | `Holiday hat` | Eevee wearing a small red/green holiday-style cap — fits, but "Holiday hat" vs. the textually-similar "Holiday outfit" (used elsewhere) required a visual call rather than being obvious from text alone. |
 | `ONE_YEAR_ANNIVERSARY` | `H.F. Custom Cap` | Raichu wearing a red/white/green cap. Picked mostly by elimination — it's the last unclaimed "cap"-sounding option in Raichu's list — not a confirmed meaning for what "H.F." stands for. **Also**: Mewtwo and Lugia carry this same codename but have **zero** costume options in `reference.json` at all (their art shows no visible costume either) — almost certainly non-canon/placeholder files, not a real costume; no value can make these resolve, and none should. |
 
-### Left blank / blocked
+### Left blank / blocked (at the time — see Batch 4, now resolved)
 
 | Codename | Species affected | Why it's blocked |
 |---|---|---|
-| `GOTOUR_2023_BANDANA_NOEVOLVE` | Pikachu | Same red/black/white bandana as `GOTOUR_2023_BANDANA` (already blank) — confirmed visually identical. No matching costumeName exists anywhere in `reference.json`; real data gap. |
-| `GOTOUR_2023_HAT` | Pikachu | A white/black cap with a small red emblem. Nothing in Pikachu's list was a confident match — closest guesses ("Captain Pikachu", "Rei's cap") aren't strongly supported enough to write down, and Pikachu has ~90 options where a wrong guess risks a real (if incorrect) match rather than a safe non-match. |
-| `GOTOUR_2023_HAT_NOEVOLVE` | Pikachu | Same cap as `GOTOUR_2023_HAT`, same uncertainty. |
+| `GOTOUR_2023_BANDANA_NOEVOLVE` | Pikachu | Same red/black/white bandana as `GOTOUR_2023_BANDANA` (already blank) — confirmed visually identical. No matching costumeName exists anywhere in `reference.json` under "bandana" or "tour" (the real name doesn't contain either word, see Batch 4). |
+| `GOTOUR_2023_HAT` | Pikachu | A white/black cap with a small red emblem. Nothing in Pikachu's list was a confident match from the image alone — closest guesses ("Captain Pikachu", "Rei's cap") weren't strongly supported enough to write down, and Pikachu has ~90 options where a wrong guess risks a real (if incorrect) match rather than a safe non-match. Resolved externally in Batch 4. |
+| `GOTOUR_2023_HAT_NOEVOLVE` | Pikachu | Same cap as `GOTOUR_2023_HAT`, same uncertainty at the time. |
+
+---
+
+## Batch 4 (the last 3 blocked entries — resolved via web search)
+
+The remaining GOTOUR_2023 tokens couldn't be pinned down from the image or
+`reference.json` alone (their real costumeNames — "Brendan's hat", "May's
+bow" — don't textually resemble "hat"/"bandana"/"tour" at all, so no amount
+of re-guessing from the visual would have found them). Looked them up
+externally instead of guessing further.
+
+| Codename | Value written | Evidence |
+|---|---|---|
+| `GOTOUR_2023_HAT` | `Brendan's hat` | Web search found the exact PokeMiners-style codename "gotour-2023-hat" documented on a Pokémon GO stats site (Dittobase) as "Brendan's Hat Pikachu," from Pokémon GO Tour: Hoenn (2023, Las Vegas). Matches `reference.json`'s existing `"Brendan's hat"` costumeName exactly. |
+| `GOTOUR_2023_HAT_NOEVOLVE` | `Brendan's hat` | Same costume as `GOTOUR_2023_HAT`, just the no-evolve file variant. |
+| `GOTOUR_2023_BANDANA` | `May's bow` | Same source confirmed "gotour-2023-bandana" as "May's Bow Pikachu" — the Brendan/May pair released together at the start of that Hoenn tour, matching `reference.json`'s existing `"May's bow"` entry exactly. (This one wasn't in the "last 3" list — it had been sitting blank since Batch 1 for the same underlying reason, so fixed alongside the other three.) |
+| `GOTOUR_2023_BANDANA_NOEVOLVE` | `May's bow` | Same costume as `GOTOUR_2023_BANDANA`, no-evolve variant. |
+
+All 4 visually re-confirmed after re-running `ingest:sprites`: Pikachu's
+Brendan's-hat and May's-bow sprites match what the PokeMiners files show.
+
+**5 entries remain blank in `costume-lookup.json`**: `ANNIVERSARY_2024`
+(Grimer/Muk costume not yet in `reference.json` at all), `COSTUME_1` /
+`COSTUME_2` (Pikachu/Raichu/Pichu caps, genuinely ambiguous — see Batch 1),
+and `FALL_2018` (black cap, no confident match found). `FALL_2022` also has
+no single value that resolves it (splits across three different real
+costumes by species) but isn't really "blank" so much as "can't be one
+value" — see Batch 1.
 
 ---
 
@@ -253,3 +281,6 @@ Pokémon.
   or insufficient visual confidence) rather than simply unattempted.
 - After the Espurr fix: 1,025 species (up from 1,024), 1,833 species base
   sprites matched (up from 1,831).
+- After batch 4: 564 form slugs matched (up from 560), 836 extra-images
+  rows remaining (down from 852). 5 codenames remain unresolved in
+  `costume-lookup.json`, all for reasons other than "not looked at yet."
