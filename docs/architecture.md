@@ -53,9 +53,8 @@ instead, linked from here.*
 |---|---|
 | `repository.ts` | The `Repository` interface the UI codes against — both backends below implement this same shape. |
 | `sqlite-repository.ts` | The real backend: reads served from an in-memory cache loaded once at startup, writes go through to real SQLite via a write queue. |
-| `in-memory-store.ts` | Shared query/filter engine backing both repository implementations; personal-data mutations call a hook so the caller decides where to persist (localStorage vs. real SQLite). |
-| `dummy-repository.ts` | Pure-browser fallback backend (no Capacitor/SQLite), persisted to localStorage. No longer used by `main.ts`; kept as a lightweight reference. Slated for deletion — see `docs/v1-tasks/06-performance-and-quality-infra.md`. |
-| `personal-demo-seed.ts` | Hand-written demo toggles for `dummy-repository.ts`'s seed data only — never used by the real SQLite backend. |
+| `in-memory-store.ts` | Query/filter engine behind `sqlite-repository.ts`; personal-data mutations call a hook that writes through to real SQLite. |
+| `personal-demo-seed.ts` | Hand-written demo toggles seeding `scripts/build-dummy-db.ts`'s generated `dummy.sqlite` fixture — never used by the real on-device backend. |
 | `completion-stats-sql.ts` | Real parameterized SQL for the completion-stats feature, one query shape per lens kind. |
 | `reference-csv-format.ts` | The flat CSV column shape shared by the ingestion pipeline's authoring round-trip and the in-app Coverage Report, so a hand-edited export round-trips through `npm run ingest:csv:import` unchanged. |
 | `reference.json` / `reference-gaps.json` | Generated build artifacts — see "Scripts" below, not hand-authored. |
@@ -89,6 +88,19 @@ instead, linked from here.*
 For the order these run in during a real data update, see
 [docs/ingestion-runbook.md](ingestion-runbook.md).
 
+## Tests (`test/`)
+
+Unit tests via Node's built-in test runner (`npm run test`, `node:test` +
+`node:assert/strict` run through `tsx --test` — no test-framework dependency).
+`node-sqlite-connection.ts` is a thin adapter exposing just the
+`SQLiteDBConnection` surface `src/db/migrations.ts`/`src/db/reference-sync.ts`
+call, backed by `node:sqlite` instead of the real Capacitor plugin, so those
+two modules run unmodified against disposable in-memory fixture databases.
+`migrations.test.ts` and `reference-sync.test.ts` use it;
+`export-import-round-trip.test.ts` tests `in-memory-store.ts`'s
+export/import directly (no SQLite involved). `.github/workflows/ci.yml` runs
+lint + typecheck + this suite on every PR and push to `master`.
+
 ## Data-authoring inputs (pre-build sources, not generated)
 
 - Root-level `Blank Pokedex Project (Living Column) - Forms w_ Dynamax.csv` — the species/form skeleton.
@@ -111,11 +123,13 @@ re-deriving them per file.
   forward-only — un-checking never cascades, since that would silently erase
   independently-verified facts. Built programmatically from
   `field-groups.ts`'s field list, not hand-maintained separately.
-- **Dual-backend split (`data/`)**: `sqlite-repository.ts` (real, on-device)
-  and `dummy-repository.ts` (pure-browser fallback, no longer wired into
-  `main.ts`) both implement `Repository` and share their query/filter logic
-  through `in-memory-store.ts`, so neither backend duplicates the other's
-  read/write semantics.
+- **Single-backend split (`data/`)**: `sqlite-repository.ts` implements
+  `Repository`, backed by the shared query/filter engine in
+  `in-memory-store.ts` (reads/mutations) plus real parameterized SQL in
+  `completion-stats-sql.ts` (completion stats). A second, pure-browser
+  fallback backend (`dummy-repository.ts`) existed early on; it was never
+  wired into `main.ts` and was deleted once confirmed dead — see
+  `docs/v1-tasks/06-performance-and-quality-infra.md`.
 - **Single-source-of-truth field lists (`db/types.ts` +
   `features/data-entry/field-groups.ts`)**: the ~25 personal achievement
   fields are enumerated once and drive the SQL schema, the detail-page UI

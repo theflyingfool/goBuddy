@@ -70,6 +70,12 @@ that file (or a friend's trust in it) can currently be lost.*
   actually exercised rather than reasoned-through only. Done first, ahead
   of the orphan-quarantine item below, since quarantine needs its own
   personal-schema-version bump to run through this hardened path.
-- [ ] **D5**: decide and document the `android:allowBackup` stance
-  (`android/app/src/main/AndroidManifest.xml`); test restore once if keeping
-  it on.
+- [x] **D5 resolved** (owner decision, 2026-07-09): keep `android:allowBackup="true"`
+  (already the value in `AndroidManifest.xml` — the Capacitor template
+  default, never explicitly changed, so no code change needed here). Owner's
+  reasoning: this is a free OS-level safety net (goes through the user's own
+  Google account/Drive quota) layered on top of the app's own manual
+  export/import — not a self-hosted backend the project would have to pay
+  for or maintain. **Still open**: actually test a real uninstall/reinstall
+  restore once on a device before relying on it (only doable on real
+  hardware).

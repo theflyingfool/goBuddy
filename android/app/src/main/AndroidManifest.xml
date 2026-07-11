@@ -29,7 +29,7 @@
         </provider>
     </application>
 
-    <!-- Permissions -->
-
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- No permissions: this app makes no runtime network calls and reads/
+         writes only its own on-device SQLite database, so there's nothing
+         to declare — let the OS enforce that. -->
 </manifest>

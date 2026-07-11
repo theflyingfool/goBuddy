@@ -4,9 +4,8 @@
 // native Android project — same SQL either way).
 //
 // Reads are served from an in-memory cache (src/data/in-memory-store.ts)
-// loaded once at startup — the same approach dummy-repository.ts already
-// used, just backed by real SQLite instead of localStorage. This keeps the
-// Repository interface synchronous (no ripple of async/loading-state
+// loaded once at startup. This keeps the Repository interface synchronous
+// (no ripple of async/loading-state
 // changes through every UI call site) at the cost of one async boot step in
 // main.ts before the first render. Writes update the cache immediately (so
 // the UI reflects them synchronously) and queue a SQL write-through plus a

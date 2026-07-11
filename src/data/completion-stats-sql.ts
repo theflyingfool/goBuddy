@@ -1,9 +1,8 @@
 // Real parameterized SQL for the completion-stats feature (CLAUDE.md
 // Feature 1) — one query shape per lens kind, parameterized by scope
 // (region / species / global), rather than hand-rolled queries per region or
-// per achievement column. This is the "real" implementation used by the
-// SQLite-backed repository; src/data/in-memory-store.ts has an equivalent
-// computed in plain JS for the dummy backend (same semantics, no SQL).
+// per achievement column. The only implementation of completion stats —
+// src/data/in-memory-store.ts deliberately has no JS equivalent.
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormPersonalBooleanField } from "../db/types";

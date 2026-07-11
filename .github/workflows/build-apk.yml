@@ -1,0 +1,44 @@
+name: Build APK
+
+# Manual/tag-triggered rather than on every push: a full Android/Gradle build
+# is much slower than ci.yml's lint+typecheck+test, and this app has no
+# signing keystore set up yet (see docs/v1-tasks/02-data-safety-net.md's D4)
+# — this produces an unsigned debug build only, good enough for sideloading
+# to test on a device without needing release-signing decisions first.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets + sync Capacitor + assemble debug APK
+        run: npm run android:build
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoBuddy-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
