@@ -9,6 +9,23 @@ schema that [current.md](current.md)'s stats feature already uses are
 exactly what both of these need, so the deferral doesn't paint the
 architecture into a corner.
 
+
+## Level Tracker
+
+Track total XP to get to level 80 as well as tasks required
+
+## Medal tracker
+
+Track progress and possibly give advise on medals
+
+## Trade analyzer
+
+Check if trade is "fair"
+
+## PVP & PVE Team builder
+
+
+
 ## Manual search-string builder
 
 Tri-state toggle UI (off → include → exclude → off) across standard PoGo
