@@ -9,6 +9,18 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.12.1] — 2026-07-12
+
+- Visual polish from the first real on-device pass: species-detail header
+  splits into an identity box (sprite/name/nav) and a new Region + Type(s)
+  box, form-tile and hero sprites sized up to actually show the real art
+  from the image pipeline, desktop now uses the full screen width instead
+  of a capped column, Settings' "Grid badges" fieldset is collapsible and
+  starts collapsed, and the About section now shows the personal-data
+  schema version and reference-data hash alongside the app version.
+- Adds `Repository.getFormTypes()`, backed by reference data already
+  resident in memory — no new DB round-trip.
+
 ## [0.12.0] — 2026-07-12
 
 - Mega Evolution + Gigantamax/form-complete semantics: species-wide Mega
