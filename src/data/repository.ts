@@ -2,7 +2,7 @@
 // capacitor-community/sqlite) will satisfy this same shape later — the UI
 // layer shouldn't need to change when that swap happens.
 
-import type { Form, FormBackgroundPersonal, FormPersonal, FormPersonalBooleanField, MegaPersonal, MegaVariant, Region, Species, SpeciesPersonal } from "../db/types";
+import type { Form, FormBackgroundPersonal, FormPersonal, FormPersonalBooleanField, MegaPersonal, MegaVariant, PokemonType, Region, Species, SpeciesPersonal } from "../db/types";
 
 export interface SpeciesWithForms {
   species: Species;
@@ -110,6 +110,8 @@ export interface Repository {
   listRegions(): Region[];
   listSpeciesByRegion(regionSlug: string): Species[];
   getSpeciesWithForms(speciesSlug: string): SpeciesWithForms;
+  /** Types for one form, in reference-data order (primary first). Species-detail uses its first form as the species' representative typing. */
+  getFormTypes(formSlug: string): PokemonType[];
 
   /** Grid data: one summary per species, optionally filtered by region and/or a name/dex substring search. */
   listSpeciesSummaries(filter?: SpeciesFilter): SpeciesSummary[];

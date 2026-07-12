@@ -83,8 +83,12 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   renderFormGridSecondFieldOptions();
   formGridFieldset.append(formGridOptions);
 
-  const indicatorFieldset = el("fieldset", {}, [
-    el("legend", {}, [`Grid badges (pick up to ${MAX_GRID_INDICATORS})`]),
+  // <details> gives collapse/expand for free (no JS state to track across
+  // rerenders) — this is the longest fieldset on the page (up to
+  // MAX_GRID_INDICATORS pickable rows), so it starts collapsed rather than
+  // pushing everything below it down by default.
+  const indicatorFieldset = el("details", { class: "settings-details" }, [
+    el("summary", {}, [`Grid badges (pick up to ${MAX_GRID_INDICATORS})`]),
   ]);
 
   function renderIndicatorCheckboxes() {
@@ -184,7 +188,12 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   dataFieldset.append(exportButton, exportGuidance, importLabel, statusEl);
 
   const aboutFieldset = el("fieldset", {}, [el("legend", {}, ["About"])]);
-  aboutFieldset.append(el("p", { class: "gap-note" }, [`Version ${__APP_VERSION__}`]));
+  const referenceDataVersion = repo.getAppSetting("reference_data_version") ?? "unknown";
+  aboutFieldset.append(
+    el("p", { class: "gap-note" }, [`Version ${__APP_VERSION__}`]),
+    el("p", { class: "gap-note" }, [`Personal-data schema: v${CURRENT_PERSONAL_SCHEMA_VERSION}`]),
+    el("p", { class: "gap-note" }, [`Reference data: ${referenceDataVersion}`]),
+  );
 
   container.append(heading, appearanceFieldset, collapseFieldset, statsFieldset, formGridFieldset, indicatorFieldset, dataFieldset, aboutFieldset);
 }

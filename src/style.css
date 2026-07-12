@@ -145,7 +145,7 @@ input[type="checkbox"] {
    bottom tab bar becomes a persistent left sidebar instead. */
 @media (min-width: 720px) {
   #app {
-    max-width: min(1100px, 94vw);
+    max-width: none;
     flex-direction: row;
     align-items: stretch;
   }
@@ -676,15 +676,68 @@ input[type="checkbox"] {
 
 .detail-header {
   display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.detail-header-identity {
+  display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
-  margin-bottom: 0.5rem;
+  flex: 1 1 260px;
+  min-width: 0;
 }
 
 .detail-header h2 {
   margin: 0;
   flex: 1;
+}
+
+.detail-header-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.detail-header-info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.detail-header-info-label {
+  flex-shrink: 0;
+  min-width: 3.5rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-header-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.type-chip {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
 }
 
 .detail-hero-sprite-wrap {
@@ -693,8 +746,8 @@ input[type="checkbox"] {
 }
 
 .detail-hero-sprite {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 4.5rem;
+  height: 4.5rem;
   display: block;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
@@ -768,6 +821,26 @@ fieldset {
   border-radius: var(--radius-sm);
 }
 
+.settings-details {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.settings-details > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settings-details[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
 /* ---- Species-detail form grid (replaces the old accordion) ---- */
 
 .form-grid {
@@ -804,8 +877,8 @@ fieldset {
 }
 
 .form-tile-sprite {
-  width: 34px;
-  height: 34px;
+  width: 56px;
+  height: 56px;
 }
 
 .form-tile-name {
