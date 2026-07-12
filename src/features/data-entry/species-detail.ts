@@ -99,7 +99,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     rerender();
   });
 
-  const header = el("div", { class: "detail-header" }, [
+  const identityBox = el("div", { class: "detail-header-identity" }, [
     backButton,
     prevButton,
     el("div", { class: "detail-hero-sprite-wrap" }, [
@@ -109,6 +109,28 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     el("h2", {}, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]),
     nextButton,
   ]);
+
+  // Region is species-wide; types are per-form (a handful of species like
+  // Tauros's breeds differ), so this reads the first form as the species'
+  // representative typing rather than inventing a "default form" concept.
+  const region = repo.listRegions().find((r) => r.slug === species.regionSlug);
+  const types = forms.length > 0 ? repo.getFormTypes(forms[0].form.slug) : [];
+  const infoBox = el("div", { class: "detail-header-info" }, [
+    el("div", { class: "detail-header-info-row" }, [
+      el("span", { class: "detail-header-info-label" }, ["Region"]),
+      el("span", {}, [region?.name ?? "—"]),
+    ]),
+    el("div", { class: "detail-header-info-row" }, [
+      el("span", { class: "detail-header-info-label" }, [types.length > 1 ? "Types" : "Type"]),
+      el(
+        "span",
+        { class: "detail-header-types" },
+        types.length > 0 ? types.map((t) => el("span", { class: "type-chip" }, [t.name])) : ["—"],
+      ),
+    ]),
+  ]);
+
+  const header = el("div", { class: "detail-header" }, [identityBox, infoBox]);
 
   const speciesFieldset = el("fieldset", {}, [el("legend", {}, ["Species"])]);
   for (const { field, label } of SPECIES_FIELDS) {

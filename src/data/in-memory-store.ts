@@ -14,7 +14,7 @@ import { resolveFormFieldCascade } from "../db/cascades";
 import { emptyFormPersonal, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
-import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type Region, type Species, type SpeciesPersonal } from "../db/types";
+import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type PokemonType, type Region, type Species, type SpeciesPersonal } from "../db/types";
 import {
   MAX_GRID_INDICATORS,
   type GridFilterField,
@@ -64,6 +64,15 @@ export function createInMemoryRepository(
     list.push(f);
     formsBySpecies.set(f.speciesSlug, list);
     speciesSlugByFormSlug.set(f.slug, f.speciesSlug);
+  }
+
+  const typesBySlug = new Map<string, PokemonType>(referenceData.types.map((t) => [t.slug, t]));
+  const formTypesByFormSlug = new Map<string, PokemonType[]>();
+  for (const ft of referenceData.formTypes) {
+    const list = formTypesByFormSlug.get(ft.formSlug) ?? [];
+    const type = typesBySlug.get(ft.typeSlug);
+    if (type) list.push(type);
+    formTypesByFormSlug.set(ft.formSlug, list);
   }
 
   const megaVariantsBySpecies = new Map<string, MegaVariant[]>();
@@ -227,6 +236,10 @@ export function createInMemoryRepository(
 
     listSpeciesByRegion(regionSlug: string): Species[] {
       return referenceData.species.filter((s) => s.regionSlug === regionSlug).sort((a, b) => a.dexNumber - b.dexNumber);
+    },
+
+    getFormTypes(formSlug: string): PokemonType[] {
+      return formTypesByFormSlug.get(formSlug) ?? [];
     },
 
     getSpeciesWithForms(speciesSlug: string): SpeciesWithForms {
