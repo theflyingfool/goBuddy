@@ -25,8 +25,8 @@
   local-only data, imports a file that doesn't mention it, and confirms
   it's gone afterward. No in-app "clear" button was added since import now
   covers that need (import an intentionally-empty/minimal export to wipe).
-- [ ] Real-device install + first-boot timing (resolves
-  [§ 8](06-performance-and-quality-infra.md)'s contingency).
+- [x] Real-device install + first-boot timing — confirmed fine (owner,
+  2026-07-12). See [§ 8](06-performance-and-quality-infra.md).
 - [ ] Upgrade-over-install test: v1 APK + real data → v2 APK, confirm data
   survives and no boot-brick.
 - [ ] Confirm the [§ 9](06-performance-and-quality-infra.md) smoke suite +

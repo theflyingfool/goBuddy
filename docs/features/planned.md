@@ -63,6 +63,38 @@ Still undecided, needed before implementation:
 - Priority order for species matching multiple rules simultaneously (e.g.
   has both a hundo and a shiny) — don't leave this implicit.
 
+## Coverage Report review-state persistence
+
+*Owner-proposed (2026-07-12), scoped into a real spec the same day; deferred
+to post-V1 — see `docs/v1-tasks/09-v2-watchlist.md`.*
+
+The Coverage Report (`src/data/reference-gaps.json`, regenerated fresh by
+every `npm run ingest:build`) currently has no memory: every ingestion pass
+shows the full current gap list from scratch, so already-reviewed gaps get
+re-reviewed every time. This adds a per-gap "reviewed" flag that survives
+regeneration, plus folds in D7's costume-code confirmation questions as the
+same kind of reviewable item rather than a separate one-off task.
+
+**Key shape**: gaps aren't uniformly per-form — `mega-discrepancy`,
+`unverified-gender`, and `possible-bogus-form` fire at species granularity
+with no single form to blame (`formsForGaps()` in `coverage-report-page.ts`
+already falls back to every form of that species when `gap.formSlug` is
+absent). So the review key can't just reuse a form slug; it's
+`{gap.kind}:{gap.formSlug ?? gap.speciesSlug}`.
+
+**Storage**: no new schema-versioned table needed. The existing
+`app_settings` key-value store already covers it —
+`coverage_reviewed:{kind}:{key}` = `"1"` — since `app_settings` is
+per-install/maintainer state, not personal collection data, and reference-
+sync never touches it. Coverage Report gains a "show reviewed" toggle,
+defaulting to hiding reviewed gaps.
+
+**Costume-code confirmation (absorbed from D7)**: the ~11 still-unconfirmed
+costume codes (Cap Pikachu O/W, Flying Pikachu Fly/Fly5/FlyOkinawa/…, see
+`docs/v1-roadmap/02-reference-data-corrections.md` §7) become Coverage
+Report entries needing a Bulbapedia-sourced confirmation, reviewed and
+marked through this same mechanism rather than a standalone checklist.
+
 ## Open items carried forward
 
 - Whether `form_background_personal` assuming every background is possible

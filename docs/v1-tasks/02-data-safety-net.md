@@ -6,9 +6,10 @@
 *The app's entire value is one SQLite file on a phone — these close the ways
 that file (or a friend's trust in it) can currently be lost.*
 
-- [ ] **D4**: decide keystore backup location, then generate a dedicated
-  release keystore, add `signingConfigs.release` to `android/app/build.gradle`,
-  switch the build to `assembleRelease`. Back it up in ≥2 places.
+- [x] **D4 — resolved, closed (owner, 2026-07-12)**: not dealing with a
+  release keystore at all. Ships debug-signed indefinitely; people back up
+  their own personal-data exports before updating, same as always. No
+  `signingConfigs.release`/`assembleRelease` work planned.
 - [x] Boot-failure rescue screen: on any DB-open/sync/migration error
   (`src/main.ts`'s "Couldn't open the on-device database" path), still offer a
   raw "export personal data" action that reads the personal tables directly,

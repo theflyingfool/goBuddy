@@ -13,6 +13,11 @@
 - Full adoption of `executeSet`/`importFromJson`/`copyFromAssets` if not
   pulled into V1 via [§ 8](06-performance-and-quality-infra.md)'s
   contingency.
+- Coverage Report review-state persistence (owner, 2026-07-12) — lets a
+  reviewed gap stay reviewed across `ingest:build` re-runs instead of
+  re-showing the full gap list every pass. Also absorbs D7's costume-code
+  confirmation, which no longer needs a standalone pre-V1 pass. Full spec:
+  `docs/features/planned.md`.
 - Search-string builder (safety-adjacent spec work already done in
   `docs/features/planned.md`).
 - Auto-declutter engine (safety clause specced in `docs/features/planned.md`;

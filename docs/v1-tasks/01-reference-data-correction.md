@@ -58,10 +58,13 @@ design, so fixes here are free today and permanent debt later.*
   Full writeup: `docs/costume-lookup-verification.md`'s "Cross-cutting"
   section (filed there since that's where the discovery happened, not
   because it's a costume issue).
-- [ ] **D7**: confirm the ~11 costume code identifications against Bulbapedia
-  sprite images before slugging (Cap Pikachu O=Original/W=World; Flying
+- [x] **D7 — resolved by deferral (owner, 2026-07-12)**: folded into the
+  Coverage Report persistence feature ([§ 12](09-v2-watchlist.md),
+  `docs/features/planned.md`) rather than done as a standalone pre-V1 pass.
+  The ~11 unconfirmed costume codes (Cap Pikachu O=Original/W=World; Flying
   Pikachu Fly/Fly5/FlyOkinawa/FlyGreen/FlyPurple/FlyOrange/FlyRed — see
-  `docs/v1-roadmap/02-reference-data-corrections.md` §7 for the proposed names). Apply once confirmed.
+  `docs/v1-roadmap/02-reference-data-corrections.md` §7 for the proposed
+  names) ride as-is until that system exists post-V1.
 - [x] Fix the lucky-IV-floor comment in `docs/data-model.md` (~10/10/10 →
   12/12/12; non-load-bearing, just a stale comment). Done as part of the
   docs reorg pass.

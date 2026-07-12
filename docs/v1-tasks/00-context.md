@@ -6,9 +6,21 @@ From `docs/v1-roadmap/workplan.md` Phase 0:
 
 - **D1 — Gigantamax modeling: RESOLVED.** Form-rows-only (commit `36e5754`
   already does this) — no extra personal field. Owner confirmed 2026-07-08.
-- D2 (form-complete semantics), D3 (desktop packaging), D4 (keystore backup
-  location), D5 (`allowBackup` stance), D6 (app name), D7 (costume-code
-  confirmation) — **still open**, each is its own task below.
+- D2 (form-complete semantics), D3 (desktop packaging), D5 (`allowBackup`
+  stance) — **still open**, each is its own task below.
+- **D4 (keystore backup location): RESOLVED, closed.** Owner (2026-07-12):
+  not dealing with a release keystore at all — ships debug-signed
+  indefinitely, people can back up their own personal data before updating.
+  No `signingConfigs.release` work planned.
+- **D6 (app name): deferred past V1**, not re-opened. Owner (2026-07-08):
+  name suggestions so far only optimized for V1's dex-tracking scope, not
+  the app's longer-term companion-app ambitions — revisit once that scope
+  is closer to real.
+- **D7 (costume-code confirmation): folded into Coverage Report
+  persistence** (owner, 2026-07-12) — see [§ 12](09-v2-watchlist.md) and
+  `docs/features/planned.md`. No longer a standalone pre-V1 task; the
+  ~11 unconfirmed costume codes ride as Coverage Report items like any
+  other flagged gap, reviewed post-V1 once that system exists.
 
 From the 2026-07-08 addendum:
 
