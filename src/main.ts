@@ -11,6 +11,7 @@ import { renderSpeciesGrid, renderFilterSheetContent, countActiveFilters, type G
 import { renderBulkFormEditPage } from "./features/data-entry/bulk-form-edit";
 import { renderCoverageReportPage } from "./features/coverage-report/coverage-report-page";
 import { renderSettingsPage } from "./features/settings/settings-page";
+import { renderHelpPage } from "./features/help/help-page";
 import { renderStatsPage } from "./features/stats/stats-page";
 import { renderAchievementsPage, renderSearchToolsPage, renderXpAssistantPage } from "./features/stubs";
 import { createOverlayPanel, bindEscapeToClose } from "./ui/overlay-panel";
@@ -182,6 +183,9 @@ function bootstrap(repo: Repository) {
           break;
         case "settings":
           renderSettingsPage(contentEl, repo);
+          break;
+        case "help":
+          renderHelpPage(contentEl);
           break;
         case "achievements":
           renderAchievementsPage(contentEl);

@@ -46,6 +46,8 @@ export interface InMemoryStoreHooks {
   onFormPersonalChanged(formSlug: string, personal: FormPersonal): void;
   onAppSettingChanged(key: string, value: string): void;
   onMegaPersonalChanged(megaVariantSlug: string, personal: MegaPersonal): void;
+  /** Fires once, before an import applies any rows — the write-through backend wipes species_personal/form_personal/mega_personal/form_background_personal so import is a real restore (replace), not a merge. App settings/preferences are untouched. */
+  onPersonalDataCleared(): void;
 }
 
 export function createInMemoryRepository(
@@ -347,6 +349,17 @@ export function createInMemoryRepository(
     },
 
     async importPersonalData(data: PersonalDataExport): Promise<ImportResult> {
+      // Import is a restore, not a merge: wipe the current collection first
+      // so a row that exists locally but isn't in the imported file actually
+      // goes away, instead of silently surviving underneath the imported
+      // data. App settings/preferences are a separate table and untouched
+      // here (see the appSettings loop below).
+      state.speciesPersonal = {};
+      state.formPersonal = {};
+      state.megaPersonal = {};
+      state.formBackgroundPersonal = [];
+      hooks.onPersonalDataCleared();
+
       let skippedSpeciesSlugs = 0;
       let skippedFormSlugs = 0;
       for (const [slug, personal] of Object.entries(data.speciesPersonal)) {

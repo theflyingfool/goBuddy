@@ -21,7 +21,7 @@ import { syncReferenceData } from "../db/reference-sync";
 import { getCompletionStatsSql } from "./completion-stats-sql";
 import referenceDataJson from "./reference.json";
 import { createInMemoryRepository, type PersonalState } from "./in-memory-store";
-import { EXCLUDE_REGIONAL_SETTING_KEY, type Repository } from "./repository";
+import { EXCLUDE_REGIONAL_SETTING_KEY, type ImportResult, type Repository } from "./repository";
 
 const referenceData = referenceDataJson as unknown as ReferenceData;
 
@@ -171,6 +171,20 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
         if (!inBulk) await persistDb();
       });
     },
+    // Only ever called from within importPersonalData's runBulk wrapper below
+    // (bulkDepth > 0), so this always skips its own transaction/persist —
+    // the surrounding bulk owns both, same convention as every other hook
+    // here.
+    onPersonalDataCleared() {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run("DELETE FROM species_personal", [], !inBulk);
+        await db.run("DELETE FROM form_personal", [], !inBulk);
+        await db.run("DELETE FROM mega_personal", [], !inBulk);
+        await db.run("DELETE FROM form_background_personal", [], !inBulk);
+        if (!inBulk) await persistDb();
+      });
+    },
   });
 
   // Runs a batched in-memory apply (which fires N onXChanged hooks
@@ -206,15 +220,18 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       await writeQueue;
       return getCompletionStatsSql(db, scope, lenses, state.appSettings[EXCLUDE_REGIONAL_SETTING_KEY] === "1");
     },
-    // Overrides the in-memory-store default to also wait for the writes it
-    // just queued (via the onXChanged hooks above) to actually land in
-    // SQLite + IndexedDB — callers that reload the page right after
-    // importing need the real backing store updated first, not just the
-    // in-memory cache.
+    // Overrides the in-memory-store default to (a) run the whole clear +
+    // re-populate as one SQL transaction via runBulk, so a failure partway
+    // through can't leave the DB cleared but not re-populated, and (b) wait
+    // for the writes it just queued to actually land in SQLite + IndexedDB —
+    // callers that reload the page right after importing need the real
+    // backing store updated first, not just the in-memory cache.
     async importPersonalData(data) {
-      const result = await repo.importPersonalData(data);
-      await writeQueue;
-      return result;
+      let result: ImportResult | undefined;
+      await runBulk(async () => {
+        result = await repo.importPersonalData(data);
+      });
+      return result!;
     },
     // Bulk overrides: run the shared in-memory cascade path (repo.bulkSet*)
     // but collapse its N per-row IndexedDB flushes into one transaction + one

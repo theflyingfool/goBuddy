@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Settings", path: "/settings", routeName: "settings", icon: "⚙", primary: true },
   { label: "Search Tools", path: "/search-tools", routeName: "search-tools", icon: "🔍" },
   { label: "Coverage Report", path: "/coverage-report", routeName: "coverage-report", icon: "📋" },
+  { label: "Help", path: "/help", routeName: "help", icon: "❓" },
   { label: "Achievements", path: "/achievements", routeName: "achievements", icon: "🏆", muted: true },
   { label: "XP Assistant", path: "/xp-assistant", routeName: "xp-assistant", icon: "⭐", muted: true },
 ];

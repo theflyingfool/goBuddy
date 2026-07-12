@@ -5,12 +5,19 @@
 
 - [x] Commit `docs/` — already tracked in git as of this pass (this checklist
   item had gone stale; `docs/` shows up in `git status`/`git diff` normally).
-- [ ] In-app Help page: badge/glyph legend, lens definitions
-  (Registered/Form-complete/Costume-complete + denominator rule),
-  floor/shundo glossary, tri-state chip explanation.
-- [ ] Backup guidance text next to the Export button
-  (`src/features/settings/settings-page.ts`): "this file is your only
-  backup; export after play sessions."
+- [x] In-app Help page: `src/features/help/help-page.ts` (new route `/help`,
+  in the nav's "More" section). Covers a representative slice of badge
+  glyphs (not all 30 combos — the prefix/base-stacking rule is explained
+  once instead of repeated per combo), all 5 stats lenses with their
+  denominator rules, the Floor/Shundo glossary (pulled from
+  `docs/data-model.md`'s DDL comments: floor = 0/0/0 normal, 12/12/12
+  lucky; shundo = independently-stored shiny+hundo), and the tri-state
+  filter-chip cycle. **Not visually verified** — no browser in this
+  environment; on-device/browser check still needed.
+- [x] Backup guidance text next to the Export button
+  (`src/features/settings/settings-page.ts`): "This file is your only
+  backup — export it after play sessions, and before updating or
+  reinstalling the app."
 - [x] Install/update one-pager for friends: `docs/install-guide.md`.
 - [x] Write `docs/ingestion-runbook.md`: the correct script order
   (`ingest:fetch` → `ingest:gigantamax` → `ingest:build` → `ingest:events` →
@@ -22,14 +29,20 @@
 - [ ] Release checklist (version bump, tag, build, upgrade-install test,
   "export before updating" reminder) — still open, `CHANGELOG.md` alone
   doesn't cover this.
-- [ ] Refresh `TODO.md`: remove the now-resolved "Gigantamax field" open item,
-  fix the false `form.gigantamax_available` column claim.
+- [x] ~~Refresh `TODO.md`~~ — moot, `TODO.md` was retired earlier (see
+  `CHANGELOG.md`/git history); `CHANGELOG.md` and this task breakdown are
+  its replacements.
 - [ ] `docs/data-model.md` divergence pass: add the Gigantamax modeling
   decision, the mega columns, `form_personal`'s shiny fields, and other
   DDL-vs-`schema.ts` drift found by the documentation review. (Distinct from
   this pass's data-model.md addition, which only added the "Future
   direction" section — the DDL-vs-schema.ts sync itself is still open.)
-- [ ] Show the app version somewhere in Settings.
+- [x] Show the app version somewhere in Settings. `vite.config.ts` reads
+  `package.json`'s version at build time and injects it as the
+  `__APP_VERSION__` global (declared in `src/vite-env.d.ts`); Settings'
+  new "About" fieldset renders it. Confirmed the exact version string
+  (`0.11.0`) actually lands in the built bundle, not just that it
+  type-checks.
 - [x] Write the auto-declutter engine's safety clause into
   `docs/features/planned.md`: generated transfer-search strings must exclude
   `favorite`/`specialbackground` by default and protect
