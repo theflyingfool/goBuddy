@@ -2,12 +2,51 @@
 
 All notable shipped-version changes to this project. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/). This is the canonical home
-for shipped-version history going forward — see `TODO.md` for current
+for shipped-version history going forward — see `docs/v1-tasks/` for current
 in-progress status/known issues, not past releases.
 
 Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
+
+## [0.12.0] — 2026-07-12
+
+- Mega Evolution + Gigantamax/form-complete semantics: species-wide Mega
+  tracking (Evolved/Shiny Evolved per variant, X/Y/Primal support), Mega
+  and Gigantamax stats lenses, and a form-complete denominator fix
+  (Gigantamax/regional-exclusive forms handled correctly rather than
+  inflating the "missing" count).
+- Mobile ergonomics redesign: bottom tab bar / persistent sidebar nav
+  (replacing the hamburger drawer at every width), filters moved into a
+  callable bottom sheet / anchored panel instead of always-visible chips,
+  and quick-toggle tiles on the dex grid.
+- Data-entry legibility/accessibility polish pass, and a Stats page
+  rebuild (PowerBI-style dashboard with a drillable missing-species grid),
+  plus a real performance fix (missing SQL index on `form.species_slug`
+  that was making the Stats page slow).
+- Image pipeline (§7): swapped the entire species sprite set for
+  PokeMiners-sourced art (953 species, up from 809), auto-matched ~230
+  regional-form and costume sprites plus all 57 Mega/Primal variants, and
+  added a shiny-art view toggle. Along the way, fixed a real
+  `build-reference.ts` bug where Pokémon GO-exclusive Mega Evolutions
+  (Dragonite, Skarmory, Raichu, Malamar, Victreebel, Falinks) were being
+  silently rejected by a mainline-game-only version filter, and fixed a
+  single mislabeled spreadsheet row that had made Espurr (#677) invisible
+  to the entire reference-data pipeline.
+- Dead-code cleanup (removed the unused localStorage dummy-repository
+  backend and its in-memory completion-stats path now that real SQL
+  covers it), a real unit-test suite (migrations, reference-sync,
+  export/import round-trip), and a CI workflow (lint + typecheck + tests
+  on every push) plus an on-demand GitHub Actions APK build.
+- New in-app Help page (badge-glyph legend, stats-lens definitions,
+  Floor/Shundo glossary, filter-chip explanation), the app version now
+  shown in Settings, and backup guidance text next to the Export button.
+- Personal-data import is now a real restore instead of a merge — it
+  wipes the existing collection before applying an imported file's rows,
+  so data that only exists locally (and isn't in the file being imported)
+  no longer silently survives underneath it. The pre-import safety backup
+  is now an explicit opt-in prompt instead of a forced dialog on every
+  import.
 
 ## [0.11.0] — 2026-07-09
 
