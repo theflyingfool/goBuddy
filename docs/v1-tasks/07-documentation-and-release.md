@@ -43,6 +43,18 @@
   new "About" fieldset renders it. Confirmed the exact version string
   (`0.11.0`) actually lands in the built bundle, not just that it
   type-checks.
+- [ ] **Owner ask (2026-07-12)**: the About section should also show the two
+  internal DB version numbers, not just the app release version —
+  `CURRENT_PERSONAL_SCHEMA_VERSION` (`src/db/schema.ts`, currently `2`) and
+  the reference-data content hash stored under the `reference_data_version`
+  app setting (`src/db/reference-sync.ts`). Both are already readable via
+  `repo.getAppSetting(...)`/the schema constant — this is a display-only
+  addition, no new plumbing.
+- [ ] **Owner ask (2026-07-12)**: Settings' "Grid badges" fieldset
+  (`src/features/settings/settings-page.ts`) should be collapsible and
+  start collapsed — it's the longest fieldset on the page (up to
+  `MAX_GRID_INDICATORS` pickable rows) and pushes everything below it down
+  by default.
 - [x] Write the auto-declutter engine's safety clause into
   `docs/features/planned.md`: generated transfer-search strings must exclude
   `favorite`/`specialbackground` by default and protect

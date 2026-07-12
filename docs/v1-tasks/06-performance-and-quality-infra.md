@@ -12,6 +12,12 @@ first-boot/device-specific items.*
   ~8,156 sequential inserts on first run / on any reference-data-changing
   update — untested on real hardware). This is also
   [§ 11](08-release-candidate.md)'s release-candidate gate.
+  **Owner's first real first-install test (2026-07-12, debug APK, v0.12.0)**:
+  "didn't seem too bad, but also I feel like it's probably only going to
+  get worse" — i.e. passable today, but a real signal that this needs an
+  actual timed measurement (not just a vibe check) before V1 ships, since
+  the row count only grows from here. Raises the odds the contingency
+  below gets pulled forward rather than deferred.
 - [ ] **Contingency**: if the timing test shows the sync is slow enough to
   hurt the first-run experience, pull forward the `executeSet`-batching fix
   for `src/db/reference-sync.ts` (the SQLite plugin already supports this;

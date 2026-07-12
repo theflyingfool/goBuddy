@@ -229,3 +229,23 @@ giant PR instead of 5") rather than the originally-planned 5-PR sequence.*
   outliers) can't be verified in this environment (no browser) — a handful
   of hand-picked tiles in a mockup always looks fine. This needs an on-device
   check against the real dataset, not just lint/build passing.
+
+## Post-image-pipeline polish (owner feedback, on-device pass, 2026-07-12)
+
+*Real art shipping via §7 exposed layout issues invisible with placeholder
+sprites. Deliberately not fixed in the moment — added here to review
+together as a batch, not fixed piecemeal.*
+
+- [ ] Species-detail header: the species-name box currently spans the full
+  header width. Split it — species name/sprite on the left at half width,
+  and a new box on the right (title still open) showing Region, Type(s),
+  and likely more fields over time. (`src/features/data-entry/
+  species-detail.ts`'s `.detail-header`, `src/style.css`)
+- [ ] Form-tile and hero sprites read as too small now that they're real
+  art, not placeholder icons — bump both up (`.form-tile-sprite` is
+  currently 34px, `.detail-hero-sprite` 2.75rem/44px, in `src/style.css`).
+  Applies on both phone and desktop.
+- [ ] Desktop should use the *whole* width of the screen — currently
+  capped at `max-width: min(1100px, 94vw)` above 720px (`src/style.css`
+  `#app`), which was correct progress over the old fixed-480px column but
+  the owner now wants no cap at all, not just a wider one.
