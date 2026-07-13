@@ -155,9 +155,14 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       });
     },
     onAppSettingChanged(key, value) {
+      const inBulk = bulkDepth > 0;
       enqueueWrite(async () => {
-        await db.run("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [key, value]);
-        await persistDb();
+        await db.run(
+          "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+          [key, value],
+          !inBulk,
+        );
+        if (!inBulk) await persistDb();
       });
     },
     onMegaPersonalChanged(megaVariantSlug, personal) {
