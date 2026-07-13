@@ -10,8 +10,8 @@ See [docs/data-model.md](./docs/data-model.md) (schema/storage),
 [docs/features.md](./docs/features.md) (feature specs, by release status),
 and [docs/architecture.md](./docs/architecture.md) (codebase map) for the
 full design; [CLAUDE.md](./CLAUDE.md) for the working invariants; and
-[TODO.md](./TODO.md) / [CHANGELOG.md](./CHANGELOG.md) for current status and
-shipped-version history.
+[CHANGELOG.md](./CHANGELOG.md) for shipped-version history (see
+[docs/v1-tasks/](./docs/v1-tasks/) for current in-progress status).
 
 ## Stack
 
