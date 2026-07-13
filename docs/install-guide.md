@@ -26,22 +26,22 @@ by design.** Right now, exporting is your only backup:
 
 ## Updating to a new version
 
-**Important caveat, current as of this app's early releases**: this app
-doesn't yet ship with a stable release signing key (tracked as an open V1
-item — see `docs/v1-tasks/02-data-safety-net.md`). Until that's done,
-whether "install the new APK over the old one" preserves your data
+**This app ships debug-signed, permanently** — there's no Play Store release
+keystore and none is planned (owner decision, see `docs/v1-tasks/02-data-safety-net.md`,
+item D4). Whether "install the new APK over the old one" preserves your data
 **depends on whether both APKs were signed with the same key** — Android
 refuses to update in place across a signing-key mismatch, and if that
 happens your only path is uninstall → reinstall, which **erases the app's
-data**. **Export before every update, no exceptions, until this note is
-removed.** Once release signing ships, this section will be updated to
-confirm installing over the old APK is safe.
+data**. **Export before every update, no exceptions** — this isn't a
+temporary caveat that goes away later, it's how updates always work for
+this app.
 
 ## If something goes wrong
 
 If the app fails to open (a "couldn't open the database" message or
-similar), **don't uninstall it — message the owner before doing anything
-else.** There's no in-app recovery for this yet (tracked as an open V1 item,
-`docs/v1-tasks/02-data-safety-net.md`), and uninstalling erases the app's
-data permanently. This is exactly why exporting regularly matters more than
-it might seem.
+similar), the app itself should offer a one-time "export personal data"
+option on that failure screen — use it before doing anything else. If for
+any reason that doesn't appear, **don't uninstall — message the owner
+before doing anything else**, since uninstalling erases the app's data
+permanently. This is exactly why exporting regularly matters more than it
+might seem.
