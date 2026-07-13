@@ -122,12 +122,20 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   const dataFieldset = el("fieldset", {}, [el("legend", {}, ["Data"])]);
   const statusEl = el("p", { class: "gap-note", "aria-live": "polite" }, []);
 
+  const backupBeforeImportToggle = labeledToggle(
+    "Back up before import",
+    repo.getAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY) === "1",
+    (checked) => {
+      repo.setAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY, checked ? "1" : "0");
+    },
+  );
+
   const exportButton = el("button", { type: "button" }, ["Export personal data"]);
   exportButton.addEventListener("click", async () => {
     statusEl.textContent = "Exporting…";
     try {
-      const result = await exportPersonalData(repo);
-      statusEl.textContent = result === "saved" ? "Exported." : "Cancelled.";
+      await exportPersonalData(repo);
+      statusEl.textContent = "Exported.";
     } catch (err) {
       statusEl.textContent = `Export failed: ${(err as Error).message}`;
     }
@@ -137,14 +145,6 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   // tooltip/help page, since it's the moment someone decides whether to
   // bother exporting at all.
   const exportGuidance = el("p", { class: "gap-note" }, ["This file is your only backup — export it after play sessions, and before updating or reinstalling the app."]);
-
-  const backupBeforeImportToggle = labeledToggle(
-    "Back up before import",
-    repo.getAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY) === "1",
-    (checked) => {
-      repo.setAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY, checked ? "1" : "0");
-    },
-  );
 
   const importInput = el("input", { type: "file", accept: "application/json" }) as HTMLInputElement;
   importInput.addEventListener("change", async () => {
@@ -165,20 +165,10 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
       if (!proceed) return;
 
       // Backup-before-import is a persistent setting (backupBeforeImportToggle
-      // above), not a per-import prompt — off by default. Whenever it's on,
-      // a cancelled save dialog still gets one confirm, since silently
-      // skipping the backup the user explicitly asked for would be worse
-      // than asking once more.
+      // above), not a per-import prompt — off by default.
       if (repo.getAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY) === "1") {
         statusEl.textContent = "Saving a backup of your current data first…";
-        const snapshotResult = await exportPersonalData(repo);
-        if (snapshotResult === "cancelled") {
-          const proceedWithoutBackup = window.confirm("Backup cancelled. Import anyway without one?");
-          if (!proceedWithoutBackup) {
-            statusEl.textContent = "Cancelled.";
-            return;
-          }
-        }
+        await exportPersonalData(repo);
       }
 
       statusEl.textContent = "Importing…";
@@ -202,7 +192,7 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   });
   const importLabel = el("label", { class: "toggle-row" }, ["Import personal data", importInput]);
 
-  dataFieldset.append(exportButton, exportGuidance, backupBeforeImportToggle, importLabel, statusEl);
+  dataFieldset.append(backupBeforeImportToggle, exportButton, exportGuidance, importLabel, statusEl);
 
   const aboutFieldset = el("fieldset", {}, [el("legend", {}, ["About"])]);
   const referenceDataVersion = repo.getAppSetting("reference_data_version") ?? "unknown";

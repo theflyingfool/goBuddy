@@ -31,14 +31,12 @@ export function renderBootFailureRescue(container: HTMLElement, bootError: unkno
       }
       const rowCount = Object.keys(data.speciesPersonal).length + Object.keys(data.formPersonal).length;
       const json = JSON.stringify(data, null, 2);
-      const result = await downloadTextFile(json, {
+      await downloadTextFile(json, {
         suggestedName: exportFileName(),
         mimeType: "application/json",
-        fileExtension: ".json",
         description: "GoBuddy rescue export",
       });
-      statusEl.textContent =
-        result === "saved" ? `Exported (${rowCount} personal row(s) recovered).` : "Cancelled.";
+      statusEl.textContent = `Exported (${rowCount} personal row(s) recovered).`;
     } catch (err) {
       statusEl.textContent = `Export failed: ${(err as Error).message}`;
     } finally {

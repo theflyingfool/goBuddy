@@ -114,16 +114,12 @@ export function renderCoverageReportPage(container: HTMLElement) {
         const forms = formsForGaps(list);
         const rows = forms.map((form) => formToCsvRow(reference, form));
         const csv = referenceRowsToCsv(rows);
-        const result = await downloadTextFile(csv, {
+        await downloadTextFile(csv, {
           suggestedName: csvFileNameFor(kind),
           mimeType: "text/csv",
-          fileExtension: ".csv",
           description: `GoBuddy coverage report — ${label}`,
         });
-        statusEl.textContent =
-          result === "saved"
-            ? `Exported ${rows.length} row(s). Edit the flagged fields, then run: npm run ingest:csv:import -- <path to this file>`
-            : "Cancelled.";
+        statusEl.textContent = `Exported ${rows.length} row(s). Edit the flagged fields, then run: npm run ingest:csv:import -- <path to this file>`;
       } catch (err) {
         statusEl.textContent = `Export failed: ${(err as Error).message}`;
       }

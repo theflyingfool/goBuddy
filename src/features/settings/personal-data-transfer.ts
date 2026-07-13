@@ -14,13 +14,12 @@ function fileName(): string {
   return `gobuddy-export-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
 }
 
-export async function exportPersonalData(repo: Repository): Promise<"saved" | "cancelled"> {
+export async function exportPersonalData(repo: Repository): Promise<void> {
   const data = repo.exportPersonalData();
   const json = JSON.stringify(data, null, 2);
-  return downloadTextFile(json, {
+  await downloadTextFile(json, {
     suggestedName: fileName(),
     mimeType: "application/json",
-    fileExtension: ".json",
     description: "GoBuddy export",
   });
 }
