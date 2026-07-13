@@ -1,7 +1,8 @@
 // The real backend: everything reads from/writes through a genuine
-// on-device @capacitor-community/sqlite database (see src/db/sqlite-client.ts
-// for why this currently runs in "Web" mode via jeep-sqlite rather than a
-// native Android project — same SQL either way).
+// on-device @capacitor-community/sqlite database — real native SQLite on
+// the shipped Android APK, jeep-sqlite (sql.js + IndexedDB) when running in
+// a browser via `npm run dev` (see src/db/sqlite-client.ts; same SQL either
+// way, `Capacitor.getPlatform()` picks the backend).
 //
 // Reads are served from an in-memory cache (src/data/in-memory-store.ts)
 // loaded once at startup. This keeps the Repository interface synchronous
