@@ -6,6 +6,10 @@ import { FORM_GRID_SECOND_FIELD_OPTIONS, INDICATOR_LABELS, INDICATOR_OPTIONS, ge
 import { exportPersonalData, readPersonalDataFile } from "./personal-data-transfer";
 
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
+// Off by default: was a per-import window.confirm() prompt, but that meant
+// re-deciding every single time. A persistent setting means "no" only has
+// to be chosen once. See docs/v1-tasks/02-data-safety-net.md.
+const BACKUP_BEFORE_IMPORT_SETTING_KEY = "backup_before_import";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "System" },
@@ -134,6 +138,14 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   // bother exporting at all.
   const exportGuidance = el("p", { class: "gap-note" }, ["This file is your only backup — export it after play sessions, and before updating or reinstalling the app."]);
 
+  const backupBeforeImportToggle = labeledToggle(
+    "Back up before import",
+    repo.getAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY) === "1",
+    (checked) => {
+      repo.setAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY, checked ? "1" : "0");
+    },
+  );
+
   const importInput = el("input", { type: "file", accept: "application/json" }) as HTMLInputElement;
   importInput.addEventListener("change", async () => {
     const file = importInput.files?.[0];
@@ -152,12 +164,12 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
       );
       if (!proceed) return;
 
-      // Backup-before-import is offered, not forced — see
-      // docs/v1-tasks/02-data-safety-net.md. A "yes" runs the same export
-      // flow as the button above (the user's real save dialog/share sheet,
-      // not a silent background write); a "no" skips straight to import.
-      const wantsBackup = window.confirm("Back up your current data first, before it's replaced? (Recommended)");
-      if (wantsBackup) {
+      // Backup-before-import is a persistent setting (backupBeforeImportToggle
+      // above), not a per-import prompt — off by default. Whenever it's on,
+      // a cancelled save dialog still gets one confirm, since silently
+      // skipping the backup the user explicitly asked for would be worse
+      // than asking once more.
+      if (repo.getAppSetting(BACKUP_BEFORE_IMPORT_SETTING_KEY) === "1") {
         statusEl.textContent = "Saving a backup of your current data first…";
         const snapshotResult = await exportPersonalData(repo);
         if (snapshotResult === "cancelled") {
@@ -172,20 +184,25 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
       statusEl.textContent = "Importing…";
       const { skippedSpeciesSlugs, skippedFormSlugs } = await repo.importPersonalData(data);
       const skipped = skippedSpeciesSlugs + skippedFormSlugs;
-      if (skipped > 0) {
-        statusEl.textContent = `Imported, but skipped ${skipped} row(s) with slugs this app's reference data doesn't recognize (likely from a different app version). Reloading…`;
-        setTimeout(() => window.location.reload(), 3000);
-      } else {
-        statusEl.textContent = "Imported. Reloading…";
-        window.location.reload();
-      }
+      // No page reload: importPersonalData already mutates the live
+      // in-memory cache every read in this session goes through, so nothing
+      // needs a fresh boot to see the new data. This used to reload here,
+      // which on-device (capacitor-community/sqlite on native Android) hit
+      // "Couldn't open the on-device database" — the plugin's native
+      // connection registry survives a WebView reload, so the fresh boot's
+      // getDb() found the old connection still marked open and calling
+      // .open() on it again failed. See src/db/sqlite-client.ts.
+      statusEl.textContent =
+        skipped > 0
+          ? `Imported, but skipped ${skipped} row(s) with slugs this app's reference data doesn't recognize (likely from a different app version).`
+          : "Imported.";
     } catch (err) {
       statusEl.textContent = `Import failed: ${(err as Error).message}`;
     }
   });
   const importLabel = el("label", { class: "toggle-row" }, ["Import personal data", importInput]);
 
-  dataFieldset.append(exportButton, exportGuidance, importLabel, statusEl);
+  dataFieldset.append(exportButton, exportGuidance, backupBeforeImportToggle, importLabel, statusEl);
 
   const aboutFieldset = el("fieldset", {}, [el("legend", {}, ["About"])]);
   const referenceDataVersion = repo.getAppSetting("reference_data_version") ?? "unknown";

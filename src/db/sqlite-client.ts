@@ -45,9 +45,18 @@ export function getDb(): Promise<SQLiteDBConnection> {
         await sqlite.initWebStore();
       }
 
+      // isConnection() reflects the native plugin's own connection registry,
+      // which lives outside the WebView's JS context — it can report an
+      // existing open connection even on a fresh JS boot (e.g. after
+      // window.location.reload(), or Android restoring a backgrounded
+      // WebView). Calling .open() again on an already-open native connection
+      // is a known failure mode for this plugin ("Couldn't open the
+      // on-device database"), so only open what isn't already open.
       const alreadyOpen = (await sqlite.isConnection(DB_NAME, false)).result;
       const db = alreadyOpen ? await sqlite.retrieveConnection(DB_NAME, false) : await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
-      await db.open();
+      if (!alreadyOpen) {
+        await db.open();
+      }
       return db;
     })();
   }
