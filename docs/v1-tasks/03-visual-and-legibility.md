@@ -111,6 +111,24 @@ design work — not pre-decided in this planning pass.*
   sighted users not done** — that's a visual/layout call (how much room do
   chips get before they wrap awkwardly?) I didn't want to make blind; see
   the roughness-review notes below.
+  **Scoping pass (2026-07-13)**: chips are built by `fieldFilterChip()`
+  (`species-grid.ts`, reused near-verbatim in `bulk-form-edit.ts`), badge
+  text drawn from four label tables in `indicator-labels.ts`
+  (`INDICATOR_LABELS` — the genuinely opaque ✨🍀☾💎-style glyphs/combos —
+  plus `RARITY_FILTER_LABELS`/`SPECIES_FILTER_LABELS`/
+  `AVAILABILITY_FILTER_LABELS`/`MEGA_ACHIEVEMENT_FILTER_LABELS`, which are
+  abbreviations and less opaque). Disambiguation today is `title:
+  label.full` — hover-only, useless on touch. `.filter-bar` already wraps
+  (`flex-wrap: wrap`), so room isn't structurally blocked; the tighter
+  constraint is the desktop anchored filter panel's fixed `320px` width
+  (`.filter-sheet` in `style.css`, phone gets a full-width bottom sheet).
+  The Help page already has a "Badge glyphs" table covering 10 of 30
+  `INDICATOR_LABELS` entries and prose on the tri-state cycle — it does
+  NOT cover the other three label tables (L/M/UB/XXL/XXS/P/Mega/D?/G?/
+  Mega✓ are all undocumented there). A legend affordance (e.g. a "?" near
+  the filter icon or filter-sheet title) generalizing that existing Help
+  content to all four tables is the natural shape here, not full text on
+  every chip.
 - [x] Add a form-name filter box to the species detail page (currently
   unsearchable at high form counts, e.g. Pikachu's 188 forms) —
   `src/features/data-entry/species-detail.ts`. Shows only when a species has
@@ -166,8 +184,42 @@ design work — not pre-decided in this planning pass.*
   it with a searchable form-tile grid), but every tile/field toggle still
   triggers a full-page `rerender()`. Same deferred risk shape as before,
   just on the new grid instead of the old accordion.
+  **Scoping pass (2026-07-13)**: most of the interaction surface is
+  genuinely tile-local — form-field cascades (`resolveFormFieldCascade`,
+  `src/db/cascades.ts`) never cross tiles, only sections within one form
+  record. Comparable in shape to the already-completed in-place select-mode
+  work on the Dex grid. The one real complication: any form/Mega toggle can
+  flip `speciesPersonal.registered` false→true as a side effect
+  (`cascadeSpeciesRegisteredForForm`, `in-memory-store.ts`), and that value
+  renders in `speciesFieldset` — a structurally separate DOM region built
+  once at the top of the page, outside `formGrid`/`megaFieldset`. In
+  practice this only fires on a species' first-ever personal-field write
+  (the cascade explicitly no-ops once already registered) and is always
+  monotonic (never needs unsetting), but there's currently no signal for
+  the caller to know it fired — `setFormPersonalField`/etc. are
+  void-returning, and the internal `onXChanged` hooks aren't exposed as a
+  UI-reactive subscription — so an in-place patch needs either a
+  before/after diff of `repo.getSpeciesWithForms(...).personal.registered`
+  around each mutating call, or a small Repository API addition reporting
+  which fields a write actually touched. The Registered `<input>` itself
+  also has no stable element handle to patch yet (built in a loop over
+  `SPECIES_FIELDS` with no id/data-attribute).
 - [x] Set `alt=""` on grid tile sprite images (currently duplicate the visible
   name label to screen readers) — `src/features/data-entry/species-grid.ts`.
+- [ ] **Bulk Edit: selection highlight is completely invisible (owner report,
+  2026-07-13)**. `bulk-form-edit.ts` applies a `.selected` class to a tapped
+  tile, but **no CSS rule for `.form-tile.selected` exists anywhere in
+  `style.css`** — confirmed by grep, only `.form-tile.active-tile`
+  (species-detail's unrelated expand state) exists. So tapping a tile to
+  select it for bulk-apply has zero visible effect. The only thing that
+  IS visible on a tile is an unrelated "✓" badge meaning "this
+  species/form already has the target field true" (`alreadySet`,
+  independent of tap-selection) — likely what read as "some pokemon show
+  as selecting more than one," since several tiles can legitimately show
+  that pre-existing ✓ at once. Small, isolated, no design decisions
+  involved (add one CSS rule, e.g. accent border/background distinct from
+  the ✓ badge) — bundled here rather than fixed standalone per owner's
+  call.
 
 ---
 
@@ -236,16 +288,46 @@ giant PR instead of 5") rather than the originally-planned 5-PR sequence.*
 sprites. Deliberately not fixed in the moment — added here to review
 together as a batch, not fixed piecemeal.*
 
-- [ ] Species-detail header: the species-name box currently spans the full
-  header width. Split it — species name/sprite on the left at half width,
-  and a new box on the right (title still open) showing Region, Type(s),
-  and likely more fields over time. (`src/features/data-entry/
-  species-detail.ts`'s `.detail-header`, `src/style.css`)
-- [ ] Form-tile and hero sprites read as too small now that they're real
-  art, not placeholder icons — bump both up (`.form-tile-sprite` is
-  currently 34px, `.detail-hero-sprite` 2.75rem/44px, in `src/style.css`).
-  Applies on both phone and desktop.
-- [ ] Desktop should use the *whole* width of the screen — currently
-  capped at `max-width: min(1100px, 94vw)` above 720px (`src/style.css`
-  `#app`), which was correct progress over the old fixed-480px column but
-  the owner now wants no cap at all, not just a wider one.
+- [x] Species-detail header: split into an identity box (sprite/name/nav)
+  on the left and a Region + Type(s) box on the right. Shipped in v0.12.1
+  (PR #17). (`src/features/data-entry/species-detail.ts`'s
+  `.detail-header`, `src/style.css`)
+- [x] Form-tile and hero sprites bumped up (34px → 56px, 2.75rem → 4.5rem).
+  Shipped in v0.12.1 (PR #17).
+- [x] Desktop `#app` width cap removed entirely at the 720px breakpoint.
+  Shipped in v0.12.1 (PR #17).
+
+## Search audit (owner report + full audit, 2026-07-13)
+
+*Owner reported no way to search costume/legendary/mythical/ultrabeast from
+any search box, plus asked for a broader audit ("probably some other major
+search issues I've missed"). Minimal keyword search (`costume`/`legendary`/
+`mythical`/`ultrabeast`, `!`-negation) shipped — see PR #20. These are the
+remaining findings from that audit, reported but deliberately not fixed
+without checking in first:*
+
+- [ ] Dex-number search is unanchored substring matching, not
+  prefix/exact — typing `25` to jump to #25 Pikachu also matches #125,
+  #225, #250-259, #325, #425, etc. (21 species for a query meant for one).
+  Affects the grid, Bulk Edit, and the header's species-detail "jump to"
+  box. (`String(species.dexNumber).includes(q)`,
+  `src/data/in-memory-store.ts`)
+- [ ] Apostrophe/punctuation mismatch: `reference.json` stores Farfetch'd/
+  Sirfetch'd with a curly quote (U+2019); typing the ordinary keyboard
+  apostrophe never matches. `Mr. Mime`/`Mr. Rime`/`Type: Null` require
+  typing the exact period/colon most people wouldn't type. No punctuation
+  normalization exists anywhere in the search path.
+- [ ] `legendary`/`mythical`/`ultrabeast` keyword search duplicates the
+  existing L/M/UB classification chips exactly (same `species.rarity`
+  predicate) and composes by AND with them — typing `legendary` while the
+  L chip is set to Exclude silently produces zero results with no
+  indication why. `costume` is the only keyword with no chip equivalent.
+- [ ] Header "jump to species" box (`src/app-shell/header.ts`, species-detail
+  route only) isn't debounced (unlike the grid's filter input in the same
+  file), has no "no matches" empty state, and no truncation indicator past
+  its 8-result cap.
+- [x] Doc-drift: this file's §4 claimed the species-detail form filter
+  "auto-expands every matching group" — not present in current code
+  (`expandedKeysForRender` only mutates on tile click). Stale, left over
+  from the pre-mobile-redesign accordion. Noted here, not worth a separate
+  fix.
