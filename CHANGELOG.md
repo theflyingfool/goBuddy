@@ -9,6 +9,21 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.12.2] — 2026-07-12
+
+- **Fixed a real-device crash**: importing personal data could throw
+  "Couldn't open the on-device database" right after a successful import.
+  Root cause: a `window.location.reload()` after import raced
+  `capacitor-community/sqlite`'s native connection registry, which survives
+  a WebView reload — the fresh boot found the connection already marked
+  open and calling `.open()` on it again failed. Removed the reload
+  (unnecessary — the in-memory cache every screen reads from was already
+  updated) and hardened `getDb()` to skip re-opening an already-open
+  connection, covering other reload-shaped scenarios too.
+- Backup-before-import is now a persistent Settings toggle ("Back up
+  before import," default off) instead of a confirmation dialog asked on
+  every import.
+
 ## [0.12.1] — 2026-07-12
 
 - Visual polish from the first real on-device pass: species-detail header
