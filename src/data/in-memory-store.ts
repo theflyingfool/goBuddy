@@ -16,6 +16,7 @@ import type { ReferenceData } from "../db/reference-data";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type PokemonType, type Region, type Species, type SpeciesPersonal } from "../db/types";
 import {
+  fuzzyMatches,
   MAX_GRID_INDICATORS,
   parseSearchQuery,
   type GridFilterField,
@@ -110,9 +111,14 @@ export function createInMemoryRepository(
       const matches = matchesSearchKeyword(species, parsed.keyword);
       return parsed.negate ? !matches : matches;
     }
-    const q = parsed.text.toLowerCase();
+    const q = parsed.text.trim();
     if (!q) return true;
-    return species.name.toLowerCase().includes(q) || String(species.dexNumber).includes(q);
+    // All-digit query = dex-number intent, exact only — a substring match on
+    // the number ("25" also matching #125/#225/#250-259/...) was real search
+    // noise for something meant to jump to one species. Anything else is a
+    // name, fuzzy-matched (see fuzzyMatches in repository.ts).
+    if (/^\d+$/.test(q)) return species.dexNumber === Number(q);
+    return fuzzyMatches(species.name, q);
   }
 
   function resolveFieldValue(

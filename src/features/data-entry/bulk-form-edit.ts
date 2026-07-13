@@ -16,7 +16,7 @@ import type { Form, FormPersonal, FormPersonalBooleanField } from "../../db/type
 import { clear, el } from "../../ui/dom";
 import { formSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS } from "./field-groups";
-import { gridFilterFieldLabel, MORE_FILTER_FIELDS } from "./indicator-labels";
+import { gridFilterFieldLabel, MORE_FILTER_FIELDS, renderFilterLegend } from "./indicator-labels";
 import { groupForms } from "./species-detail";
 
 type FieldFilterState = "include" | "exclude";
@@ -174,6 +174,7 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
     { class: `filter-sheet${state.filterSheetOpen ? " open" : ""}`, inert: state.filterSheetOpen ? undefined : "" },
     [
       el("h2", { class: "filter-sheet-title" }, ["Filters"]),
+      renderFilterLegend(MORE_FILTER_FIELDS),
       el("div", { class: "bulk-filter-row" }, [regionSelect]),
       caughtBar,
       fieldChips,

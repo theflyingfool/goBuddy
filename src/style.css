@@ -868,6 +868,16 @@ fieldset {
   border-color: var(--accent);
 }
 
+/* Bulk Edit's tap-to-target state — was applying this class with no matching
+   rule at all, so selecting a tile had zero visible effect (the only thing
+   that WAS visible, the unrelated "already has this value" ✓ badge, could
+   read as several tiles being selected at once). Border + tinted background
+   makes it unmistakable from that badge, which stays a plain small glyph. */
+.form-tile.selected {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
 .form-tile-more {
   position: absolute;
   top: 3px;
