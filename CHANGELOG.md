@@ -9,6 +9,25 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.13.0] — 2026-07-13
+
+- Minimal keyword search: type `costume`, `legendary`, `mythical`, or
+  `ultrabeast` alone into any search box (Dex grid, Bulk Edit,
+  species-detail's own form filter) to filter by it instead of a plain
+  name/dex match — prefix with `!` to negate (e.g. `!costume`). Bulk Edit
+  additionally filters costume/non-costume at the individual form-tile
+  level, not just which species show up. Documented on the Help page.
+  Deliberately not the full AND-of-OR search-string builder specced for
+  post-V1 — just enough to answer "show me only X" in the box that's
+  already there.
+- Audited search across the app while building the above; found and fixed
+  a regression in the new feature itself before shipping (a `!`-prefixed
+  query that isn't a recognized keyword, e.g. `!raichu`, used to silently
+  match nothing instead of falling back to a plain search). Other gaps
+  found (dex-number substring noise, curly-apostrophe name mismatches,
+  keyword-vs-chip duplication) are reported in `docs/v1-tasks/03-visual-
+  and-legibility.md`, not yet fixed.
+
 ## [0.12.3] — 2026-07-13
 
 - **Fixed a second real import crash**: `CommitTransaction: Cannot perform
