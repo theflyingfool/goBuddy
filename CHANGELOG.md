@@ -9,6 +9,16 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.12.3] — 2026-07-13
+
+- **Fixed a second real import crash**: `CommitTransaction: Cannot perform
+  this operation because there is no current transaction`, firing on
+  effectively every import (any real export includes app settings).
+  `onAppSettingChanged` was the one write hook in `sqlite-repository.ts`
+  that never adopted the `inBulk` transaction-guard convention the other
+  four hooks use, so writing an app setting mid-import closed the outer
+  transaction early. Fixed to mirror the existing pattern.
+
 ## [0.12.2] — 2026-07-12
 
 - **Fixed a real-device crash**: importing personal data could throw
