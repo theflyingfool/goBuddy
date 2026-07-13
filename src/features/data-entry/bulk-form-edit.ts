@@ -11,7 +11,7 @@
 //     availableWhen availability gating,
 //   - repo.bulkSetFormPersonalField for the batched, single-flush write.
 
-import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repository";
+import { parseSearchQuery, type GridFilterField, type Repository, type SpeciesFilter } from "../../data/repository";
 import type { Form, FormPersonal, FormPersonalBooleanField } from "../../db/types";
 import { clear, el } from "../../ui/dom";
 import { formSpritePath } from "../../ui/sprites";
@@ -84,7 +84,10 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
   );
 
   // ---- Search bar + callable filter sheet (region / caught / field chips) ----
-  const searchInput = el("input", { type: "search", class: "bulk-search search-input", placeholder: "Search species/forms…", "aria-label": "Search" }) as HTMLInputElement;
+  // "Search species/forms" over-promised: this only ever matches species
+  // name/dex number (plus the costume/legendary/etc. keywords) — never a
+  // costume's own name — so the placeholder shouldn't imply otherwise.
+  const searchInput = el("input", { type: "search", class: "bulk-search search-input", placeholder: "Search species or dex #…", "aria-label": "Search" }) as HTMLInputElement;
   searchInput.value = state.search;
   searchInput.addEventListener("input", () => {
     state.search = searchInput.value;
@@ -237,6 +240,11 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
       caught: state.caught,
       fieldFilters: state.fieldFilters,
     });
+    // The species-level search above already narrows by "costume" (has this
+    // species EVER had a costume), but tiles here are per-form — a species
+    // can mix costume and non-costume forms, so "!costume" needs to hide
+    // the costume TILES too, not just gate which species show up at all.
+    const parsedSearch = parseSearchQuery(state.search);
 
     if (summaries.length === 0) {
       listContainer.append(el("p", { class: "empty-state" }, ["No species match those filters."]));
@@ -252,6 +260,10 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
         );
 
         for (const group of groups) {
+          if (parsedSearch.keyword === "costume") {
+            const isCostumeGroup = group.forms.some((f) => f.costumeName !== null);
+            if (parsedSearch.negate ? isCostumeGroup : !isCostumeGroup) continue;
+          }
           const eligible = eligibleForms(group, availableWhen);
           if (eligible.length === 0) continue; // gated out (e.g. non-shadow form, Shadow field selected)
           const eligibleSlugs = eligible.map((f) => f.slug);

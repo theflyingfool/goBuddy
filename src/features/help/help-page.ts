@@ -70,5 +70,18 @@ export function renderHelpPage(container: HTMLElement) {
     ]),
   );
 
-  container.append(heading, badgeFieldset, lensFieldset, glossaryFieldset, chipFieldset);
+  const searchFieldset = el("fieldset", {}, [el("legend", {}, ["Search box keywords"])]);
+  searchFieldset.append(
+    el("p", { class: "help-intro" }, [
+      "Beyond a species name or dex number, typing one of these words alone into a search box filters by it instead — put ",
+      el("strong", {}, ["!"]),
+      " in front to mean \"not\" (e.g. ",
+      el("strong", {}, ["!costume"]),
+      " for everything without one). Works in the Dex grid, Bulk Edit, and species-detail's own form search.",
+    ]),
+    helpRow("", "costume", "has this species/form ever had a costume."),
+    helpRow("", "legendary / mythical / ultrabeast", "matches the species' rarity classification — same as the L/M/UB chips, just reachable from the search box too."),
+  );
+
+  container.append(heading, badgeFieldset, lensFieldset, glossaryFieldset, chipFieldset, searchFieldset);
 }
