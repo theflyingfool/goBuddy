@@ -34,8 +34,14 @@ export async function downloadTextFile(content: string, options: SaveTextFileOpt
     const a = document.createElement("a");
     a.href = url;
     a.download = options.suggestedName;
+    // Some browsers haven't finished reading the blob: URL by the time this
+    // function returns — appending the anchor (rather than clicking it
+    // detached) and delaying the revoke past the current task avoids a race
+    // where the download starts but silently fails to land any bytes.
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
     return;
   }
 
