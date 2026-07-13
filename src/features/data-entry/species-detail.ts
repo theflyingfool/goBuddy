@@ -1,6 +1,6 @@
 import { navigate, speciesDetailPath } from "../../app-shell/router";
 import type { Form, FormPersonal, FormPersonalBooleanField, MegaVariantKind } from "../../db/types";
-import type { Repository } from "../../data/repository";
+import { parseSearchQuery, type Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
 import { formSpritePath, megaSpritePath, speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
@@ -217,8 +217,18 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
 
   const formToolbar = el("div", { class: "form-toolbar" }, [filterInput, missingChip]);
 
-  const normalizedFilter = filterText.trim().toLowerCase();
-  const matchesFilter = (group: FormGroup) => normalizedFilter === "" || group.label.toLowerCase().includes(normalizedFilter);
+  // Only "costume" is meaningful at this per-form granularity — rarity
+  // keywords (legendary/mythical/ultrabeast) are species-wide facts, so
+  // within one species' own form list every form would match or none would.
+  const parsedFilter = parseSearchQuery(filterText);
+  const matchesFilter = (group: FormGroup) => {
+    if (parsedFilter.keyword === "costume") {
+      const isCostumeGroup = group.forms.some((f) => f.costumeName !== null);
+      return parsedFilter.negate ? !isCostumeGroup : isCostumeGroup;
+    }
+    const q = parsedFilter.text.toLowerCase();
+    return q === "" || group.label.toLowerCase().includes(q);
+  };
   const secondField = getFormGridSecondField(repo);
   const visibleGroups = groups.filter(matchesFilter).filter((g) => !missingOnly || !groupFieldAllTrue(g, formPersonalBySlug, "caught"));
 

@@ -17,10 +17,12 @@ import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type PokemonType, type Region, type Species, type SpeciesPersonal } from "../db/types";
 import {
   MAX_GRID_INDICATORS,
+  parseSearchQuery,
   type GridFilterField,
   type ImportResult,
   type PersonalDataExport,
   type Repository,
+  type SearchKeyword,
   type SpeciesFilter,
   type SpeciesMegaVariant,
   type SpeciesSummary,
@@ -84,8 +86,31 @@ export function createInMemoryRepository(
     speciesSlugByMegaVariantSlug.set(mv.slug, mv.speciesSlug);
   }
 
+  function matchesSearchKeyword(species: Species, keyword: SearchKeyword): boolean {
+    switch (keyword) {
+      case "legendary":
+        return species.rarity === "legendary";
+      case "mythical":
+        return species.rarity === "mythical";
+      case "ultraBeast":
+        return species.rarity === "ultra_beast";
+      case "costume":
+        // "Has this species ever had a costume" — species-level, matching
+        // what the Dex grid's search box means by the keyword. Bulk Edit
+        // additionally filters at the individual form/tile level (see
+        // bulk-form-edit.ts) since a species can mix costume and non-costume
+        // forms and its tiles are per-form, not per-species.
+        return (formsBySpecies.get(species.slug) ?? []).some((f) => f.costumeName !== null);
+    }
+  }
+
   function matchesSearch(species: Species, search: string): boolean {
-    const q = search.trim().toLowerCase();
+    const parsed = parseSearchQuery(search);
+    if (parsed.keyword) {
+      const matches = matchesSearchKeyword(species, parsed.keyword);
+      return parsed.negate ? !matches : matches;
+    }
+    const q = parsed.text.toLowerCase();
     if (!q) return true;
     return species.name.toLowerCase().includes(q) || String(species.dexNumber).includes(q);
   }

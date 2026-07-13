@@ -28,6 +28,42 @@ export interface SpeciesSummary {
 // deliberately *not* one of the Settings-configurable indicator badges.
 export type RarityFilterField = "legendary" | "mythical" | "ultraBeast";
 
+export type SearchKeyword = RarityFilterField | "costume";
+
+export interface ParsedSearch {
+  keyword: SearchKeyword | null;
+  negate: boolean;
+  /** Plain substring to match against name/dex number — empty when `keyword` is set. */
+  text: string;
+}
+
+const SEARCH_KEYWORD_ALIASES: Record<string, SearchKeyword> = {
+  costume: "costume",
+  legendary: "legendary",
+  mythical: "mythical",
+  ultrabeast: "ultraBeast",
+  ultrabeasts: "ultraBeast",
+};
+
+// Minimal keyword search: recognizes a handful of PoGo-style search tokens
+// (costume/legendary/mythical/ultrabeast, optionally negated with a leading
+// "!") when the ENTIRE trimmed query is exactly one such token — anything
+// else falls through to plain substring matching. Deliberately not the full
+// AND-of-OR search-string builder specced in docs/features/planned.md
+// (post-V1) — just enough to answer "show me only X" in the box that's
+// already there. Shared by the grid and bulk-edit's search inputs, both of
+// which route through Repository.listSpeciesSummaries.
+export function parseSearchQuery(raw: string): ParsedSearch {
+  const trimmed = raw.trim();
+  const negate = trimmed.startsWith("!");
+  const body = negate ? trimmed.slice(1) : trimmed;
+  const keyword = SEARCH_KEYWORD_ALIASES[body.toLowerCase()];
+  // "!" only means anything in front of a recognized keyword — a name has no
+  // negated form, so "!raichu" falls back to a plain search for "raichu"
+  // rather than silently matching nothing (no species name contains "!").
+  return keyword ? { keyword, negate, text: "" } : { keyword: null, negate: false, text: body };
+}
+
 // Species-level personal facts, same reasoning as the rarity fields above:
 // real tracked data, just not part of the form-level indicator/badge system.
 export type SpeciesBooleanField = "xxl" | "xxs" | "purified";
