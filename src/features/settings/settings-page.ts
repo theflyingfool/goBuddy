@@ -49,6 +49,16 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
       repo.setAppSetting(COLLAPSE_SETTING_KEY, checked ? "1" : "0");
     }),
   );
+  // Bulk Edit always groups a species' male/female forms into one tile
+  // regardless of this setting (it's a different screen's own hardcoded
+  // choice) — worth flagging here since its "N forms selected" counter can
+  // otherwise be surprising: tapping one gender-split tile adds every form
+  // underneath it, not just one.
+  collapseFieldset.append(
+    el("p", { class: "gap-note" }, [
+      "Bulk Edit always shows one tile per species/form regardless of this setting — tapping a gender-split tile there selects every form underneath it, so its counter can jump by more than one per tap.",
+    ]),
+  );
 
   // Off by default (today's behavior): some players can actually reach
   // region-locked forms (an alt account, travel, trading) so Form-complete
