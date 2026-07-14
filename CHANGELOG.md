@@ -9,6 +9,20 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.14.0] — 2026-07-14
+
+- Added a Playwright smoke suite (`e2e/*.spec.ts`, Chromium only) covering
+  boot, toggle-and-reload persistence, Stats KPI counts, settings toggles,
+  and the personal-data export/import round-trip — all driving the real
+  `npm run dev` Vite server against its real IndexedDB-backed SQLite
+  (jeep-sqlite + sql.js), not a mock backend. Wired into CI
+  (`npm run test:e2e`) alongside the existing lint/typecheck/unit-test steps.
+- Closes out the release-candidate checklist's smoke-suite/CI gate and the
+  upgrade-over-install test (satisfied by the owner's ongoing regular
+  debug-APK update cadence across 0.9.0→0.13.3, real on-device data each
+  time, no data loss or boot-brick observed) — see
+  `docs/v1-tasks/08-release-candidate.md`.
+
 ## [0.13.3] — 2026-07-14
 
 - Fixed personal-data Export on web always reporting "Cancelled" with no
