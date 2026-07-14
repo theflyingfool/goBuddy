@@ -841,6 +841,15 @@ fieldset {
   margin-bottom: 0.5rem;
 }
 
+/* The Legend reads as a static section header (muted, uppercase) rather
+   than something tappable, even though the native <summary> marker is
+   there — accent color signals "interactive" the same way it does
+   everywhere else in the app. Scoped to .filter-legend specifically so
+   real Settings-page accordions keep their current, correct styling. */
+.filter-legend > summary {
+  color: var(--accent);
+}
+
 /* ---- Species-detail form grid (replaces the old accordion) ---- */
 
 .form-grid {
@@ -887,8 +896,9 @@ fieldset {
 }
 
 .form-tile-sprite {
-  width: 56px;
-  height: 56px;
+  width: 90%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
 }
 
 .form-tile-name {
@@ -903,9 +913,9 @@ fieldset {
 }
 
 .form-mini-toggle {
-  width: 1.4rem;
-  height: 1.4rem;
-  font-size: 0.7rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  font-size: 0.78rem;
   color: var(--muted);
   background: var(--surface-2);
   border: 1px solid var(--line);
