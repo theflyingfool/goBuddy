@@ -121,7 +121,7 @@ rather be asked than have you guess.
   `history/`.
 - **[docs/architecture.md](docs/architecture.md)** — codebase map: what each
   script/feature/module does, plus the cross-cutting patterns (write-queue,
-  cascade, dual-backend, single-source-of-truth field lists).
+  cascade, single-backend split, single-source-of-truth field lists).
 - **[docs/ingestion-runbook.md](docs/ingestion-runbook.md)** — the correct
   order to run the reference-data ingestion scripts in, and known pitfalls.
 - **[docs/install-guide.md](docs/install-guide.md)** — sideload/update
@@ -131,4 +131,3 @@ rather be asked than have you guess.
 - **[docs/v1-tasks/](docs/v1-tasks/)** — the V1 task breakdown (what/order).
 - **[README.md](README.md)** — running/building the app, ingestion commands.
 - **[CHANGELOG.md](CHANGELOG.md)** — shipped-version history.
-- **[TODO.md](TODO.md)** — current status, known issues, backlog.

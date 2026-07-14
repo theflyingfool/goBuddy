@@ -64,7 +64,7 @@ instead, linked from here.*
 | File | Purpose |
 |---|---|
 | `ui/dom.ts` | Minimal DOM-builder helpers (`el`, `clear`) — no framework, by project decision. |
-| `ui/sprites.ts` | Sprite path convention (`public/sprites/<dex-number>.png`); per-form art isn't wired up yet — see `docs/v1-tasks/05-image-pipeline.md`. |
+| `ui/sprites.ts` | Sprite path convention (`public/sprites/<dex-number>.png`); also `formSpritePath()`/`megaSpritePath()` for per-form/costume/Mega art, falling back to the species sprite — see `docs/v1-tasks/05-image-pipeline.md`. |
 | `shared/file-download.ts` | Cross-platform "save this file for the user" helper (File System Access API → Blob fallback → Capacitor native share), used by Settings export and Coverage Report's CSV export. |
 
 ## Scripts (`scripts/`)
@@ -115,9 +115,9 @@ re-deriving them per file.
 - **Write-queue (`sqlite-repository.ts`)**: every personal-data edit updates
   the in-memory cache immediately (so the UI shows it "saved" instantly) and
   writes to the real on-device SQLite database asynchronously through a
-  queue. The UI never waits on a disk write; a failed write today only
-  surfaces as `console.error` (a known gap — see
-  `docs/v1-tasks/02-data-safety-net.md`).
+  queue. The UI never waits on a disk write; a failed write surfaces as a
+  persistent in-app banner with retry (`src/app-shell/write-failure-banner.ts`),
+  not just `console.error` — see `docs/v1-tasks/02-data-safety-net.md`.
 - **Cascade (`db/cascades.ts`)**: checking a combined achievement
   (e.g. Shundo) auto-checks its logical prerequisites (Shiny, 4★, Caught)
   forward-only — un-checking never cascades, since that would silently erase

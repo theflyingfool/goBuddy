@@ -95,7 +95,7 @@ X" in the box that's already there. Documented on the in-app Help page.
 Species and per-form/costume/Mega art sourced from PokeMiners/pogo_assets
 and matched by a conservative, re-runnable pipeline
 (`scripts/ingest/build-sprite-mapping.ts`, `npm run ingest:sprites`) —
-species base art for 953 species, ~230 confidently-matched regional-form
+species base art for 922 species, 564 confidently-matched regional-form
 and costume sprites, and all 57 Mega/Primal variants. Anything the pipeline
 can't confidently match (ambiguous form tokens, unmapped costume codenames)
 goes to a hand-check CSV instead of being guessed; `scripts/ingest/
