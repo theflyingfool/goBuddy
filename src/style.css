@@ -588,13 +588,24 @@ input[type="checkbox"] {
 
 .species-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  /* Owner call: exactly 3 columns at a 730px viewport. Measured, not
+     assumed — at 730px the persistent sidebar (720px+ breakpoint) leaves a
+     494px grid content width, not 730px, which needs a min column width in
+     (117.5px, 159.3px]. Also checked mobile (400px viewport, no sidebar,
+     384px content width), which needs (90px, 122.7px] for the same 3
+     columns. 120px sits in the overlap of both ranges, so both cases get
+     exactly 3 columns from one value — no separate mobile/desktop rule
+     needed. */
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 0.5rem;
   margin: 0.5rem 0 1rem;
 }
 
 .species-tile-wrap {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .species-tile {
@@ -640,8 +651,9 @@ input[type="checkbox"] {
 }
 
 .species-sprite {
-  width: 64px;
-  height: 64px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
 }
 
 .species-tile.uncaught .species-sprite {
@@ -845,7 +857,11 @@ fieldset {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  /* Matches .species-grid's column width (owner call: Bulk Edit/species-
+     detail's form tiles and the Dex grid's species tiles should read as
+     the same size, not two different scales for what's visually the same
+     kind of tile). */
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 0.5rem;
   margin: 0.5rem 0 1rem;
 }
