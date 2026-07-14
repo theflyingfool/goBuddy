@@ -9,6 +9,33 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.17.0] — 2026-07-14
+
+- Meltan/Melmetal now show a real "Unidentified" region instead of "Alola."
+  Pokémon GO's own Pokédex never ties them to a mainline region, but this
+  app assigns regions purely by dex-number origin, which had put them under
+  Alola (dex #808–809 falls in the Gen-7 range). Owner call: model them
+  honestly with their own region rather than override the app's systematic
+  rule with a one-off special case.
+- Fixed a real bug in the reference-data CSV-correction tool
+  (`scripts/ingest/csv-authoring.ts`) found while making the above change:
+  `ingest:csv:import` only ever set species-level fields (region,
+  mega-capability, gender availability, rarity, generation, gigantamax) when
+  creating a brand-new species — re-importing an *existing* species with a
+  hand-edited field silently left those fields untouched. Existing species
+  now sync their fields on import the same way new ones do. Also added
+  regions-table auto-sync to the same import path, so a correction that
+  introduces a genuinely new region doesn't need a second manual edit.
+- Closed out all three carried-over open questions from the V1 roadmap: the
+  "bogus mega-capable" tracker flags (Uxie/Mesprit/Azelf/Malamar/Falinks)
+  question was already resolved back on 2026-07-10 but never marked closed,
+  and had the confirmed-bogus species backwards in its own writeup (fixed:
+  the real five are Uxie/Mesprit/Azelf/Butterfree/Lugia, not Malamar/
+  Falinks, which are real); the `001-Bulbasaur/Standard.md` Obsidian-refs
+  question turned out to be moot (no such file exists); the
+  unverified-genderless/inherited-availability question is explicitly
+  deferred to post-V1, folded into a planned DB rework.
+
 ## [0.16.1] — 2026-07-14
 
 - Removed Bulk Edit's `MAX_SPECIES_SHOWN = 120` display cap and its
