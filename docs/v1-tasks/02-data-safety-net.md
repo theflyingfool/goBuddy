@@ -6,10 +6,22 @@
 *The app's entire value is one SQLite file on a phone — these close the ways
 that file (or a friend's trust in it) can currently be lost.*
 
-- [x] **D4 — resolved, closed (owner, 2026-07-12)**: not dealing with a
-  release keystore at all. Ships debug-signed indefinitely; people back up
-  their own personal-data exports before updating, same as always. No
-  `signingConfigs.release`/`assembleRelease` work planned.
+- [x] **D4 — reversed (owner, 2026-07-14)**: a dedicated release keystore now
+  exists (PKCS12, 2048-bit RSA, 30-year validity), stored outside the repo
+  at `~/.android-keystores/` and backed up by the owner. `android/app/
+  build.gradle` reads `android/keystore.properties` (machine-local,
+  gitignored, never committed) and wires a `signingConfigs.release` block
+  onto `buildTypes.release`; a missing properties file logs a build warning
+  and falls back to an unsigned release build rather than failing silently.
+  New `npm run android:release` (`android:sync` + `gradlew assembleRelease`)
+  alongside the existing `android:build` (debug). `docs/install-guide.md`
+  updated: friends no longer need to export before *every* update solely to
+  guard against a signing-key change (the key is now stable), though
+  exporting regularly remains good practice for other failure modes. One
+  transition note for the owner's own phone: it's been running debug-signed
+  test builds since 0.9.0, so the first release-signed install there will
+  itself hit a one-time signing mismatch — export first, same as any friend
+  would on a mismatch.
 - [x] Boot-failure rescue screen: on any DB-open/sync/migration error
   (`src/main.ts`'s "Couldn't open the on-device database" path), still offer a
   raw "export personal data" action that reads the personal tables directly,

@@ -24,6 +24,7 @@
     "ingest:sprites": "tsx scripts/ingest/build-sprite-mapping.ts",
     "android:sync": "vite build && npx cap sync android",
     "android:build": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
     "android:export": "export JAVA_HOME=/opt/android-studio/jbr && export ANDROID_HOME=$HOME/Android/Sdk"
   },
   "devDependencies": {

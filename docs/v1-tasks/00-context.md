@@ -8,10 +8,12 @@ From `docs/v1-roadmap/workplan.md` Phase 0:
   already does this) — no extra personal field. Owner confirmed 2026-07-08.
 - D2 (form-complete semantics), D3 (desktop packaging), D5 (`allowBackup`
   stance) — **still open**, each is its own task below.
-- **D4 (keystore backup location): RESOLVED, closed.** Owner (2026-07-12):
-  not dealing with a release keystore at all — ships debug-signed
-  indefinitely, people can back up their own personal data before updating.
-  No `signingConfigs.release` work planned.
+- **D4 (keystore backup location): RESOLVED, reversed.** Owner (2026-07-14,
+  superseding the 2026-07-12 decision below): a dedicated, backed-up release
+  keystore now exists and `signingConfigs.release` is wired up — see
+  [§ 2](02-data-safety-net.md). *(Original 2026-07-12 call, for the record:
+  ships debug-signed indefinitely, no release keystore, people back up their
+  own personal data before updating instead.)*
 - **D6 (app name): deferred past V1**, not re-opened. Owner (2026-07-08):
   name suggestions so far only optimized for V1's dex-tracking scope, not
   the app's longer-term companion-app ambitions — revisit once that scope

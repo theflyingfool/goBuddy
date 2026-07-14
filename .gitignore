@@ -2,6 +2,13 @@ node_modules/
 dist/
 *.apk
 tsconfig.tsbuildinfo
+
+# Release-signing secrets — the keystore itself lives outside the repo
+# entirely (~/.android-keystores/); this just guards against one ever
+# ending up in a working tree by accident.
+android/keystore.properties
+*.jks
+*.keystore
 playwright-report/
 test-results/
 dummy.sqlite
