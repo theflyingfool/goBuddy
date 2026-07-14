@@ -588,14 +588,13 @@ input[type="checkbox"] {
 
 .species-grid {
   display: grid;
-  /* Owner call: exactly 3 columns at a 730px viewport. Measured, not
-     assumed — at 730px the persistent sidebar (720px+ breakpoint) leaves a
-     494px grid content width, not 730px, which needs a min column width in
-     (117.5px, 159.3px]. Also checked mobile (400px viewport, no sidebar,
-     384px content width), which needs (90px, 122.7px] for the same 3
-     columns. 120px sits in the overlap of both ranges, so both cases get
-     exactly 3 columns from one value — no separate mobile/desktop rule
-     needed. */
+  /* Owner call: exactly 3 columns at a 400px viewport (mobile layout, no
+     sidebar) — measured, not assumed: 384px grid content width (8px side
+     padding), needing a min column width in (90px, 122.7px]. Also lands
+     inside (117.5px, 159.3px], the range for 3 columns at a 730px desktop
+     viewport (494px grid content width once the 720px+ sidebar is
+     accounted for) — 120px sits in the overlap, so one value covers both
+     without a separate mobile/desktop rule. */
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 0.5rem;
   margin: 0.5rem 0 1rem;
