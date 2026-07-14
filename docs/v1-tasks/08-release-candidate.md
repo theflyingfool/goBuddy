@@ -27,9 +27,12 @@
   covers that need (import an intentionally-empty/minimal export to wipe).
 - [x] Real-device install + first-boot timing — confirmed fine (owner,
   2026-07-12). See [§ 8](06-performance-and-quality-infra.md).
-- [ ] Upgrade-over-install test: v1 APK + real data → v2 APK, confirm data
-  survives and no boot-brick.
-- [ ] Confirm the [§ 9](06-performance-and-quality-infra.md) smoke suite +
+- [x] Upgrade-over-install test: v1 APK + real data → v2 APK, confirm data
+  survives and no boot-brick. **Satisfied by ongoing practice** — the owner
+  has been installing fresh debug APKs onto their phone regularly across
+  every version from 0.9.0 through 0.13.3, always over real on-device data,
+  with no data loss or boot-brick observed.
+- [x] Confirm the [§ 9](06-performance-and-quality-infra.md) smoke suite +
   CI are green.
 - [ ] Tag `v1.0.0`.
 - [ ] Distribute with the install/update one-pager
