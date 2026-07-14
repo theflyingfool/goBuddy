@@ -9,6 +9,28 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.15.0] — 2026-07-14
+
+- Reverses the earlier "ship debug-signed indefinitely, no release keystore"
+  decision (D4). A dedicated release keystore now exists, backed up outside
+  the repo, and `android/app/build.gradle` wires a `signingConfigs.release`
+  block from credentials at a fixed home-directory path
+  (`~/.android-keystores/keystore.properties`) — never checked into the
+  repo, and not read from anywhere inside the checkout, so it works
+  identically regardless of which worktree or clone is building. A missing
+  properties file logs a build warning and falls back to an unsigned
+  release build rather than failing silently.
+- New `npm run android:release` (`android:sync` + `gradlew assembleRelease`,
+  signed) alongside the existing `android:build` (debug).
+- `docs/install-guide.md` updated: friends no longer need to export before
+  *every* update solely to guard against a signing-key change, since the
+  key is now stable. Exporting regularly remains good practice for other
+  failure modes (migrations, corruption) and stays the recommended habit.
+- Verified end-to-end: a clean `gradlew clean assembleRelease --rerun-tasks`
+  build succeeds and `apksigner verify` confirms the output APK's signer
+  fingerprint matches the keystore's, with zero `keystore.properties`
+  anywhere in the repo tree.
+
 ## [0.14.0] — 2026-07-14
 
 - Added a Playwright smoke suite (`e2e/*.spec.ts`, Chromium only) covering
