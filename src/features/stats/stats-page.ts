@@ -10,8 +10,9 @@ const STATS_LENS_SETTING_KEY = "stats_lenses";
 const DEFAULT_LENS_KEYS = ["registered", "achievement:lucky"];
 
 // A "missing" drill-down can be hundreds of species (e.g. "Shiny" globally) —
-// showing every tile would be unusably long/slow. Display-only guard, same
-// reasoning as bulk-form-edit's MAX_SPECIES_SHOWN.
+// showing every tile would be unusably long/slow. Display-only guard; Bulk
+// Edit's equivalent cap was removed in v1 (owner call: show everything there,
+// however large), but Stats' drill-down list keeps this one for now.
 const MAX_MISSING_SHOWN = 150;
 
 function loadSelection(repo: Repository): Set<string> {

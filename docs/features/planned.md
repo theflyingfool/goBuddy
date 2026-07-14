@@ -112,6 +112,33 @@ costume codes (Cap Pikachu O/W, Flying Pikachu Fly/Fly5/FlyOkinawa/…, see
 Report entries needing a Bulbapedia-sourced confirmation, reviewed and
 marked through this same mechanism rather than a standalone checklist.
 
+## Bulk Edit: page-size / pagination controls
+
+*Owner-proposed (2026-07-14): v1 removed Bulk Edit's flat 120-species display
+cap entirely (`MAX_SPECIES_SHOWN` in `bulk-form-edit.ts`, plus its
+"Showing the first N of M — narrow your filters" note) in favor of always
+rendering every species a query matches, however large the list gets — no
+settings, no truncation. This entry is the deferred follow-up: whether that
+"always render everything" default needs a real control once it's lived with
+a bit.*
+
+Two directions floated, neither designed yet:
+- An adjustable page-size setting (Settings → some default, e.g. 120/250/
+  unlimited) rather than the current all-or-nothing.
+- Real pagination — a "next page" control instead of one ever-growing list.
+
+Whichever direction: v1's fix already made the select-all/bulk-apply bar
+correct by construction (it operates on whatever's currently rendered,
+which is now always the full match set) — any pagination design needs to
+either keep that invariant (apply only touches the visible page) or make
+"apply to all matches, not just this page" an explicit, clearly-labeled
+choice, not an accidental scope change hiding behind the same button label.
+
+If this turns out to need addressing sooner (e.g. a real broad query proves
+slow to render on-device), it likely converts from "planned" to a v1.x
+patch rather than waiting for V2 — worth a real device check with an
+unscoped query once there's a large local collection to test against.
+
 ## Open items carried forward
 
 - Whether `form_background_personal` assuming every background is possible
