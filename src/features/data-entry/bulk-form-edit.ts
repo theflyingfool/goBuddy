@@ -235,17 +235,24 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
   if (!hasNarrowing) {
     listContainer.append(el("p", { class: "empty-state" }, ["Pick a region, search, or filter above to list forms."]));
   } else {
+    const parsedSearch = parseSearchQuery(state.search);
+    // Repository.listSpeciesSummaries's species-level "costume" match means
+    // "has this species EVER had a costume" (the Dex grid's species-browsing
+    // sense — negated, that means "species with zero costume history").
+    // Bulk Edit's tiles are per-form, not per-species: a species like
+    // Pikachu mixes costume and non-costume forms, so gating "!costume" at
+    // the species level would drop Pikachu (and every other costume-having
+    // species) entirely instead of just hiding its costume tiles — the bug
+    // this worked around. Skip the species-level search for this one case
+    // and let the per-tile filter below (which already handles it
+    // correctly) do the real work.
+    const skipSpeciesLevelSearch = parsedSearch.keyword === "costume" && parsedSearch.negate;
     const summaries = repo.listSpeciesSummaries({
       region: state.region || undefined,
-      search: state.search || undefined,
+      search: skipSpeciesLevelSearch ? undefined : state.search || undefined,
       caught: state.caught,
       fieldFilters: state.fieldFilters,
     });
-    // The species-level search above already narrows by "costume" (has this
-    // species EVER had a costume), but tiles here are per-form — a species
-    // can mix costume and non-costume forms, so "!costume" needs to hide
-    // the costume TILES too, not just gate which species show up at all.
-    const parsedSearch = parseSearchQuery(state.search);
 
     if (summaries.length === 0) {
       listContainer.append(el("p", { class: "empty-state" }, ["No species match those filters."]));
