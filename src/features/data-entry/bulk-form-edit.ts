@@ -53,12 +53,6 @@ const CAUGHT_OPTIONS: { value: BulkFormEditState["caught"]; label: string }[] = 
   { value: "uncaught", label: "Uncaught" },
 ];
 
-// Cap on how many species' form lists we render at once — a broad filter (e.g.
-// "all caught") can match hundreds of species; showing every form checkbox
-// would be unusably long and slow. Selection/apply still operate only on what
-// the user actually checks, so this is a display-only guard.
-const MAX_SPECIES_SHOWN = 120;
-
 function findFieldGroup(field: FormPersonalBooleanField) {
   return FORM_FIELD_GROUPS.find((g) => g.fields.some((f) => f.field === field))!;
 }
@@ -257,9 +251,8 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
     if (summaries.length === 0) {
       listContainer.append(el("p", { class: "empty-state" }, ["No species match those filters."]));
     } else {
-      const shown = summaries.slice(0, MAX_SPECIES_SHOWN);
       let anyTiles = false;
-      for (const { species } of shown) {
+      for (const { species } of summaries) {
         const { forms } = repo.getSpeciesWithForms(species.slug);
         const personalBySlug = new Map<string, FormPersonal>(forms.map((f) => [f.form.slug, f.personal]));
         const groups = groupForms(
@@ -308,9 +301,6 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
 
       if (!anyTiles) {
         listContainer.append(el("p", { class: "empty-state" }, ["No forms match those filters."]));
-      }
-      if (summaries.length > shown.length) {
-        listContainer.append(el("p", { class: "bulk-truncation-note" }, [`Showing the first ${shown.length} of ${summaries.length} species — narrow your filters to see more.`]));
       }
     }
   }
