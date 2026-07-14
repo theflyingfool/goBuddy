@@ -246,17 +246,18 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
           el("img", {
             class: "species-sprite",
             src: speciesSpritePath(species.dexNumber),
-            // The name is already visible as text right below (tile-label) —
+            // The name is already visible as text in the label box below —
             // an alt here would just make screen readers announce it twice.
             alt: "",
             loading: "lazy",
           }),
-          el("div", { class: "tile-label" }, [
-            el("span", { class: "dex-num" }, [`#${species.dexNumber}`]),
-            ` ${species.name}`,
-          ]),
         ],
       );
+      // A separate box below the tile, not nested inside it — owner call:
+      // let the sprite fill the whole tile (badges/overlays can cover part
+      // of it now), with the dex #/name in their own box underneath instead
+      // of competing with the image for space inside one shared box.
+      const tileLabel = el("div", { class: "tile-label" }, [el("span", { class: "dex-num" }, [`#${species.dexNumber}`]), ` ${species.name}`]);
       tile.addEventListener("click", () => {
         if (!state.selectMode) {
           callbacks.onSelectSpecies(species.slug);
@@ -311,6 +312,7 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
         });
         tileWrap.append(registeredToggle);
       }
+      tileWrap.append(tileLabel);
       grid.append(tileWrap);
     }
     container.append(grid);

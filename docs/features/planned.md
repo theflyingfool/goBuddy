@@ -139,6 +139,20 @@ slow to render on-device), it likely converts from "planned" to a v1.x
 patch rather than waiting for V2 — worth a real device check with an
 unscoped query once there's a large local collection to test against.
 
+## Unify Dex-grid and form-tile rendering into a shared component
+
+*Owner-proposed (2026-07-14).* The Dex grid's `.species-tile`/`.species-sprite`
+(`species-grid.ts`) and Bulk Edit/species-detail's `.form-tile`/
+`.form-tile-sprite` (`bulk-form-edit.ts`, `species-detail.ts`) are two
+independent implementations of what is visually the same kind of tile —
+sprite + overlay badges + a label box underneath. The 2026-07-14 tile-sizing
+pass (matching column widths and sprite-fill behavior across both) had to
+apply the same CSS values twice in two places, and any future tile-visual
+change (sizing, spacing, badge layout) will keep needing to be made twice and
+kept in sync by hand unless they're refactored onto one shared
+rendering/CSS codebase. Not designed yet — just flagging the duplication
+before a third tile variant makes it worse.
+
 ## Open items carried forward
 
 - Whether `form_background_personal` assuming every background is possible
