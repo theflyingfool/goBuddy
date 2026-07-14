@@ -9,6 +9,27 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.13.3] — 2026-07-14
+
+- Fixed personal-data Export on web always reporting "Cancelled" with no
+  save dialog ever appearing — the File System Access picker
+  (`showSaveFilePicker`) was silently failing to open in some environments,
+  and its `AbortError` was indistinguishable from a genuine user-cancel. Web
+  export now always uses a plain Blob + anchor download instead of the FSA
+  picker.
+- Fixed a second export bug surfaced by the above fix: the downloaded file
+  could fail to actually land on disk because `URL.revokeObjectURL` was
+  called synchronously right after triggering the download, racing the
+  browser's blob read. Now revokes on a deferred tick after the anchor is
+  clicked and removed.
+- Moved the "Back up before import" toggle to appear above the Export
+  button in Settings, so it's visible before exporting rather than after.
+- Added a note under Settings' "Collapse gender-split forms" toggle
+  explaining why Bulk Edit's selection counter can jump by more than one
+  per tap — Bulk Edit always groups a species' gender-split forms into one
+  tile regardless of that setting, so tapping one tile there selects every
+  underlying form.
+
 ## [0.13.2] — 2026-07-14
 
 - Fixed Bulk Edit's tile-selection highlight being completely invisible —
