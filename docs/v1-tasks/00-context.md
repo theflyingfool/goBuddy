@@ -37,11 +37,12 @@ From the 2026-07-08 addendum:
 - Visual identity pass → **new V1 workstream**, sequenced before legibility
   fixes ([§ 3, then § 4](03-visual-and-legibility.md)).
 
-**Carried-over open questions** (non-blocking, revisit opportunistically):
-the `001-Bulbasaur/Standard.md` Obsidian-refs question (may hold real personal
-progress — decide before deleting that folder); whether to verify the
-Uxie/Mesprit/Azelf/Malamar/Falinks "bogus mega-capable" flags against the
-Z-A mega list ([§ 1](01-reference-data-correction.md) touches this); whether
-the ~65 unverified-genderless
-species and 385 inherited-availability forms need a manual pass or can ride
-as Coverage-Report-flagged caveats (lean: ride).
+**Carried-over open questions — all closed out, 2026-07-14:** the
+`001-Bulbasaur/Standard.md` Obsidian-refs question turned out to be moot (no
+such file/folder exists in the current `Refs from Obsidian/`); the
+"bogus mega-capable" flags question was already resolved 2026-07-10
+([§ 1](01-reference-data-correction.md) has the corrected writeup — the
+actual confirmed-bogus five are Uxie/Mesprit/Azelf/Butterfree/Lugia, not
+Malamar/Falinks as this doc previously said); the ~65 unverified-genderless
+species and 385 inherited-availability forms are explicitly deferred to
+post-V1, folded into the planned DB rework ([§ 12](09-v2-watchlist.md)).

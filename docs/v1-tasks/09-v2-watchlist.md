@@ -13,6 +13,12 @@
 - Full adoption of `executeSet`/`importFromJson`/`copyFromAssets` if not
   pulled into V1 via [§ 8](06-performance-and-quality-infra.md)'s
   contingency.
+- **~65 unverified-genderless species and 385 inherited-availability forms**
+  (owner, 2026-07-14) — riding as Coverage-Report-flagged caveats through V1;
+  a manual verification pass is deferred to post-V1 since the owner is
+  planning a heavier DB rework then anyway, so it makes more sense folded
+  into that than done as a standalone pre-V1 pass. See
+  `docs/v1-roadmap/open-questions.md` item #3.
 - Coverage Report review-state persistence (owner, 2026-07-12) — lets a
   reviewed gap stay reviewed across `ingest:build` re-runs instead of
   re-showing the full gap list every pass. Also absorbs D7's costume-code

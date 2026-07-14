@@ -48,16 +48,27 @@ design, so fixes here are free today and permanent debt later.*
   for availability and use whatever variety PokeAPI exposes for variant
   shape (plain/X/Y/Primal), regardless of pack. **Re-verified the Uxie/
   Mesprit/Azelf/Malamar/Falinks question this item asked for** — owner
-  confirmed (2026-07-10) all five are still bogus tracker entries despite
-  Mega Dimension listing them (no supporting art exists for any of them),
-  *plus* two more the same fix surfaced that weren't on this list at all:
-  Butterfree and Lugia, also confirmed bogus. All seven marked unavailable
-  in the tracker CSV. Audino's claim was already fine (`audino-mega` +
+  confirmed (2026-07-10) **Uxie/Mesprit/Azelf** are still bogus tracker
+  entries despite Mega Dimension listing them (no supporting art exists for
+  any of them), *plus* two more the same fix surfaced that weren't on this
+  list at all: **Butterfree and Lugia**, also confirmed bogus. All five
+  marked unavailable in the tracker CSV. **Malamar and Falinks — also part
+  of the original question — turned out to be real**, not bogus; they're
+  in the six-species "confirmed real" group in the sentence above, correctly
+  carrying working `mega_variant` rows. *(Correction, 2026-07-14: this entry
+  previously named Malamar/Falinks instead of Butterfree/Lugia as the
+  confirmed-bogus pair, and claimed "all seven marked unavailable" — actually
+  five unavailable, six available. `docs/v1-roadmap/open-questions.md`'s
+  own item #2 inherited the same error and has been corrected too.
+  Independently reconfirmed by the owner's real in-game Pokédex Mega list,
+  which shows both Malamar (dex #687) and Falinks (dex #870) present.)*
+  Audino's claim was already fine (`audino-mega` +
   `canMegaEvolve: true` both already present, nothing to fix there). Ingestion
   comments corrected to say "official *Legends: Z-A* DLC," not fan content.
-  Full writeup: `docs/costume-lookup-verification.md`'s "Cross-cutting"
-  section (filed there since that's where the discovery happened, not
-  because it's a costume issue).
+  Full detail: commit `ebb94d4` ("Fix stale Mega-availability gate: trust
+  the GO tracker, not mainline version groups") — the previously-cited
+  `docs/costume-lookup-verification.md` "Cross-cutting" section covers an
+  unrelated sprite-matching bug, not this one; that citation was wrong.
 - [x] **D7 — resolved by deferral (owner, 2026-07-12)**: folded into the
   Coverage Report persistence feature ([§ 12](09-v2-watchlist.md),
   `docs/features/planned.md`) rather than done as a standalone pre-V1 pass.
