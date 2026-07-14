@@ -1,5 +1,6 @@
 import { FORM_PERSONAL_BOOLEAN_FIELDS, type FormPersonalBooleanField } from "../../db/types";
 import type { AvailabilityFilterField, GridFilterField, MegaAchievementFilterField, RarityFilterField, Repository, SpeciesBooleanField } from "../../data/repository";
+import { el } from "../../ui/dom";
 
 export const INDICATOR_LABELS: Record<FormPersonalBooleanField, { badge: string; full: string }> = {
   caught: { badge: "●", full: "Caught" },
@@ -87,6 +88,26 @@ export const CLASSIFICATION_FIELDS: GridFilterField[] = [...RARITY_FILTER_OPTION
 
 /** Fields shown in the grid's collapsed "More filters" section: every achievement field plus XXL/XXS/Purified/Mega evolved. Rarity/availability live in CLASSIFICATION_FIELDS instead. */
 export const MORE_FILTER_FIELDS: GridFilterField[] = [...INDICATOR_OPTIONS, ...SPECIES_FILTER_OPTIONS, ...MEGA_ACHIEVEMENT_FILTER_OPTIONS];
+
+// A tap-reachable legend for the chip glyphs — hover-only `title` tooltips
+// (still there, for mouse users) were the only disambiguation on touch,
+// which is no disambiguation at all. Covers every field passed in
+// (de-duplicated), not just whatever's currently visible, so looking up a
+// glyph doesn't first require expanding "More filters." Reuses the Help
+// page's .help-row/.help-badge styling rather than inventing new CSS.
+export function renderFilterLegend(fields: GridFilterField[]): HTMLElement {
+  const details = el("details", { class: "settings-details filter-legend" }, [el("summary", {}, ["Legend"])]);
+  const seen = new Set<string>();
+  for (const field of fields) {
+    if (seen.has(field)) continue;
+    seen.add(field);
+    const { badge, full } = gridFilterFieldLabel(field);
+    details.append(
+      el("div", { class: "help-row" }, [el("span", { class: "help-badge" }, [badge]), el("span", { class: "help-row-body" }, [full])]),
+    );
+  }
+  return details;
+}
 
 export function gridFilterFieldLabel(field: GridFilterField): { badge: string; full: string } {
   if (field in RARITY_FILTER_LABELS) return RARITY_FILTER_LABELS[field as RarityFilterField];

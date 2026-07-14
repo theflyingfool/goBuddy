@@ -2,7 +2,7 @@ import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repo
 import { clear, el } from "../../ui/dom";
 import { speciesSpritePath } from "../../ui/sprites";
 import { SPECIES_FIELDS } from "./field-groups";
-import { CLASSIFICATION_FIELDS, INDICATOR_LABELS, MORE_FILTER_FIELDS, gridFilterFieldLabel } from "./indicator-labels";
+import { CLASSIFICATION_FIELDS, INDICATOR_LABELS, MORE_FILTER_FIELDS, gridFilterFieldLabel, renderFilterLegend } from "./indicator-labels";
 
 export type FieldFilterState = "include" | "exclude";
 
@@ -126,6 +126,7 @@ export function renderFilterSheetContent(container: HTMLElement, repo: Repositor
   const indicatorSelection = repo.getIndicatorSelection();
 
   container.append(el("h2", { class: "filter-sheet-title" }, ["Filters"]));
+  container.append(renderFilterLegend([...indicatorSelection, ...CLASSIFICATION_FIELDS, ...MORE_FILTER_FIELDS]));
 
   const filterBar = el("div", { class: "filter-bar" });
   for (const option of CAUGHT_FILTER_OPTIONS) {

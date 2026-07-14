@@ -1,6 +1,6 @@
 import { navigate, speciesDetailPath } from "../../app-shell/router";
-import type { Form, FormPersonal, FormPersonalBooleanField, MegaVariantKind } from "../../db/types";
-import { parseSearchQuery, type Repository } from "../../data/repository";
+import type { Form, FormPersonal, FormPersonalBooleanField, MegaPersonal, MegaVariant, MegaVariantKind } from "../../db/types";
+import { fuzzyMatches, parseSearchQuery, type Repository } from "../../data/repository";
 import { clear, el, labeledToggle } from "../../ui/dom";
 import { formSpritePath, megaSpritePath, speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
@@ -132,29 +132,33 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
 
   const header = el("div", { class: "detail-header" }, [identityBox, infoBox]);
 
+  const rerender = () => renderSpeciesDetail(container, repo, speciesSlug, onBack);
+
+  // Registered can flip false->true as a side effect of any form/Mega toggle
+  // below — it's the species' very first personal-field write, and that
+  // cascade writes to speciesPersonal, which lives outside formGrid/
+  // megaFieldset entirely (a structurally separate fieldset built once,
+  // right here). Rather than rebuild the whole page to reflect it, track
+  // the last-known value and patch just this one checkbox on the rare
+  // occasion it actually changes — the cascade only ever sets it, never
+  // unsets it, so false->true is the only transition to watch for.
+  let lastKnownRegistered = personal.registered;
+  let registeredInputEl: HTMLInputElement | null = null;
+  function patchRegisteredIfChanged() {
+    const fresh = repo.getSpeciesWithForms(speciesSlug).personal.registered;
+    if (fresh && !lastKnownRegistered && registeredInputEl) registeredInputEl.checked = true;
+    lastKnownRegistered = fresh;
+  }
+
   const speciesFieldset = el("fieldset", {}, [el("legend", {}, ["Species"])]);
   for (const { field, label } of SPECIES_FIELDS) {
-    speciesFieldset.append(
-      labeledToggle(label, personal[field], (checked) => {
-        repo.setSpeciesPersonalField(speciesSlug, field, checked);
-      }),
-    );
+    const toggleEl = labeledToggle(label, personal[field], (checked) => {
+      repo.setSpeciesPersonalField(speciesSlug, field, checked);
+      patchRegisteredIfChanged();
+    });
+    if (field === "registered") registeredInputEl = toggleEl.querySelector("input");
+    speciesFieldset.append(toggleEl);
   }
-
-  const formPersonalBySlug = new Map<string, FormPersonal>(forms.map((f) => [f.form.slug, f.personal]));
-  const groups = groupForms(
-    forms.map((f) => f.form),
-    collapseGender,
-  );
-
-  let expandedKeys = expandedGroupKeysBySpecies.get(speciesSlug);
-  if (!expandedKeys) {
-    expandedKeys = new Set();
-    expandedGroupKeysBySpecies.set(speciesSlug, expandedKeys);
-  }
-  const expandedKeysForRender = expandedKeys;
-
-  const rerender = () => renderSpeciesDetail(container, repo, speciesSlug, onBack);
 
   // Mega is species-wide, not per-form (any non-Shadow individual of the
   // species can be temporarily Mega Evolved regardless of costume) — its own
@@ -163,29 +167,51 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   // Charizard/Mewtwo-style dual variants.
   const megaVariants = repo.getMegaVariantsForSpecies(speciesSlug);
   const megaFieldset = megaVariants.length > 0 ? el("fieldset", {}, [el("legend", {}, ["Mega"])]) : null;
+
+  function buildMegaRow(variant: MegaVariant, mp: MegaPersonal): HTMLElement {
+    return el("div", { class: "mega-variant-row" }, [
+      el("img", {
+        class: "mega-variant-sprite",
+        src: megaSpritePath(variant.slug, species.dexNumber, shinyView),
+        alt: "",
+        loading: "lazy",
+      }),
+      el("span", { class: "mega-variant-label" }, [megaVariantLabel(variant.variant)]),
+      labeledToggle("Evolved", mp.evolved, (checked) => {
+        repo.setMegaPersonalField(variant.slug, "evolved", checked);
+        refreshMegaRow(variant.slug);
+      }),
+      labeledToggle("Shiny Evolved", mp.shinyEvolved, (checked) => {
+        repo.setMegaPersonalField(variant.slug, "shinyEvolved", checked);
+        refreshMegaRow(variant.slug);
+      }),
+    ]);
+  }
+
+  const megaRowSlots = new Map<string, HTMLElement>();
+  function refreshMegaRow(variantSlug: string) {
+    patchRegisteredIfChanged();
+    const slot = megaRowSlots.get(variantSlug);
+    const fresh = repo.getMegaVariantsForSpecies(speciesSlug).find((v) => v.variant.slug === variantSlug);
+    if (!slot || !fresh) {
+      rerender();
+      return;
+    }
+    const row = buildMegaRow(fresh.variant, fresh.personal);
+    slot.replaceWith(row);
+    megaRowSlots.set(variantSlug, row);
+  }
+
   if (megaFieldset) {
     for (const { variant, personal: mp } of megaVariants) {
-      megaFieldset.append(
-        el("div", { class: "mega-variant-row" }, [
-          el("img", {
-            class: "mega-variant-sprite",
-            src: megaSpritePath(variant.slug, species.dexNumber, shinyView),
-            alt: "",
-            loading: "lazy",
-          }),
-          el("span", { class: "mega-variant-label" }, [megaVariantLabel(variant.variant)]),
-          labeledToggle("Evolved", mp.evolved, (checked) => {
-            repo.setMegaPersonalField(variant.slug, "evolved", checked);
-            rerender();
-          }),
-          labeledToggle("Shiny Evolved", mp.shinyEvolved, (checked) => {
-            repo.setMegaPersonalField(variant.slug, "shinyEvolved", checked);
-            rerender();
-          }),
-        ]),
-      );
+      const row = buildMegaRow(variant, mp);
+      megaRowSlots.set(variant.slug, row);
+      megaFieldset.append(row);
     }
   }
+
+  const groups = groupForms(forms.map((f) => f.form), collapseGender);
+  const formPersonalBySlug = new Map<string, FormPersonal>(forms.map((f) => [f.form.slug, f.personal]));
 
   const filterText = formFilterBySpecies.get(speciesSlug) ?? "";
   const filterInput = el("input", {
@@ -226,11 +252,16 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
       const isCostumeGroup = group.forms.some((f) => f.costumeName !== null);
       return parsedFilter.negate ? !isCostumeGroup : isCostumeGroup;
     }
-    const q = parsedFilter.text.toLowerCase();
-    return q === "" || group.label.toLowerCase().includes(q);
+    return fuzzyMatches(group.label, parsedFilter.text);
   };
   const secondField = getFormGridSecondField(repo);
-  const visibleGroups = groups.filter(matchesFilter).filter((g) => !missingOnly || !groupFieldAllTrue(g, formPersonalBySlug, "caught"));
+
+  let expandedKeys = expandedGroupKeysBySpecies.get(speciesSlug);
+  if (!expandedKeys) {
+    expandedKeys = new Set();
+    expandedGroupKeysBySpecies.set(speciesSlug, expandedKeys);
+  }
+  const expandedKeysForRender = expandedKeys;
 
   // Every form (Standard, Shadow, every costume) is one tile in a searchable
   // grid — this is what actually holds up for a 150+-form species like
@@ -239,11 +270,16 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   // here, unlike the Dex grid, since one tile really is one specific form/
   // group); "⋯" expands that tile in place into its full field list without
   // navigating anywhere else.
+  //
+  // Toggling a tile's own state (caught/second icon/expand/an expanded
+  // field) rebuilds only that tile (+ its expanded panel) in place instead
+  // of the whole page — buildTile() is a pure function of (group, current
+  // personal-state map), called once per tile on the initial render and
+  // again, standalone, whenever that one tile's own state changes.
   const formGrid = el("div", { class: "form-grid" });
-  if (visibleGroups.length === 0) {
-    formGrid.append(el("p", { class: "empty-state" }, ["No forms match that filter."]));
-  }
-  for (const group of visibleGroups) {
+  const tileSlots = new Map<string, { tile: HTMLElement; panel: HTMLElement | null }>();
+
+  function buildTile(group: FormGroup, formPersonalBySlug: Map<string, FormPersonal>): { tile: HTMLElement; panel: HTMLElement | null } {
     const caught = groupFieldAllTrue(group, formPersonalBySlug, "caught");
     const secondOn = groupFieldAllTrue(group, formPersonalBySlug, secondField);
     const isExpanded = expandedKeysForRender.has(group.key);
@@ -256,7 +292,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     caughtToggle.addEventListener("click", (e) => {
       e.stopPropagation();
       for (const form of group.forms) repo.setFormPersonalField(form.slug, "caught", !caught);
-      rerender();
+      refreshTile(group);
     });
 
     const secondToggle = el(
@@ -267,7 +303,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     secondToggle.addEventListener("click", (e) => {
       e.stopPropagation();
       for (const form of group.forms) repo.setFormPersonalField(form.slug, secondField, !secondOn);
-      rerender();
+      refreshTile(group);
     });
 
     const tile = el(
@@ -283,7 +319,7 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     const toggleExpanded = () => {
       if (isExpanded) expandedKeysForRender.delete(group.key);
       else expandedKeysForRender.add(group.key);
-      rerender();
+      refreshTile(group);
     };
     tile.addEventListener("click", toggleExpanded);
     tile.addEventListener("keydown", (e) => {
@@ -292,10 +328,10 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
         toggleExpanded();
       }
     });
-    formGrid.append(tile);
 
+    let panel: HTMLElement | null = null;
     if (isExpanded) {
-      const panel = el("div", { class: "form-expanded-panel", id: domId(group.key) }, [
+      panel = el("div", { class: "form-expanded-panel", id: domId(group.key) }, [
         el("div", { class: "form-expanded-title" }, [group.label]),
       ]);
       for (const { title, fields, availableWhen } of FORM_FIELD_GROUPS) {
@@ -308,14 +344,59 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
               for (const form of group.forms) {
                 repo.setFormPersonalField(form.slug, field, checked);
               }
-              rerender();
+              refreshTile(group);
             }),
           );
         }
         panel.append(fieldset);
       }
-      formGrid.append(panel);
     }
+    return { tile, panel };
+  }
+
+  function refreshTile(group: FormGroup) {
+    patchRegisteredIfChanged();
+    const slot = tileSlots.get(group.key);
+    if (!slot) {
+      rerender();
+      return;
+    }
+    const freshFormPersonalBySlug = new Map<string, FormPersonal>(
+      repo.getSpeciesWithForms(speciesSlug).forms.map((f) => [f.form.slug, f.personal]),
+    );
+    // "Missing only" is a live filter on caught-state — a tile that just got
+    // marked caught needs to actually disappear from that view, not sit
+    // there patched-in-place looking done inside a "still missing" list.
+    if (missingOnly && groupFieldAllTrue(group, freshFormPersonalBySlug, "caught")) {
+      slot.tile.remove();
+      slot.panel?.remove();
+      tileSlots.delete(group.key);
+      if (tileSlots.size === 0) {
+        formGrid.append(el("p", { class: "empty-state" }, ["No forms match that filter."]));
+      }
+      return;
+    }
+    const fresh = buildTile(group, freshFormPersonalBySlug);
+    slot.tile.replaceWith(fresh.tile);
+    if (slot.panel) {
+      if (fresh.panel) slot.panel.replaceWith(fresh.panel);
+      else slot.panel.remove();
+    } else if (fresh.panel) {
+      fresh.tile.after(fresh.panel);
+    }
+    tileSlots.set(group.key, fresh);
+  }
+
+  const visibleGroups = groups.filter(matchesFilter).filter((g) => !missingOnly || !groupFieldAllTrue(g, formPersonalBySlug, "caught"));
+
+  if (visibleGroups.length === 0) {
+    formGrid.append(el("p", { class: "empty-state" }, ["No forms match that filter."]));
+  }
+  for (const group of visibleGroups) {
+    const { tile, panel } = buildTile(group, formPersonalBySlug);
+    tileSlots.set(group.key, { tile, panel });
+    formGrid.append(tile);
+    if (panel) formGrid.append(panel);
   }
 
   container.append(header, speciesFieldset);

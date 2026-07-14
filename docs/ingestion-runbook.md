@@ -63,7 +63,10 @@ npm run ingest:csv:import     # merge a filled-in CSV back into reference.json
   committed in `data-authoring/gigantamax-species.json` (see above). This
   class of mistake — trusting a stale cached/intermediate file instead of
   re-running its generator — has already caused a stale-data incident once
-  (see `TODO.md`'s incident notes on stale mega-tracker data).
+  (six real GO megas — Pidgeot, Kangaskhan, Mewtwo X/Y, Kyogre, Groudon —
+  missing from the tracker; see
+  [`docs/v1-roadmap/02-reference-data-corrections.md`](v1-roadmap/02-reference-data-corrections.md)
+  item 5).
 - **Slug stability**: `npm run ingest:check-slugs`
   (`scripts/ingest/check-slug-stability.ts`) diffs the working tree's
   `reference.json` slugs against the last committed version and fails if a

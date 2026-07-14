@@ -9,6 +9,25 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.13.2] — 2026-07-14
+
+- Fixed Bulk Edit's tile-selection highlight being completely invisible —
+  `.form-tile.selected` had no CSS rule at all, so tapping a tile to select
+  it for bulk-apply had zero visible effect.
+- Added a tap-reachable filter-chip "Legend" (Dex grid and Bulk Edit) mapping
+  every badge glyph to its full name — hover-only tooltips were the only
+  disambiguation before this.
+- Species-detail's form grid now rebuilds only the toggled tile in place
+  instead of the whole page.
+- Search-matching change: an all-digit query now matches the dex number
+  exactly instead of as a substring (no more "25" also matching #125/#225/
+  #250-259/...); name matching became fuzzy (subsequence-based, tolerates
+  typos) and punctuation-forgiving (handles Farfetch'd's curly apostrophe,
+  Mr. Mime's period).
+- Docs audit: fixed dead `TODO.md` cross-references, a stale "dual-backend"
+  claim, 404ing relative links in `docs/features/history/`, and two
+  install-guide sections that framed already-shipped features as still open.
+
 ## [0.13.0] — 2026-07-13
 
 - Minimal keyword search: type `costume`, `legendary`, `mythical`, or

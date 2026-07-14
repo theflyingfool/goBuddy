@@ -64,6 +64,36 @@ export function parseSearchQuery(raw: string): ParsedSearch {
   return keyword ? { keyword, negate, text: "" } : { keyword: null, negate: false, text: body };
 }
 
+// Lowercase and strip everything except letters/digits — a name has no
+// negated form, but it does have punctuation nobody types consistently:
+// Farfetch'd/Sirfetch'd use a curly quote (U+2019) in reference.json that no
+// keyboard produces, and "Mr. Mime"/"Type: Null" require typing an exact
+// period/colon most people wouldn't bother with. Stripping all of it down to
+// bare letters/digits makes every one of those match however it's typed,
+// with no per-character special-casing.
+function normalizeForSearch(s: string): string {
+  return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+// Subsequence match: every (normalized) character of the query must appear
+// in the (normalized) target in order, not necessarily contiguous. A cheap,
+// dependency-free stand-in for real fuzzy matching — tolerates typos/partial
+// typing (e.g. "pikchu" still matches "Pikachu") while still matching every
+// plain substring query that already worked (a substring is always also a
+// valid subsequence).
+export function fuzzyMatches(target: string, query: string): boolean {
+  const q = normalizeForSearch(query);
+  if (q === "") return true;
+  const t = normalizeForSearch(target);
+  let ti = 0;
+  for (const ch of q) {
+    const found = t.indexOf(ch, ti);
+    if (found === -1) return false;
+    ti = found + 1;
+  }
+  return true;
+}
+
 // Species-level personal facts, same reasoning as the rarity fields above:
 // real tracked data, just not part of the form-level indicator/badge system.
 export type SpeciesBooleanField = "xxl" | "xxs" | "purified";

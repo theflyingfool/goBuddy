@@ -1,4 +1,4 @@
-# Current features — as of v0.13.0
+# Current features — as of v0.13.2
 
 What's actually built and shipped, as of the current release
 (`package.json`/`android/app/build.gradle` version). Where a feature is
@@ -90,12 +90,31 @@ not the full AND-of-OR search-string builder specced in
 [planned.md](planned.md) for post-V1 — just enough to answer "show me only
 X" in the box that's already there. Documented on the in-app Help page.
 
+Plain (non-keyword) matching: an all-digit query matches the dex number
+exactly (no more "25" also matching #125/#225/#250-259/...); anything else is
+a fuzzy, punctuation-forgiving subsequence match against the name
+(`fuzzyMatches()`, `src/data/repository.ts`) — tolerates typos/partial typing
+("pikchu" still finds Pikachu) and normalizes away characters like
+Farfetch'd's curly apostrophe or Mr. Mime's period that nobody types
+consistently.
+
+Filter chips (Dex grid and Bulk Edit's filter sheets) have a tap-reachable
+"Legend" `<details>` (`renderFilterLegend()`, `indicator-labels.ts`) mapping
+every badge glyph to its full name — hover-only `title` tooltips were the
+only disambiguation before this, which is no disambiguation at all on touch.
+
+Species-detail's form grid rebuilds only the toggled tile (+ its expanded
+panel) in place rather than the whole page on every tap (`buildTile()`/
+`refreshTile()`), including the cross-cutting case where any form/Mega toggle
+can flip `speciesPersonal.registered` false→true on a species' first catch —
+tracked and patched onto that one checkbox without a full rerender.
+
 ## Sprite art
 
 Species and per-form/costume/Mega art sourced from PokeMiners/pogo_assets
 and matched by a conservative, re-runnable pipeline
 (`scripts/ingest/build-sprite-mapping.ts`, `npm run ingest:sprites`) —
-species base art for 953 species, ~230 confidently-matched regional-form
+species base art for 922 species, 564 confidently-matched regional-form
 and costume sprites, and all 57 Mega/Primal variants. Anything the pipeline
 can't confidently match (ambiguous form tokens, unmapped costume codenames)
 goes to a hand-check CSV instead of being guessed; `scripts/ingest/
