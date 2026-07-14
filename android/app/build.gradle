@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+// Signing secrets live outside the repo entirely, at a fixed path keyed to
+// this machine's home directory — not under version control at any path,
+// and not tied to which checkout/worktree is running the build.
+def keystorePropertiesFile = new File(System.getProperty('user.home'), '.android-keystores/keystore.properties')
+def keystoreProperties = new Properties()
+def hasReleaseSigning = keystorePropertiesFile.exists()
+if (hasReleaseSigning) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.theflyingfool.pogobuddy"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +26,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn("android/keystore.properties not found — assembleRelease will fall back to an unsigned/debug-signed build. See docs/install-guide.md.")
+            }
         }
     }
 }

@@ -26,15 +26,20 @@ by design.** Right now, exporting is your only backup:
 
 ## Updating to a new version
 
-**This app ships debug-signed, permanently** — there's no Play Store release
-keystore and none is planned (owner decision, see `docs/v1-tasks/02-data-safety-net.md`,
-item D4). Whether "install the new APK over the old one" preserves your data
-**depends on whether both APKs were signed with the same key** — Android
-refuses to update in place across a signing-key mismatch, and if that
-happens your only path is uninstall → reinstall, which **erases the app's
-data**. **Export before every update, no exceptions** — this isn't a
-temporary caveat that goes away later, it's how updates always work for
-this app.
+Every release is signed with the same dedicated release key, so installing a
+new APK over an old one should preserve your data going forward — Android
+only refuses an in-place update when the signing key changes, and this one
+isn't changing again (it's backed up outside the project; see
+`docs/v1-tasks/02-data-safety-net.md`, item D4).
+
+**Export before every update anyway.** A stable signing key rules out one
+failure mode, not all of them — a botched migration or a corrupted database
+doesn't care whether the key matches. Exporting takes a few seconds; treat
+it as habit, not a one-time precaution.
+
+If an update ever does refuse to install in place, **don't uninstall —
+message the owner before doing anything else**; see "If something goes
+wrong" below. Uninstalling is the only thing that actually erases your data.
 
 ## If something goes wrong
 

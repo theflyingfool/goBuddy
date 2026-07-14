@@ -6,10 +6,33 @@
 *The app's entire value is one SQLite file on a phone — these close the ways
 that file (or a friend's trust in it) can currently be lost.*
 
-- [x] **D4 — resolved, closed (owner, 2026-07-12)**: not dealing with a
-  release keystore at all. Ships debug-signed indefinitely; people back up
-  their own personal-data exports before updating, same as always. No
-  `signingConfigs.release`/`assembleRelease` work planned.
+- [x] **D4 — reversed (owner, 2026-07-14)**: a dedicated release keystore now
+  exists (PKCS12, 2048-bit RSA, 30-year validity), stored outside the repo
+  at `~/.android-keystores/pogobuddy-release.jks` and backed up by the
+  owner. `android/app/build.gradle` reads signing credentials from
+  `~/.android-keystores/keystore.properties` — a fixed, machine-anchored
+  path, never checked into the repo and not read from anywhere inside the
+  checkout — and wires a `signingConfigs.release` block onto
+  `buildTypes.release`; a missing properties file logs a build warning and
+  falls back to an unsigned release build rather than failing silently.
+  Deliberately a single canonical location rather than a repo-local file
+  with a home-dir fallback: no per-checkout copy to keep in sync, and no
+  dependency on which worktree happens to be running the build (a real
+  problem hit during this change — a repo-local copy only existed in the
+  worktree that built and verified this feature, and would've needed manual
+  recreation in the main checkout). New `npm run android:release`
+  (`android:sync` + `gradlew assembleRelease`) alongside the existing
+  `android:build` (debug). `docs/install-guide.md` updated: friends no
+  longer need to export before *every* update solely to guard against a
+  signing-key change (the key is now stable), though exporting regularly
+  remains good practice for other failure modes. One transition note for
+  the owner's own phone: it's been running debug-signed test builds since
+  0.9.0, so the first release-signed install there will itself hit a
+  one-time signing mismatch — export first, same as any friend would on a
+  mismatch. Credentials currently sit at rest in plaintext (acceptable to
+  the owner for now, single-machine, single-dev project) — flagged as a
+  candidate for a real secret-store (OS keychain / `secret-tool`) if that
+  stops being true.
 - [x] Boot-failure rescue screen: on any DB-open/sync/migration error
   (`src/main.ts`'s "Couldn't open the on-device database" path), still offer a
   raw "export personal data" action that reads the personal tables directly,
