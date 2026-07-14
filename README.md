@@ -84,10 +84,11 @@ npm run android:release  # android:sync + gradlew assembleRelease (signed)
 The debug APK lands under `android/app/build/outputs/apk/debug/`; the release
 APK under `android/app/build/outputs/apk/release/`.
 
-`android:release` needs `android/keystore.properties` (machine-local,
-gitignored — not in this repo) pointing at the release signing key. Without
-it, the release build falls back to unsigned and Gradle prints a warning.
-See `docs/install-guide.md` for what the release key is and why it exists.
+`android:release` needs `~/.android-keystores/keystore.properties` (outside
+the repo, on your machine — never checked in, and not read from anywhere
+inside the checkout) pointing at the release signing key. Without it, the
+release build falls back to unsigned and Gradle prints a warning. See
+`docs/install-guide.md` for what the release key is and why it exists.
 
 ## Cross-device data (phone ↔ desktop)
 

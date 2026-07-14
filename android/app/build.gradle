@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 
-def keystorePropertiesFile = rootProject.file('keystore.properties')
+// Signing secrets live outside the repo entirely, at a fixed path keyed to
+// this machine's home directory — not under version control at any path,
+// and not tied to which checkout/worktree is running the build.
+def keystorePropertiesFile = new File(System.getProperty('user.home'), '.android-keystores/keystore.properties')
 def keystoreProperties = new Properties()
 def hasReleaseSigning = keystorePropertiesFile.exists()
 if (hasReleaseSigning) {

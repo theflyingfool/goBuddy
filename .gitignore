@@ -3,9 +3,10 @@ dist/
 *.apk
 tsconfig.tsbuildinfo
 
-# Release-signing secrets — the keystore itself lives outside the repo
-# entirely (~/.android-keystores/); this just guards against one ever
-# ending up in a working tree by accident.
+# Release-signing secrets — these live outside the repo entirely, at
+# ~/.android-keystores/, and the build only ever reads them from there.
+# These patterns are just a backstop against one ending up in a working
+# tree by accident.
 android/keystore.properties
 *.jks
 *.keystore
