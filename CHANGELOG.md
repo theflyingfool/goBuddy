@@ -9,6 +9,16 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.16.1] — 2026-07-14
+
+- Removed Bulk Edit's `MAX_SPECIES_SHOWN = 120` display cap and its
+  truncation note — Bulk Edit now renders every species a query matches,
+  however large the list gets. As a side effect, this also fixed the
+  select-all/apply bar's scope: it already only ever operated on
+  currently-visible tiles, so once "visible" always equals the full match
+  set, "Select visible" genuinely means all of it. Adjustable page-size/real
+  pagination logged as a deferred idea in `docs/features/planned.md`.
+
 ## [0.16.0] — 2026-07-14
 
 - Fixed Bulk Edit's `!costume` search hiding costume-having species (e.g.
