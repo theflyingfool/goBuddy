@@ -9,6 +9,19 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.16.0] — 2026-07-14
+
+- Fixed Bulk Edit's `!costume` search hiding costume-having species (e.g.
+  Pikachu) entirely instead of just hiding their costume-form tiles. It
+  shared a species-level filter with the Dex grid, where `!costume` means
+  "species that never had a costume" — negated, that's the wrong question
+  for Bulk Edit, whose tiles are per-form, not per-species. A correct
+  per-tile filter already existed in `bulk-form-edit.ts` but was
+  unreachable because the species-level gate discarded the species before
+  the tile loop ever ran. Fix is scoped to Bulk Edit; the Dex grid's own
+  `!costume` meaning is untouched. Found by the owner while bulk-entering
+  Shundos.
+
 ## [0.15.0] — 2026-07-14
 
 - Reverses the earlier "ship debug-signed indefinitely, no release keystore"
