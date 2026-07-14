@@ -53,14 +53,17 @@ first-boot/device-specific items.*
   (including the xxl→registered cascade surviving the trip), confirms
   unresolvable slugs are skipped and counted rather than written, and confirms
   import never overwrites `reference_data_version` from another device's export.
-- [ ] Committed Playwright smoke suite: boot, toggle+reload persistence,
+- [x] Committed Playwright smoke suite: boot, toggle+reload persistence,
   stats counts, export/import, settings — the scenarios already verified
-  manually per `TODO.md`, made repeatable. **Not done** — bigger lift (new
-  dependency, browser automation setup) than the other items here; left for a
-  dedicated pass.
+  manually per `TODO.md`, made repeatable. Done as `e2e/*.spec.ts`
+  (`@playwright/test`, Chromium only — this is an Android-only app, "web" is
+  just a dev convenience, so no cross-browser matrix), run via
+  `npm run test:e2e` against the real `npm run dev` Vite server and its real
+  IndexedDB-backed SQLite (jeep-sqlite + sql.js) — no mock backend involved.
 - [x] CI workflow: `.github/workflows/ci.yml` — lint + `tsc -b --force`
-  (typecheck) + `npm run test` on every PR and push to `master`. **Not
-  included**: the Playwright smoke suite above, since it doesn't exist yet.
+  (typecheck) + `npm run test` + the Playwright smoke suite (`npm run
+  test:e2e`, after `npx playwright install --with-deps chromium`) on every PR
+  and push to `master`.
 - [x] Delete dead code: `src/data/dummy-repository.ts` deleted (confirmed
   unreferenced — `main.ts` only ever imports `createSqliteRepository`) along
   with the in-memory JS stats path (`computeLens` + the default
