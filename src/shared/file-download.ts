@@ -1,10 +1,14 @@
 // Generic "hand the user a file" flow, shared by any feature that needs to
 // let the user save a file for later use outside the app (Settings' personal
-// data export, Coverage Report's per-gap CSV export). Three paths depending
-// on platform, in priority order:
-// - Web with the File System Access API: a real save dialog
-//   (`showSaveFilePicker`).
-// - Web fallback (older browsers, e.g. Firefox): Blob + `<a download>`.
+// data export, Coverage Report's per-gap CSV export). Two paths depending on
+// platform:
+// - Web: Blob + `<a download>`, straight to the browser's Downloads folder.
+//   Used to try `showSaveFilePicker` first for a real save-location dialog,
+//   but on some setups (observed on Linux/Chromium — likely a desktop-portal
+//   issue) the picker never opens and immediately rejects with `AbortError`,
+//   which is indistinguishable from a genuine user-cancel — every web export
+//   silently "failed" as "Cancelled." with no dialog ever shown. Not worth
+//   chasing per-environment: the plain download always works.
 // - Native (Capacitor Android): write to the cache dir, then hand off to the
 //   native share sheet ("Save to Drive", email, etc. — the app never talks
 //   to any cloud service directly).
@@ -19,41 +23,26 @@ import { Share } from "@capacitor/share";
 export interface SaveTextFileOptions {
   suggestedName: string;
   mimeType: string;
-  /** e.g. ".json", ".csv" — only consulted by the File System Access picker's file-type filter. */
-  fileExtension: string;
-  /** Shown as the save-dialog "description" / the native share sheet's title. */
+  /** Shown as the native share sheet's title. */
   description: string;
 }
 
-export async function downloadTextFile(content: string, options: SaveTextFileOptions): Promise<"saved" | "cancelled"> {
+export async function downloadTextFile(content: string, options: SaveTextFileOptions): Promise<void> {
   if (Capacitor.getPlatform() === "web") {
-    // One-shot save dialogs only — no persistent file handle to manage, so
-    // none of the File System Access API's permission/corruption gotchas
-    // researched for the (rejected) live-sync approach apply here.
-    const w = window as unknown as { showSaveFilePicker?: (opts: unknown) => Promise<FileSystemFileHandle> };
-    if (w.showSaveFilePicker) {
-      try {
-        const handle = await w.showSaveFilePicker({
-          suggestedName: options.suggestedName,
-          types: [{ description: options.description, accept: { [options.mimeType]: [options.fileExtension] } }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(content);
-        await writable.close();
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return "cancelled";
-        throw err;
-      }
-      return "saved";
-    }
     const blob = new Blob([content], { type: options.mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = options.suggestedName;
+    // Some browsers haven't finished reading the blob: URL by the time this
+    // function returns — appending the anchor (rather than clicking it
+    // detached) and delaying the revoke past the current task avoids a race
+    // where the download starts but silently fails to land any bytes.
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
-    return "saved";
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    return;
   }
 
   const { uri } = await Filesystem.writeFile({
@@ -63,5 +52,4 @@ export async function downloadTextFile(content: string, options: SaveTextFileOpt
     encoding: Encoding.UTF8,
   });
   await Share.share({ title: options.description, url: uri });
-  return "saved";
 }

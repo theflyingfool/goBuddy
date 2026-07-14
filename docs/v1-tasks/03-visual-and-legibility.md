@@ -206,7 +206,7 @@ design work — not pre-decided in this planning pass.*
   `SPECIES_FIELDS` with no id/data-attribute).
 - [x] Set `alt=""` on grid tile sprite images (currently duplicate the visible
   name label to screen readers) — `src/features/data-entry/species-grid.ts`.
-- [ ] **Bulk Edit: selection highlight is completely invisible (owner report,
+- [x] **Bulk Edit: selection highlight is completely invisible (owner report,
   2026-07-13)**. `bulk-form-edit.ts` applies a `.selected` class to a tapped
   tile, but **no CSS rule for `.form-tile.selected` exists anywhere in
   `style.css`** — confirmed by grep, only `.form-tile.active-tile`
@@ -216,10 +216,9 @@ design work — not pre-decided in this planning pass.*
   species/form already has the target field true" (`alreadySet`,
   independent of tap-selection) — likely what read as "some pokemon show
   as selecting more than one," since several tiles can legitimately show
-  that pre-existing ✓ at once. Small, isolated, no design decisions
-  involved (add one CSS rule, e.g. accent border/background distinct from
-  the ✓ badge) — bundled here rather than fixed standalone per owner's
-  call.
+  that pre-existing ✓ at once. Fixed with one CSS rule (`.form-tile.selected`
+  — accent-wash background + accent border, same tinted-selection language as
+  `.missing-chip.on`), distinct from the ✓ badge.
 
 ---
 
