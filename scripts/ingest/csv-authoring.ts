@@ -116,20 +116,31 @@ function runImport(path: string) {
     });
 
     const speciesSlug = row.species_slug.trim() || slugify(row.species_name);
-    if (!speciesBySlug.has(speciesSlug)) {
-      const newSpecies: Species = {
-        slug: speciesSlug,
-        dexNumber: Number(row.dex_number),
-        name: row.species_name,
-        familySlug: row.family_slug || speciesSlug,
-        gen: Number(row.generation),
-        rarity: (row.rarity || "standard") as Rarity,
-        regionSlug: row.region_slug,
-        hasMale: parseBool(row.has_male),
-        hasFemale: parseBool(row.has_female),
-        canMegaEvolve: parseBool(row.can_mega_evolve),
-        canGigantamax: parseBool(row.can_gigantamax),
-      };
+    // Species-level fields (region, mega-capability, gender availability, etc.)
+    // are set here on both creation AND update — a hand-edited CSV round-trip
+    // is meant to be able to correct an existing species' facts, not just add
+    // brand-new species. This mirrors what a full `ingest:build` already does
+    // unconditionally on every species; before this fix, re-importing an
+    // unchanged export with one field hand-edited silently left every
+    // existing species' species-level fields untouched (only per-form fields
+    // like shiny/shadow/dynamax availability actually updated).
+    const existingSpecies = speciesBySlug.get(speciesSlug);
+    const speciesFields: Omit<Species, "slug"> = {
+      dexNumber: Number(row.dex_number),
+      name: row.species_name,
+      familySlug: row.family_slug || speciesSlug,
+      gen: Number(row.generation),
+      rarity: (row.rarity || "standard") as Rarity,
+      regionSlug: row.region_slug,
+      hasMale: parseBool(row.has_male),
+      hasFemale: parseBool(row.has_female),
+      canMegaEvolve: parseBool(row.can_mega_evolve),
+      canGigantamax: parseBool(row.can_gigantamax),
+    };
+    if (existingSpecies) {
+      Object.assign(existingSpecies, speciesFields);
+    } else {
+      const newSpecies: Species = { slug: speciesSlug, ...speciesFields };
       data.species.push(newSpecies);
       speciesBySlug.set(speciesSlug, newSpecies);
     }
@@ -173,6 +184,19 @@ function runImport(path: string) {
       const typeSlug = slugify(typeName);
       if (!data.types.some((t) => t.slug === typeSlug)) data.types.push({ slug: typeSlug, name: typeName });
       data.formTypes.push({ formSlug: fSlug, typeSlug });
+    }
+  }
+
+  // Keep the regions table in sync with whatever regionSlugs species actually
+  // carry now — mirrors `build-reference.ts`'s derivation exactly, so a
+  // correction that moves a species to a genuinely new region (e.g. a
+  // species that doesn't fit any existing region) doesn't need a second,
+  // separate manual edit to the regions array.
+  const knownRegionSlugs = new Set(data.regions.map((r) => r.slug));
+  for (const regionSlug of new Set(data.species.map((s) => s.regionSlug))) {
+    if (!knownRegionSlugs.has(regionSlug)) {
+      data.regions.push({ slug: regionSlug, name: regionSlug.charAt(0).toUpperCase() + regionSlug.slice(1) });
+      knownRegionSlugs.add(regionSlug);
     }
   }
 
