@@ -12,7 +12,7 @@
 //   - repo.bulkSetFormPersonalField for the batched, single-flush write.
 
 import { parseSearchQuery, type GridFilterField, type Repository, type SpeciesFilter } from "../../data/repository";
-import type { Form, FormPersonal, FormPersonalBooleanField } from "../../db/types";
+import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormPersonal, type FormPersonalBooleanField } from "../../db/types";
 import { clear, el } from "../../ui/dom";
 import { formSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS } from "./field-groups";
@@ -264,6 +264,27 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
           if (parsedSearch.keyword === "costume") {
             const isCostumeGroup = group.forms.some((f) => f.costumeName !== null);
             if (parsedSearch.negate ? isCostumeGroup : !isCostumeGroup) continue;
+          }
+          // repo.listSpeciesSummaries's field filters (above) only narrow
+          // which SPECIES appear — a species passes if ANY of its forms
+          // match, same "any form" semantics the Dex grid's species-level
+          // badges use correctly. Bulk Edit's tiles are per-form, so a
+          // species-level pass would otherwise render every form of a
+          // matching species, not just the form(s) that actually match
+          // (e.g. filtering "Lucky" showed all of Bulbasaur, not just its
+          // lucky form). Species-level-only filters (registered/rarity/
+          // mega-capable/etc.) are correctly left alone here — they don't
+          // vary per form, so the species-level gate above is already
+          // exactly right for them.
+          if (
+            Object.entries(state.fieldFilters).some(([field, want]) => {
+              if (!(FORM_PERSONAL_BOOLEAN_FIELDS as readonly string[]).includes(field)) return false;
+              const f = field as FormPersonalBooleanField;
+              const matches = group.forms.some((form) => personalBySlug.get(form.slug)?.[f]);
+              return want === "include" ? !matches : matches;
+            })
+          ) {
+            continue;
           }
           const eligible = eligibleForms(group, availableWhen);
           if (eligible.length === 0) continue; // gated out (e.g. non-shadow form, Shadow field selected)
