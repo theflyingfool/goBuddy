@@ -9,6 +9,16 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.20.0] — 2026-07-15
+
+- Fixed Bulk Edit's field filters (Lucky, Shiny, 4★, etc.) matching at
+  species level and then showing every form of that species, instead of
+  just the form(s) actually matching — filtering "Lucky" showed all of a
+  species with any one lucky form, not just the lucky one. Added a
+  per-tile check for per-form fields; species-level-only filters
+  (registered/rarity/mega-capable/etc.) are unaffected, since they don't
+  vary per form.
+
 ## [0.19.0] — 2026-07-15
 
 - Fixed a root-cause bug in the achievement cascade logic
