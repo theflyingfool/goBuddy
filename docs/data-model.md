@@ -24,11 +24,7 @@ rationale in its comments.
   reference rows by this slug (foreign key). This is what makes reference-table
   replacement safe — as long as slugs are stable, updating the dex never
   orphans a user's data.
-- All achievement/personal facts are **real boolean columns**, not list
-  values or JSON blobs. This was a deliberate reversal from an earlier
-  Obsidian-based design that used list properties — that pattern existed
-  only to work around Markdown frontmatter's limits and isn't idiomatic for
-  a real relational schema. Combined milestones (e.g. a shiny + perfect-IV
+- All achievement/personal facts are **real boolean columns**, not list values or JSON blobs. Combined milestones (e.g. a shiny + perfect-IV
   individual, i.e. "shundo") are **independently stored facts, never
   computed from other booleans** — two independently-true flags (e.g. owns
   *a* shiny, owns *a* hundo) do not imply the same individual was both, so

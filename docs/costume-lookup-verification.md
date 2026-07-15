@@ -10,13 +10,13 @@ Companion to [features.md#4-sprite-asset-pipeline](features.md#4-sprite-asset-pi
 
 ## How to read this
 
-- **High confidence** — filled in, and the reasoning is solid enough that a
-  glance at the in-app art after the next `ingest:sprites` run should be
-  enough to confirm. Low risk either way: a wrong entry only means the
-  species doesn't resolve (stays in `extra-images.csv`), not that it gets
-  the wrong art, since the lookup is exact-string-match per species.
-- **Medium confidence** — filled in, but the match is inferred (e.g. from
-  color/character association) rather than a direct textual or unique-option
+- **High confidence** — matching names (exact or near-exact), or there's only
+  one possible costume for that species in the reference data anyway. Visually
+  spotted-checked a few to be sure, but these are almost certainly correct.
+- **Medium confidence** — visual check required to distinguish between multiple
+  options (e.g. Dawn's hat vs. Lucas's hat beanies, which aren't named in the
+  file), or the codename required an external lookup to confirm meaning.
+- **Low confidence** — guesses or partial matches that need visual
   confirmation. Worth a real look.
 - **Left blank / blocked** — nothing written to the JSON. Either the real
   costume isn't in `reference.json` at all yet (a data gap, not a lookup
@@ -123,7 +123,7 @@ would have overwritten those exact paths. Now every generated output dir is
 wholesale-replaced each run, same as the reference-data principle in
 CLAUDE.md. This also retroactively exposed **32 species** whose
 `public/sprites/{dex}.png` was actually a stale leftover from the pre-
-PokeMiners (Obsidian-vault) sprite set — PokeMiners has no plain base icon
+PokeMiners legacy sprite set — PokeMiners has no plain base icon
 for any of them, but the old file had never been cleaned up across every
 `ingest:sprites` run since the swap, so they'd been silently showing
 old-style art this whole time instead of the documented gap. 24 of the 32

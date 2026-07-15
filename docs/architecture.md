@@ -132,8 +132,7 @@ re-deriving them per file.
 - **Single-backend split (`data/`)**: `sqlite-repository.ts` implements
   `Repository`, backed by the shared query/filter engine in
   `in-memory-store.ts` (reads/mutations) plus real parameterized SQL in
-  `completion-stats-sql.ts` (completion stats). A second, pure-browser
-  fallback backend (`dummy-repository.ts`) was deleted once confirmed dead.
+  `completion-stats-sql.ts` (completion stats).
 - **Single-source-of-truth field lists (`db/types.ts` +
   `features/data-entry/field-groups.ts`)**: the ~25 personal achievement
   fields are enumerated once and drive the SQL schema, the detail-page UI
