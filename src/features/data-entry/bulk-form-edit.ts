@@ -62,6 +62,19 @@ function eligibleForms(group: { forms: Form[] }, availableWhen?: (form: Form) =>
   return availableWhen ? group.forms.filter(availableWhen) : group.forms;
 }
 
+// Exported for unit testing: whether a form-group tile should be kept under
+// the Caught/Uncaught filter, evaluated per-form (never against
+// species_personal.registered — see the comment where this is called for
+// why that's the bug this guards against). "Caught" keeps a group with at
+// least one caught form; "Uncaught" keeps a group with zero caught forms —
+// the same "some form in the group" semantics used for the field-filter
+// chips just below this call site.
+export function matchesCaughtFilter(filterValue: NonNullable<SpeciesFilter["caught"]>, formsCaught: boolean[]): boolean {
+  if (filterValue === "all") return true;
+  const anyCaught = formsCaught.some(Boolean);
+  return filterValue === "caught" ? anyCaught : !anyCaught;
+}
+
 export function renderBulkFormEditPage(container: HTMLElement, repo: Repository) {
   clear(container);
   const rerender = () => renderBulkFormEditPage(container, repo);
@@ -241,10 +254,21 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
     // and let the per-tile filter below (which already handles it
     // correctly) do the real work.
     const skipSpeciesLevelSearch = parsedSearch.keyword === "costume" && parsedSearch.negate;
+    // Repository.listSpeciesSummaries's "caught" filter means
+    // personal.registered — species-wide "you've registered at least one
+    // form" (see SpeciesSummary's doc comment in repository.ts), not this
+    // specific form's own caught state. That's correct for the Dex grid
+    // (species-level tiles), but Bulk Edit's tiles are per-form: passing
+    // state.caught through here would filter at the wrong granularity
+    // (same class of bug as the "!costume" search above and the field-filter
+    // bug fixed in PR #32) — e.g. "Caught" would show every form of any
+    // registered species, including forms that individually aren't caught,
+    // and "Uncaught" would hide a genuinely-uncaught form whose species is
+    // registered because a *different* form was caught. Always query "all"
+    // here and apply the real per-form caught check below instead.
     const summaries = repo.listSpeciesSummaries({
       region: state.region || undefined,
       search: skipSpeciesLevelSearch ? undefined : state.search || undefined,
-      caught: state.caught,
       fieldFilters: state.fieldFilters,
     });
 
@@ -264,6 +288,14 @@ export function renderBulkFormEditPage(container: HTMLElement, repo: Repository)
           if (parsedSearch.keyword === "costume") {
             const isCostumeGroup = group.forms.some((f) => f.costumeName !== null);
             if (parsedSearch.negate ? isCostumeGroup : !isCostumeGroup) continue;
+          }
+          // Per-form Caught/Uncaught check — see the comment on the
+          // listSpeciesSummaries call above for why this can't be done at
+          // the species level. Same "some form in the group" semantics as
+          // the field-filter check just below: "Caught" keeps a group if any
+          // of its forms are caught, "Uncaught" keeps it if none are.
+          if (!matchesCaughtFilter(state.caught, group.forms.map((form) => !!personalBySlug.get(form.slug)?.caught))) {
+            continue;
           }
           // repo.listSpeciesSummaries's field filters (above) only narrow
           // which SPECIES appear — a species passes if ANY of its forms
