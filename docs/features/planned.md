@@ -153,6 +153,29 @@ kept in sync by hand unless they're refactored onto one shared
 rendering/CSS codebase. Not designed yet — just flagging the duplication
 before a third tile variant makes it worse.
 
+## Consolidate Dex grid and Bulk Edit into one page, toggled
+
+*Owner-proposed (2026-07-15), prompted by noticing similar logic between the
+Dex grid and Bulk Edit while the `fix/caught-uncaught-form-flag` bug fix was
+in flight — related to, but distinct from, the tile-rendering duplication
+entry above ("Unify Dex-grid and form-tile rendering into a shared
+component").*
+
+Idea: instead of two separate pages/routes for browsing (Dex grid) and
+editing (Bulk Edit), collapse them into a single page with a toggle to swap
+between "browse" and "edit" modes over the same underlying data/filter
+state. Not designed — no toggle UX, no decision on what search/filter state
+should or shouldn't carry across the toggle, no confirmation that the two
+pages' data-fetching actually share enough to make this cheap rather than
+just visually tidier.
+
+This is a bigger, riskier change than a logic-level unification (merging two
+pages' UI/routing, not just deduplicating a shared helper), so it stays
+deferred past V1 regardless of what the in-flight bug investigation finds.
+If that investigation turns up a genuine shared root cause in the species-
+vs-form logic itself, that's independent evidence worth folding in here when
+this is eventually designed — but it doesn't change the V1 scope call.
+
 ## Open items carried forward
 
 - Whether `form_background_personal` assuming every background is possible
