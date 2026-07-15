@@ -9,6 +9,16 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.21.0] — 2026-07-15
+
+- Fixed Bulk Edit's Caught/Uncaught filter matching at species level instead
+  of form level — "Caught" showed every form of any registered species
+  (including forms not individually caught), and "Uncaught" hid a
+  genuinely-uncaught form whose species happened to be registered because a
+  different sibling form was caught. Added a per-tile check against each
+  form's own `caught` boolean, closing the last of three known instances of
+  this species-vs-form leakage pattern in Bulk Edit (see #26, #32).
+
 ## [0.20.0] — 2026-07-15
 
 - Fixed Bulk Edit's field filters (Lucky, Shiny, 4★, etc.) matching at
