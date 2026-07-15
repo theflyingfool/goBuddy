@@ -9,6 +9,23 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.18.0] — 2026-07-14
+
+- Species-detail form-tile touch targets bumped from 1.4rem (22.4px, below
+  WCAG 2.2's 24px minimum) to 1.8rem (28.8px); sprites now scale to 90% of
+  the tile's inner width instead of a fixed 56px. The filter-chip Legend
+  (a real `<details>`/`<summary>`, already functionally tappable) now reads
+  as interactive — accent-colored instead of muted/uppercase, scoped so
+  real Settings-page accordions are unaffected.
+- Dex grid tiles: sprite now fills the tile edge-to-edge (was a fixed
+  64×64px); dex #/name moved into a separate box below the tile instead of
+  sharing it with the image; grid column width tuned so exactly 3 tiles
+  render per row on both a 400px phone width and a 730px desktop width,
+  measured against the real rendered layout (accounting for the persistent
+  sidebar at the 720px+ breakpoint) rather than assumed. Bulk Edit/
+  species-detail's form-tile grid column width synced to match, so both
+  pages' tiles read as the same size.
+
 ## [0.17.0] — 2026-07-14
 
 - Meltan/Melmetal now show a real "Unidentified" region instead of "Alola."
