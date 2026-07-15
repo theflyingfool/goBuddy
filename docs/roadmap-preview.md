@@ -1,46 +1,12 @@
-# Features Spec & Future Roadmap
+# Future Roadmap (PoGo Buddy)
 
-This document serves as the canonical home for all active and planned features of the GoBuddy Pokémon GO Companion.
-
----
-
-## Shipped Features (Current Version)
-
-### 1. Completion & Progress Stats
-A general-purpose stats engine (`src/data/completion-stats-sql.ts`) backing the in-app KPI charts and regions dashboards.
-* **Scope**: Evaluates progress at Regional level, Species drill-down, or global/all-dex scale.
-* **Lenses**:
-  * *Registered*: At least one form of the species is caught.
-  * *Form-complete*: Every non-costume form/gender caught.
-  * *Costume-complete*: Every released costume owned.
-  * *Achievement-complete*: Checks specialized personal criteria (Shiny, Lucky, Shadow, Purified, etc.).
-  * *Mega/G-Max*: Evolved all forms/variants for species matching those descriptors.
-
-### 2. Mega Evolution & Gigantamax
-* **Mega Evolution**: Modeled species-wide (`mega_personal`, keyed by `mega_variant.slug`). Supports X/Y/Primal variants. Checking Shiny Evolved cascades forward to auto-check Evolved.
-* **Gigantamax**: Modeled as ordinary form rows in the main database, carrying standard caught/shiny achievements.
-
-### 3. Data Entry & Search
-* **Checklist Grids**: Mobile-optimized bottom tab bar navigation and desktop persistent sidebar navigation. Includes species form search, caught filters, and a "Missing only" toggle.
-* **Write Cascades**: Checking a combined tier (e.g. Shundo) auto-checks logical pre-requisites (Shiny, 4★, Caught, Registered). Unchecking does not cascade.
-* **Search Engine**: Fuzzy matching (handles typos like "pikchu"), exact dex number matching, and special keywords (`costume`, `legendary`, `mythical`, `ultrabeast`, negated with `!`).
-
-### 4. Sprite Pipeline
-* **Matching**: Automated sprite matching script (`scripts/ingest/build-sprite-mapping.ts`) linking reference entries to extracted `PokeMiners/pogo_assets` icons.
-* **Manual Overrides**: Key-value lookup dictionary (`scripts/ingest/costume-lookup.json`) maps complex event filenames to human-readable names.
-* **Skins**: Shiny artwork view toggle on species-detail pages.
-
-### 5. Data Safety Net
-* **Boot Rescue**: Surfaces a safe raw-data export panel if the app crashes during boot or migration.
-* **Orphan Quarantine**: Places orphaned personal rows into `personal_data_quarantine` if a reference sync deletes their corresponding reference slugs.
-* **Write Failure Surfacing**: Swallowed database write errors trigger a persistent UI banner with retry options.
-* **Downgrade Guard**: Boot fails gracefully with a downgrade blocker warning if the database version is newer than the app version.
+This document is a preview of the standalone future roadmap guide, mapping planned features, enhancement checklists, and target versions.
 
 ---
 
-## Future Roadmap Checklist
+## 1. Master Roadmap Checklist
 
-The master checklist for planned features, organized by functional area.
+A high-density list of planned features grouped by functional area.
 
 ### Progression & Stat Trackers
 - [ ] **Multi-Account & Sharing**: Allow importing databases from friends to show completion comparisons and trade gap analysis.
@@ -52,8 +18,8 @@ The master checklist for planned features, organized by functional area.
 - [ ] **Gym Badge Tracker**: Track personal Gym badges (Bronze, Silver, Gold) with custom name and location markers.
 
 ### Battle & PvP Reference Tools
-- [ ] **PVP/PVE Team Builder**: Simulator for building optimized PVP/PVE team compositions based on movesets, type matchups, and IV stats.
-- [ ] **PVP Stat Product / Rank Calculator**: Offline rank calculator taking a species and IV spread to calculate exact stat product and PvP rank (1–4096) for Great and Ultra Leagues.
+- [ ] **PVP/PVE Team Builder**: Simulator for building optimized team compositions based on movesets, type matchups, and IV stats.
+- [ ] **PVP Stat Product / Rank Calculator**: Offline rank calculator taking a species and IV spread to calculate exact stat product and PvP rank (1–4096) for Great/Ultra Leagues.
 - [ ] **Type Effectiveness Matrix**: Offline quick-reference battle helper for checking weaknesses, resistances, and immunities.
 - [ ] **Raid Counter Simulator**: Select a raid boss and show the top offline-recommended counter species and optimal movesets.
 
@@ -67,6 +33,7 @@ The master checklist for planned features, organized by functional area.
 
 ### Collection & Data Helpers
 - [ ] **Caught Notes**: Ability to attach custom notes/stamps to individual caught forms (e.g., date caught, trade origin, location).
+- [ ] **Trade Board Registry (LF/FT)**: Local trade board logging duplicate shinies/costumes "For Trade" (FT) and missing dex requirements "Looking For" (LF).
 - [ ] **Evolution Candy Calculator**: Local resource planner estimating total candies, candy XLs, and special items required to complete living-dex evolutions.
 - [ ] **Egg Hatch Checklist**: Track current egg pool reference lists (2km, 5km, 7km, 10km, 12km) and tick off hatch-only achievements.
 - [ ] **Manual Search Builder**: Tri-state toggle UI (off → include → exclude) generating valid GO search strings with `&`/`,`/`!` operators.
@@ -76,3 +43,27 @@ The master checklist for planned features, organized by functional area.
 - [ ] **Bulk Edit Pagination**: Introduce pagination controls or an adjustable display cap setting to optimize rendering speed.
 - [ ] **Page-Mode Consolidation**: Collapse Dex Grid and Bulk Edit into a single route, using a toggled "Browse vs Edit" layout mode.
 - [ ] **UI Tile Unification**: Refactor Dex `.species-tile` and Bulk Edit/Detail `.form-tile` into a shared component.
+
+---
+
+## 2. Detailed Roadmap Table
+
+Use this table during development to track progress status, notes, and target version releases.
+
+| Feature Name | Target Version | Status | Development & Versioning Notes |
+| :--- | :---: | :---: | :--- |
+| **Multi-Account & Sharing** | `v1.1.0` | Planned | Compare local database vs imported JSON dump from a friend to highlight trade gaps. |
+| **Caught Notes** | `v1.1.0` | Planned | Store notes inside a new `personal_notes` table keyed by form slug. |
+| **Raid Boss 4★ CPs** | `v1.1.0` | Planned | Reference dataset mapping raid boss species to their perfect CP encounters at level 20 (and level 25 weather boosted). |
+| **Showcase Score Calculator** | `v1.1.0` | Planned | Local math helper taking species, height, weight, and IV stats to compute local showcase score. |
+| **Shadow Purification** | `v1.1.0` | Planned | Quick UI lookup to see if shadow IV stats are >= 13/13/13 (resulting in 15/15/15 when purified). |
+| **Evolution Resource Calc** | `v1.2.0` | Planned | Candy/Item calculator to estimate the resources needed to finish regional dex evolutions. |
+| **Type Matchup Matrix** | `v1.2.0` | Planned | Simple grid interface mapping offense/defense multipliers on species view pages. |
+| **Best Buddy Tracker** | `v1.2.0` | Planned | Checkboxes tracking best buddy ribbons and daily buddy activity logs. |
+| **PVP/PVE Team Builder** | `v2.0.0` | Planned | Simulation engine calculating type matchup coverages and ideal movesets. |
+| **PVP Rank Calculator** | `v2.0.0` | Planned | Offline stat-product calculator matching custom IVs against the optimal PvP level stats. |
+| **Wild 100% IV Lookup** | `v2.0.0` | Planned | Wild encounter CP guide for perfect stats at levels 1 to 35. |
+| **Wild CP OCR Assistant** | `v2.0.0` | Planned | OCR tool scanning overlay captures to parse CP values offline. |
+| **Trade Board LF/FT** | `TBD` | Planned | Interface to export a small "trade checklist" text sheet to share with local communities. |
+| **Zygarde / Routes Tracker** | `TBD` | Planned | Progress checklist showing route completions and Zygarde Cell counts. |
+| **Gym Badge Tracker** | `TBD` | Planned | Basic local list of visited gyms and badge tiers. |
