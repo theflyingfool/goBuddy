@@ -1,43 +1,44 @@
 # Features Spec & Future Roadmap
 
-This document serves as the canonical map for all current product capabilities and the master development roadmap for the GoBuddy companion.
+This document serves as the canonical home for all active and planned features of the GoBuddy Pokémon GO Companion.
 
 ---
 
-# Product Features (Current Release)
+## Shipped Features (Current Version)
 
-A concise guide to the active capabilities built into the PoGo Buddy client.
-
-### 1. Checklist Grids & Search
-* **Checklist Grids**: Mobile-optimized bottom tab navigation and a persistent desktop sidebar. Toggles catch and achievement states per species/form.
-* **Fuzzy & Keyword Search**: Supports fuzzy matching (e.g., "pikchu"), exact dex numbers, and special categories (`costume`, `legendary`, `mythical`, `ultrabeast`, negated with `!`).
-* **Achievement Cascades**: Checking a combined tier (e.g. Shundo) automatically checks logical prerequisites (Shiny, 4★, Caught, Registered). Unchecking does not cascade.
-
-### 2. Mega Evolution & Gigantamax
-* **Mega Variants**: Tracks Mega Evolutions species-wide (`mega_personal`, keyed by `mega_variant.slug`), supporting X, Y, and Primal states.
-* **Gigantamax**: Integrated directly as form rows in the main database carrying standard catch achievements.
-
-### 3. Completion Stats Engine
-* **Regional & Species KPIs**: Displays progress stats filtered by Region, Species, or global scale.
-* **KPI Lenses**:
-  * *Registered*: At least one form caught.
+### 1. Completion & Progress Stats
+A general-purpose stats engine (`src/data/completion-stats-sql.ts`) backing the in-app KPI charts and regions dashboards.
+* **Scope**: Evaluates progress at Regional level, Species drill-down, or global/all-dex scale.
+* **Lenses**:
+  * *Registered*: At least one form of the species is caught.
   * *Form-complete*: Every non-costume form/gender caught.
   * *Costume-complete*: Every released costume owned.
-  * *Achievement-complete*: Specialized checks (Shiny, Lucky, Shadow, Purified, etc.).
+  * *Achievement-complete*: Checks specialized personal criteria (Shiny, Lucky, Shadow, Purified, etc.).
+  * *Mega/G-Max*: Evolved all forms/variants for species matching those descriptors.
 
-### 4. Sprite Asset Pipeline
-* **Matching**: Automated sprite matching script (`scripts/ingest/build-sprite-mapping.ts`) mapping reference entries to extracted `PokeMiners/pogo_assets` icons.
-* **Lookup Overrides**: Key-value lookup dictionary (`scripts/ingest/costume-lookup.json`) mapping complex event filenames to human-readable names.
-* **Shiny Art Toggle**: Switch artwork views on detail pages.
+### 2. Mega Evolution & Gigantamax
+* **Mega Evolution**: Modeled species-wide (`mega_personal`, keyed by `mega_variant.slug`). Supports X/Y/Primal variants. Checking Shiny Evolved cascades forward to auto-check Evolved.
+* **Gigantamax**: Modeled as ordinary form rows in the main database, carrying standard caught/shiny achievements.
 
-### 5. Safety Nets & Recovery
+### 3. Data Entry & Search
+* **Checklist Grids**: Mobile-optimized bottom tab bar navigation and desktop persistent sidebar navigation. Includes species form search, caught filters, and a "Missing only" toggle.
+* **Write Cascades**: Checking a combined tier (e.g. Shundo) auto-checks logical pre-requisites (Shiny, 4★, Caught, Registered). Unchecking does not cascade.
+* **Search Engine**: Fuzzy matching (handles typos like "pikchu"), exact dex number matching, and special keywords (`costume`, `legendary`, `mythical`, `ultrabeast`, negated with `!`).
+
+### 4. Sprite Pipeline
+* **Matching**: Automated sprite matching script (`scripts/ingest/build-sprite-mapping.ts`) linking reference entries to extracted `PokeMiners/pogo_assets` icons.
+* **Manual Overrides**: Key-value lookup dictionary (`scripts/ingest/costume-lookup.json`) maps complex event filenames to human-readable names.
+* **Skins**: Shiny artwork view toggle on species-detail pages.
+
+### 5. Data Safety Net
 * **Boot Rescue**: Surfaces a safe raw-data export panel if the app crashes during boot or migration.
-* **Orphan Quarantine**: Places orphaned personal rows into quarantine if a reference sync deletes their corresponding reference slugs.
+* **Orphan Quarantine**: Places orphaned personal rows into `personal_data_quarantine` if a reference sync deletes their corresponding reference slugs.
 * **Write Failure Surfacing**: Swallowed database write errors trigger a persistent UI banner with retry options.
+* **Downgrade Guard**: Boot fails gracefully with a downgrade blocker warning if the database version is newer than the app version.
 
 ---
 
-# Future Roadmap Checklist
+## Future Roadmap Checklist
 
 The master checklist for planned features, organized by functional area.
 
@@ -49,8 +50,8 @@ The master checklist for planned features, organized by functional area.
 - [ ] **Buddy Heart Daily Tracker**: Log daily buddy points (play, feed, snapshot, battle, walk) with calculators estimating days remaining to Best Buddy.
 
 ### Battle & PvP Reference Tools
-- [ ] **PVP/PVE Team Builder**: Simulator for building optimized team compositions based on movesets, type matchups, and IV stats.
-- [ ] **PVP Stat Product / Rank Calculator**: Offline rank calculator taking a species and IV spread to calculate exact stat product and PvP rank (1–4096) for Great/Ultra Leagues.
+- [ ] **PVP/PVE Team Builder**: Simulator for building optimized PVP/PVE team compositions based on movesets, type matchups, and IV stats.
+- [ ] **PVP Stat Product / Rank Calculator**: Offline rank calculator taking a species and IV spread to calculate exact stat product and PvP rank (1–4096) for Great and Ultra Leagues.
 - [ ] **Type Effectiveness Matrix**: Offline quick-reference battle helper for checking weaknesses, resistances, and immunities.
 - [ ] **Raid Counter Simulator**: Select a raid boss and show the top offline-recommended counter species and optimal movesets.
 
