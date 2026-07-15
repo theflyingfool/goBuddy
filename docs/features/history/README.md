@@ -6,6 +6,7 @@ feature specs stay readable after `current.md` moves on. Convention: at each
 `docs/features/history/vX.Y.Z.md` *before* updating `current.md` for the new
 release.
 
+- [v0.18.0](v0.18.0.md)
 - [v0.17.0](v0.17.0.md)
 - [v0.16.1](v0.16.1.md)
 - [v0.16.0](v0.16.0.md)

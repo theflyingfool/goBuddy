@@ -9,6 +9,24 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see CLAUDE.md's "App-release version bump on merge"), and
 covers the commits between that bump and the previous one.
 
+## [0.19.0] — 2026-07-15
+
+- Fixed a root-cause bug in the achievement cascade logic
+  (`src/db/cascades.ts`): the case-sensitive suffix matching used to find
+  each section's shiny/floor/4-star/shundo fields never matched Standard's
+  own bare field names (`"shiny"`, not `"standardShiny"`) — only the other
+  four sections' compound names (`luckyShiny`, `shadowShundo`, etc.)
+  matched. This meant Standard's entire within-section cascade never
+  worked: checking Shiny, Floor, 4-Star, or Shundo on a Standard catch
+  never actually checked Caught, for any user, ever. Fixed by matching
+  case-insensitively.
+- Added cross-section cascade rules: any achievement in any section now
+  implies Standard/Caught (previously only worked within one section at a
+  time); Lucky Shiny/Shundo additionally promote Standard's own Shiny/
+  Shundo, since Lucky is a trait added to an existing catch rather than a
+  separate individual (unlike Shadow/Dynamax, which deliberately don't get
+  the same promotion).
+
 ## [0.18.0] — 2026-07-14
 
 - Species-detail form-tile touch targets bumped from 1.4rem (22.4px, below
