@@ -2,12 +2,12 @@
 
 All notable shipped-version changes to this project. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/). This is the canonical home
-for shipped-version history going forward — see `docs/v1-tasks/` for current
-in-progress status/known issues, not past releases.
+for all shipped-version and feature history — see [docs/release-checklist.md](docs/release-checklist.md)
+for how releases are cut.
 
 Each entry corresponds to a `package.json`/`android/app/build.gradle`
-version bump (see CLAUDE.md's "App-release version bump on merge"), and
-covers the commits between that bump and the previous one.
+version bump (see [docs/release-checklist.md](docs/release-checklist.md)'s release workflow), and
+covers the commits between that bump and the previous one. Full historical content states can be checked out directly from git history.
 
 ## [0.21.0] — 2026-07-15
 

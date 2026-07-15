@@ -7,23 +7,16 @@ Store); the same TypeScript/Vite web app also runs standalone in a desktop
 browser for editing on a computer (see "Cross-device data" below).
 
 See [docs/data-model.md](./docs/data-model.md) (schema/storage),
-[docs/features.md](./docs/features.md) (feature specs, by release status),
+[docs/features.md](./docs/features.md) (feature specs and roadmap),
 and [docs/architecture.md](./docs/architecture.md) (codebase map) for the
 full design; [CLAUDE.md](./CLAUDE.md) for the working invariants; and
-[CHANGELOG.md](./CHANGELOG.md) for shipped-version history (see
-[docs/v1-tasks/](./docs/v1-tasks/) for current in-progress status).
+[CHANGELOG.md](./CHANGELOG.md) for version history.
 
 ## Stack
 
-TypeScript + Vite, no frontend framework. SQLite is the storage model
-(schema in `src/db/schema.ts`), backed by `@capacitor-community/sqlite` —
-real on-device SQLite on Android, IndexedDB-backed `sql.js` (via
-`jeep-sqlite`) when running as a plain web app. Reference tables
-(species/forms/types/etc.) are wholesale-replaced from the bundled
-`src/data/reference.json` on every load if its content changed; personal
-tables (your catch/shiny/lucky/shadow data) are never touched by that sync
-and carry their own schema-version + migration runner
-(`src/db/migrations.ts`).
+- **Frontend**: TypeScript + Vite, vanilla JS (no framework).
+- **Database**: SQLite. On-device SQLite is backed by `@capacitor-community/sqlite` (Android) and IndexedDB-backed `sql.js` (web).
+- **Data Architecture**: The database split, schema design, and sync model are documented in the canonical [docs/data-model.md](docs/data-model.md).
 
 ## Prerequisites
 
@@ -69,26 +62,15 @@ the tri-state search-string builder and the auto-declutter engine.
 
 ## Building the Android app
 
-Requires the Android SDK/Gradle/JDK already installed locally. Gradle 8.x
-needs a JDK ≤ 21 — if your default `java` is newer, point `JAVA_HOME` at a
-JDK 21 (e.g. Android Studio's bundled JBR).
-
+Build steps, requirements, and signing parameters are part of the [docs/release-checklist.md](docs/release-checklist.md).
+For a quick build:
 ```sh
 export JAVA_HOME=/opt/android-studio/jbr   # or wherever your JDK 21 lives
 export ANDROID_HOME=$HOME/Android/Sdk
-npm run android:sync     # vite build + capacitor sync into android/
-npm run android:build    # android:sync + gradlew assembleDebug
-npm run android:release  # android:sync + gradlew assembleRelease (signed)
+npm run android:build    # Build debug APK
+npm run android:release  # Build signed release APK (requires keystore setup)
 ```
-
-The debug APK lands under `android/app/build/outputs/apk/debug/`; the release
-APK under `android/app/build/outputs/apk/release/`.
-
-`android:release` needs `~/.android-keystores/keystore.properties` (outside
-the repo, on your machine — never checked in, and not read from anywhere
-inside the checkout) pointing at the release signing key. Without it, the
-release build falls back to unsigned and Gradle prints a warning. See
-`docs/install-guide.md` for what the release key is and why it exists.
+Refer to [docs/install-guide.md](docs/install-guide.md) for sideloading instructions.
 
 ## Cross-device data (phone ↔ desktop)
 
@@ -110,13 +92,8 @@ phone, edit on desktop (`npm run dev`), and import back.
 
 ## Reference data ingestion
 
-The species/form/type reference data (`src/data/reference.json`) is built
-from a combination of a Pokémon GO tracking spreadsheet (checked into the
-repo root as CSVs), [PokeAPI](https://pokeapi.co), and Bulbapedia (for
-costume data), via scripts under `scripts/ingest/`. For the correct order to
-run them in and known pitfalls, see
-[docs/ingestion-runbook.md](docs/ingestion-runbook.md); for what each script
-does, see [docs/architecture.md](docs/architecture.md).
+Reference data (`src/data/reference.json`) is built from pre-build CSV spreadsheet files and API sources.
+For instructions on running the ingestion scripts and the required sequence, see the canonical [docs/ingestion-runbook.md](docs/ingestion-runbook.md).
 
 ## Inspecting the schema directly
 

@@ -30,7 +30,7 @@ Every release is signed with the same dedicated release key, so installing a
 new APK over an old one should preserve your data going forward — a
 signing-key mismatch is the one thing that would silently block an in-place
 update, and this key isn't changing again (it's backed up outside the
-project; see `docs/v1-tasks/02-data-safety-net.md`, item D4).
+project; see [features.md#5-data-safety-net](features.md#5-data-safety-net)).
 
 **Export before every update anyway.** A stable signing key rules out one
 failure mode, not all of them — a botched migration or a corrupted database

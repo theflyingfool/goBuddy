@@ -1,13 +1,12 @@
 # Costume-lookup.json verification log
 
-Tracks every `scripts/ingest/costume-lookup.json` entry filled in by an
+Tracks every [`costume-lookup.json`](../scripts/ingest/costume-lookup.json) entry filled in by an
 automated first pass (image inspection + cross-referencing `reference.json`'s
 existing `costumeName` strings), split by confidence — so a human check only
 has to look at what's actually uncertain instead of re-deriving all of it.
 Update this file as entries get confirmed, corrected, or resolved.
 
-Companion to [`docs/v1-tasks/05-image-pipeline.md`](v1-tasks/05-image-pipeline.md)
-§7.
+Companion to [features.md#4-sprite-asset-pipeline](features.md#4-sprite-asset-pipeline) §4.
 
 ## How to read this
 

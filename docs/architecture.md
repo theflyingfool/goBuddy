@@ -1,10 +1,8 @@
 # Codebase map
 
-*Purpose: answer "what is this file for" without re-exploring the codebase.
 This is a map, not a rationale doc — for **why** things are shaped this way,
 see [data-model.md](data-model.md) (storage/schema design),
-[features.md](features.md) (feature intent), and `docs/v1-roadmap/` /
-`docs/v1-tasks/` (what's being built and why). Keep entries to one line;
+[features.md](features.md) (feature spec and roadmap), and [release-checklist.md](release-checklist.md) (release operations). Keep entries to one line;
 if an entry needs a paragraph, that content belongs in one of those docs
 instead, linked from here.*
 
@@ -64,14 +62,14 @@ instead, linked from here.*
 | File | Purpose |
 |---|---|
 | `ui/dom.ts` | Minimal DOM-builder helpers (`el`, `clear`) — no framework, by project decision. |
-| `ui/sprites.ts` | Sprite path convention (`public/sprites/<dex-number>.png`); also `formSpritePath()`/`megaSpritePath()` for per-form/costume/Mega art, falling back to the species sprite — see `docs/v1-tasks/05-image-pipeline.md`. |
+| `ui/sprites.ts` | Sprite path convention (`public/sprites/<dex-number>.png`); also `formSpritePath()`/`megaSpritePath()` for per-form/costume/Mega art, falling back to the species sprite — see [features.md#4-sprite-asset-pipeline](features.md#4-sprite-asset-pipeline). |
 | `shared/file-download.ts` | Cross-platform "save this file for the user" helper (File System Access API → Blob fallback → Capacitor native share), used by Settings export and Coverage Report's CSV export. |
 
 ## Scripts (`scripts/`)
 
 | File | Purpose |
 |---|---|
-| `bump-version.ts` (`npm run version:bump`) | Bumps `package.json` semver + `android/app/build.gradle` `versionName`/`versionCode` together, per CLAUDE.md's release workflow. |
+| `bump-version.ts` (`npm run version:bump`) | Bumps `package.json` semver + `android/app/build.gradle` `versionName`/`versionCode` together, per docs/release-checklist.md's release workflow. |
 | `build-dummy-db.ts` (`npm run build:dummy-db`) | Generates a real `dummy.sqlite` file at the repo root for inspecting the schema with an external SQLite tool. |
 | `ingest/build-reference.ts` (`npm run ingest:build`) | Orchestrator: merges the Forms CSV skeleton + cached PokeAPI data + partial-list CSV fallback, emits `src/data/reference.json` and `reference-gaps.json`. |
 | `ingest/fetch-pokeapi-data.ts` (`npm run ingest:fetch`) | Walks the national dex, caches PokeAPI responses to disk (resumable, rate-limited). |
@@ -85,8 +83,16 @@ instead, linked from here.*
 | `ingest/pokemon-facts.ts` | Small hand-maintained constants PokeAPI doesn't expose (e.g. the Ultra Beast list, `NO_STANDARD_FORM_NAMES`). |
 | `ingest/slug.ts` | Shared slug generator (`slugify(name/form/costume/gender)`) — see data-model.md's "Identity/slug rework" note for why this is a known fragility. |
 
-For the order these run in during a real data update, see
-[docs/ingestion-runbook.md](ingestion-runbook.md).
+For details on scripts and command execution, see
+- **[docs/commands.md](docs/commands.md)** — developer command reference for dev/build/test.
+- **[docs/ingestion-runbook.md](docs/ingestion-runbook.md)** — the correct
+  order to run the reference-data ingestion scripts in, and known pitfalls.
+- **[docs/install-guide.md](docs/install-guide.md)** — sideload/update
+  instructions for friends running the app.
+- **[docs/release-checklist.md](docs/release-checklist.md)** — step-by-step checklist
+  for releasing a new version of the app.
+- **[README.md](../README.md)** — running/building the app, ingestion commands.
+- **[CHANGELOG.md](../CHANGELOG.md)** — shipped-version history.
 
 ## Tests (`test/`)
 
@@ -117,7 +123,7 @@ re-deriving them per file.
   writes to the real on-device SQLite database asynchronously through a
   queue. The UI never waits on a disk write; a failed write surfaces as a
   persistent in-app banner with retry (`src/app-shell/write-failure-banner.ts`),
-  not just `console.error` — see `docs/v1-tasks/02-data-safety-net.md`.
+  not just `console.error` — see [features.md#5-data-safety-net](features.md#5-data-safety-net).
 - **Cascade (`db/cascades.ts`)**: checking a combined achievement
   (e.g. Shundo) auto-checks its logical prerequisites (Shiny, 4★, Caught)
   forward-only — un-checking never cascades, since that would silently erase
@@ -127,9 +133,7 @@ re-deriving them per file.
   `Repository`, backed by the shared query/filter engine in
   `in-memory-store.ts` (reads/mutations) plus real parameterized SQL in
   `completion-stats-sql.ts` (completion stats). A second, pure-browser
-  fallback backend (`dummy-repository.ts`) existed early on; it was never
-  wired into `main.ts` and was deleted once confirmed dead — see
-  `docs/v1-tasks/06-performance-and-quality-infra.md`.
+  fallback backend (`dummy-repository.ts`) was deleted once confirmed dead.
 - **Single-source-of-truth field lists (`db/types.ts` +
   `features/data-entry/field-groups.ts`)**: the ~25 personal achievement
   fields are enumerated once and drive the SQL schema, the detail-page UI

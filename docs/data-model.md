@@ -85,12 +85,8 @@ species
   gen, rarity (standard | legendary | mythical | ultra_beast),
   region_slug FK -> regions,
   has_male bool, has_female bool,   -- both false = genderless/unknown (e.g. Ditto)
-  can_mega_evolve bool              -- mega is species-wide, never form-specific
-                                     -- (confirmed: shadow Pokémon can never
-                                     -- mega regardless of species — this is
-                                     -- a universal game rule, not per-species
-                                     -- data, so it's enforced in app logic
-                                     -- rather than needing its own flag)
+  can_mega_evolve bool,             -- mega is species-wide, never form-specific
+  can_gigantamax bool
 
 regions
   slug PK, name
@@ -104,10 +100,7 @@ backgrounds
 form                     -- one row per catchable form/costume/gigantamax,
                           -- SPLIT BY GENDER: every species with has_male
                           -- and/or has_female true gets separate form rows
-                          -- per gender per form/costume (not just visually
-                          -- distinct species — split everything, per
-                          -- decision to prioritize DB-cheap completeness
-                          -- over Obsidian-era tedium)
+                          -- per gender per form/costume
   slug PK, species_slug FK,
   form_name, costume_name (nullable),
   gender (male | female | unknown),
@@ -117,7 +110,7 @@ form                     -- one row per catchable form/costume/gigantamax,
   shadow_available bool,
   dynamax_available bool,
   regional_exclusive bool,
-  image_ref
+  image_ref TEXT
 
 form_types                -- many-to-many (dual typing)
   form_slug FK, type_slug FK
@@ -128,6 +121,12 @@ mega_variant               -- one row per (species, X/Y/Primal) that's real
 
 PERSONAL (never touched by reference updates)
 
+schema_version
+  version INTEGER         -- structural schema version (currently 2)
+
+app_settings
+  key TEXT PK, value TEXT -- key-value store for app-wide settings and sync states
+
 species_personal
   species_slug FK/PK,
   registered, xxl, xxs, purified              -- bool
@@ -136,23 +135,20 @@ form_personal
   form_slug FK/PK,
 
   caught bool,
-  floor bool,                    -- lowest possible IV for a NORMAL catch —
-                                  -- usually 0/0/0, occasionally raised on
-                                  -- some legendaries. NOT assumed to mean
-                                  -- literal 0/0/0.
+  shiny bool,
+  floor bool,                    -- lowest possible IV for a NORMAL catch
   four_star bool,
-  shundo bool,                   -- independently stored, see note above
+  shundo bool,                   -- independently stored shiny+hundo
 
   lucky bool,
-  lucky_floor bool,               -- lowest possible for lucky (12/12/12,
-                                   -- confirmed, not load-bearing)
+  lucky_shiny bool,
+  lucky_floor bool,               -- lowest possible for lucky (12/12/12)
   lucky_four_star bool,
   lucky_shundo bool,
 
   shadow bool,
-  shadow_floor bool,              -- lowest possible for shadow — 0/0/0
-                                   -- typically, raised floor on some
-                                   -- raid-sourced shadows
+  shadow_shiny bool,
+  shadow_floor bool,              -- lowest possible for shadow
   shadow_four_star bool,
   shadow_shundo bool,
 
@@ -167,57 +163,44 @@ form_personal
   lucky_dynamax_shiny bool,
   lucky_dynamax_four_star bool,
   lucky_dynamax_shundo bool,
-  -- No shadow_dynamax combos anywhere — mutually exclusive in-game
-  -- (confirmed). No shadow-mega either (confirmed) — shadow rows never
-  -- get paired with mega_personal at all.
 
   best_shiny TEXT,               -- freeform user-entered value, e.g. "98%".
-  best_non_shiny TEXT,           -- NOT derived from the booleans above —
-  best_lucky TEXT                -- lets the user log "already have a 98%,
-                                  -- not worth re-hunting" without that being
-                                  -- a formal achievement tier of its own.
+  best_non_shiny TEXT,           -- NOT derived from the booleans above
+  best_lucky TEXT
 
-form_background_personal      -- junction: which backgrounds you own on
-  form_slug FK,                -- which forms. Row existing = you own that
-  background_slug FK,          -- form with that background. No legality
-  PK (form_slug, background_slug)  -- table — every background is assumed
-                                     -- possible on every form for now,
-                                     -- known to be inaccurate but treated
-                                     -- as acceptable simplification.
+form_background_personal      -- junction: which backgrounds you own on which forms
+  form_slug FK,
+  achievement_field TEXT,      -- e.g. 'caught', 'lucky', 'shadow_shundo', etc.
+  background_slug FK,
+  PK (form_slug, achievement_field, background_slug)
 
 mega_personal
   mega_variant_slug FK/PK,
   evolved bool, shiny_evolved bool
+
+personal_data_quarantine      -- stores personal rows that sync finds orphaned
+  id PK AUTOINCREMENT,
+  source_table TEXT,
+  slug TEXT,
+  payload_json TEXT,
+  quarantined_at TEXT
 ```
 
 ## Reference data ingestion
 
-- Ship a `reference.json` file as a bundled app asset (lives in this
-  project's own git repo, versioned normally — no external host).
-- I (the user) have a partial dataset already — likely a good chunk of
-  species/forms but not guaranteed complete or fully detailed. Build the
-  ingestion path to be tolerant of missing optional fields rather than
-  assuming a complete dataset.
-- On app start, if the bundled reference data's version is newer than what's
-  stored, wipe and reload only the reference tables (upsert by slug),
-  leaving personal tables untouched.
-- Include a small "coverage report" dev tool/view — a way to see which
-  species are missing key fields (types, region, availability flags) — since
-  the dataset's completeness isn't fully known yet and will be filled in
-  incrementally.
+- **Asset bundling**: The reference data (`reference.json`) is packaged directly within the application binary.
+- **Null safety**: Ingestion scripts and tables are tolerant of missing optional fields, allowing incremental completion.
+- **Sync mechanism**: Upon startup, if the bundled content hash doesn't match `reference_data_version`, reference tables are reloaded inside a transaction.
+- **Gaps visualization**: An in-app "coverage report" allows tracking missing fields, driving the CSV corrections loop.
 
-See `README.md` for the operational ingestion commands (`npm run ingest:*`)
-and `INGESTION_PROGRESS.md` for pipeline status. For what each ingest script
-actually does, see [docs/architecture.md](architecture.md); for the correct
-order to run them in, see [docs/ingestion-runbook.md](ingestion-runbook.md).
+For details on running the ingestion scripts, the required sequence, and known pitfalls, see the canonical [docs/ingestion-runbook.md](docs/ingestion-runbook.md).
 
 ## Future direction (deferred, not yet built)
 
 These are decisions that have already been made — reasoned through and
 deliberately deferred, not open questions. They live here because this is
-the architecture doc; `docs/v1-roadmap/` and `docs/v1-tasks/` are dated
-reports and task trackers that should link back to this section rather than
-re-explain it.
+the database design documentation; refer to [features.md](features.md)
+for the active specs and the future roadmap trackers.
 
 ### Build-time SQLite generation
 
@@ -230,10 +213,7 @@ update — is a separate, deferred optimization.
 `copyFromAssets`, and `scripts/build-dummy-db.ts` already proves the
 prepared-statement bulk-insert pattern works in this codebase; it's just not
 wired into the app's boot path yet. **Deferred**, pending real-device timing
-data — see `docs/v1-tasks/09-v2-watchlist.md` for status, and
-`docs/v1-tasks/06-performance-and-quality-infra.md` for the V1 contingency
-that would pull the batching fix forward if real-hardware testing shows the
-current insert loop is actually slow enough to hurt first boot.
+data — see [features.md](features.md#planned-deferred-features) for the bulk edit pagination and optimization details.
 
 ### Personal/reference database file split
 
@@ -246,8 +226,8 @@ with the identity/slug rework below. Splitting the files would remove
 cross-file FK coupling as a *concern* entirely (a personal row in one file
 can't be foreign-keyed to a reference row in another the way SQLite enforces
 it today), but that benefit is clearest once identity isn't a slug-derived
-string — hence bundling the two. See `docs/v1-roadmap/addendum.md` for the
-decision record and `docs/v1-tasks/09-v2-watchlist.md` for status.
+string — hence bundling the two. See [features.md](features.md#planned-deferred-features) for the
+future roadmap.
 
 ### Identity/slug rework
 
@@ -258,7 +238,6 @@ fix becomes a slug change, which is exactly what the slug-rename registry in
 `src/db/slug-renames.ts` exists to patch over) but fixing it is bigger than a
 single-version pass, so it's **deferred to V2**. The insight worth preserving:
 identity should likely be unified with the image-pipeline's numeric IDs (see
-`docs/v1-tasks/05-image-pipeline.md`) — Niantic's own game-master
+[features.md#4-sprite-asset-pipeline](features.md#4-sprite-asset-pipeline)) — Niantic's own game-master
 form/costume ID enum — rather than solving slug-stability and image-matching
-as two separate problems. See `docs/v1-roadmap/addendum.md` for the full
-decision record.
+as two separate problems. See [features.md](features.md#planned-deferred-features) for the future roadmap.

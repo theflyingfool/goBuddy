@@ -6,13 +6,12 @@ Record of issues found during V1.0.0 push
 
 ### Phone
 
-- [ ] While using bulk edit, Noticed that Standard Caught wasn't getting checked with the things above it
-  - [ ] Anything (examples; shiny, lucky, 4\*) should auto fill Standard/Caught
-  - [ ] Shundo should fill 4\* & shiny
-  - [ ] Lucky Shiny should fill Standard Shiny
-  - [ ] Floor IV and other floor IV's should only make sure caught is filled
-  - [ ] Lucky Shundo should fill Standard Shundo 4-Star / Shiny / Caught / lucky 4-Star / lucky Shiny
-  - [ ] Very good chance I'm missing some of the inferred states
+- [x] Fixed in v0.19.0: While using bulk edit, Noticed that Standard Caught wasn't getting checked with the things above it
+  - [x] Anything (examples; shiny, lucky, 4*) should auto fill Standard/Caught
+  - [x] Shundo should fill 4* & shiny
+  - [x] Lucky Shiny should fill Standard Shiny
+  - [x] Floor IV and other floor IV's should only make sure caught is filled
+  - [x] Lucky Shundo should fill Standard Shundo 4-Star / Shiny / Caught / lucky 4-Star / lucky Shiny
 - [ ] for things like Unown that don't have a "normal/base/standard/whatever word you want", for image the "first one" is fine for unown A
   - [ ] I don't think Spinda has a standard I think they are just numbered?
   - [ ] Some things I really just don't have images for that's fine for now.

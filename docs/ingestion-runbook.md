@@ -64,9 +64,7 @@ npm run ingest:csv:import     # merge a filled-in CSV back into reference.json
   class of mistake — trusting a stale cached/intermediate file instead of
   re-running its generator — has already caused a stale-data incident once
   (six real GO megas — Pidgeot, Kangaskhan, Mewtwo X/Y, Kyogre, Groudon —
-  missing from the tracker; see
-  [`docs/v1-roadmap/02-reference-data-corrections.md`](v1-roadmap/02-reference-data-corrections.md)
-  item 5).
+  missing from the tracker; resolved in version 0.12.0).
 - **Slug stability**: `npm run ingest:check-slugs`
   (`scripts/ingest/check-slug-stability.ts`) diffs the working tree's
   `reference.json` slugs against the last committed version and fails if a
@@ -92,3 +90,5 @@ Open the in-app **Coverage Report** (or re-run `ingest:build` and check
 `src/data/reference-gaps.json`) and confirm the gap count moved the
 direction you expect — a correction pass that *increases* gaps somewhere you
 didn't touch usually means an ordering mistake above, not new missing data.
+
+For release publishing steps and app deployment workflows, refer to the canonical [docs/release-checklist.md](release-checklist.md).
