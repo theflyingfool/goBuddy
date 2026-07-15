@@ -23,12 +23,17 @@ function buildFormFieldCascades(): Partial<Record<FormPersonalBooleanField, Form
     // dynamax/luckyDynamax); the other four vary in listed order between
     // sections (e.g. Dynamax lists floor before shiny, unlike Standard/Lucky/
     // Shadow), so match the shiny/floor/fourStar/shundo-equivalents by name
-    // suffix rather than assuming a fixed position.
+    // suffix rather than assuming a fixed position. Case-insensitive because
+    // Standard's own fields are the bare, unprefixed names ("shiny", not
+    // "standardShiny") — a case-sensitive endsWith("Shiny") silently matched
+    // nothing for the entire Standard section (found via a failing unit
+    // test, 2026-07-14): checking Shiny/Floor/FourStar/Shundo there never
+    // actually cascaded to Caught in production, for any user, ever.
     const base = fields[0];
-    const shiny = fields.find((f) => f.endsWith("Shiny"))!;
-    const floor = fields.find((f) => f.endsWith("Floor"))!;
-    const fourStar = fields.find((f) => f.endsWith("FourStar"))!;
-    const shundo = fields.find((f) => f.endsWith("Shundo"))!;
+    const shiny = fields.find((f) => f.toLowerCase().endsWith("shiny"))!;
+    const floor = fields.find((f) => f.toLowerCase().endsWith("floor"))!;
+    const fourStar = fields.find((f) => f.toLowerCase().endsWith("fourstar"))!;
+    const shundo = fields.find((f) => f.toLowerCase().endsWith("shundo"))!;
 
     for (const field of [shiny, floor, fourStar, shundo]) {
       cascades[field] = [...(cascades[field] ?? []), base];
@@ -38,6 +43,38 @@ function buildFormFieldCascades(): Partial<Record<FormPersonalBooleanField, Form
     // is definitionally also a shiny and a 4-star, so both get set alongside it.
     cascades[shundo] = [...(cascades[shundo] ?? []), shiny, fourStar];
   }
+
+  // Cross-section cascades (owner-specced, docs/issues.md, 2026-07-14). The
+  // loop above only ever cascades a section up to *its own* base — these
+  // bridge across sections, which the loop structurally can't do since it
+  // only ever sees one group at a time.
+  const byTitle = new Map(FORM_FIELD_GROUPS.map((g) => [g.title, g.fields.map((f) => f.field)]));
+  const standardFields = byTitle.get("Standard")!;
+  const standardBase = standardFields[0];
+  const standardShiny = standardFields.find((f) => f.toLowerCase().endsWith("shiny"))!;
+  const standardShundo = standardFields.find((f) => f.toLowerCase().endsWith("shundo"))!;
+
+  // Any achievement anywhere means you caught the thing at all — every
+  // other section's base field cascades up to Standard/Caught too, not just
+  // the fields within that section.
+  for (const [title, fields] of byTitle) {
+    if (title === "Standard") continue;
+    const base = fields[0];
+    cascades[base] = [...(cascades[base] ?? []), standardBase];
+  }
+
+  // Lucky is the one section that isn't a separate encounter/individual —
+  // it's a trait trading adds onto a Pokémon you already have, unlike
+  // Shadow/Dynamax, which represent genuinely different acquisition paths
+  // (and per CLAUDE.md, two independently-true flags never imply the same
+  // individual was both — that's why Shadow/Dynamax don't get this same
+  // promotion). Lucky Shiny/Shundo also promote Standard's own Shiny/
+  // Shundo, since you unambiguously have a shiny of this form, Lucky or not.
+  const luckyFields = byTitle.get("Lucky")!;
+  const luckyShiny = luckyFields.find((f) => f.toLowerCase().endsWith("shiny"))!;
+  const luckyShundo = luckyFields.find((f) => f.toLowerCase().endsWith("shundo"))!;
+  cascades[luckyShiny] = [...(cascades[luckyShiny] ?? []), standardShiny];
+  cascades[luckyShundo] = [...(cascades[luckyShundo] ?? []), standardShundo];
 
   return cascades;
 }
