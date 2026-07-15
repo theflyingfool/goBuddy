@@ -35,3 +35,6 @@ Refs from Obsidian/
 
 # Obsidian vault config — machine-local, not shared config.
 .obsidian/
+
+# VS Code local settings
+.vscode

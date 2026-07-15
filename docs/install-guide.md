@@ -1,7 +1,6 @@
-# Installing PoGo Buddy (for friends)
+# Installing PoGo Buddy .APK
 
-This app is sideloaded, not installed from the Play Store — that's normal
-for a small local-only tracker like this, not a sign anything's wrong.
+This app is sideloaded, not installed from the Play Store.
 
 ## First install
 
@@ -14,7 +13,9 @@ for a small local-only tracker like this, not a sign anything's wrong.
    similar) — this is expected for a small sideloaded app with no Play
    Store listing. Choose install anyway.
 
-## Before you do anything else: back up
+## Updating to a new version
+
+### Before you do anything else: back up
 
 **Your Pokédex progress lives only on this phone — there is no cloud sync,
 by design.** Right now, exporting is your only backup:
@@ -24,22 +25,12 @@ by design.** Right now, exporting is your only backup:
 - Do this after any real play session where you've caught something worth
   keeping a record of, not just once.
 
-## Updating to a new version
+Installing a new APK over an old one should preserve your data.
 
-Every release is signed with the same dedicated release key, so installing a
-new APK over an old one should preserve your data going forward — a
-signing-key mismatch is the one thing that would silently block an in-place
-update, and this key isn't changing again (it's backed up outside the
-project; see `docs/v1-tasks/02-data-safety-net.md`, item D4).
-
-**Export before every update anyway.** A stable signing key rules out one
-failure mode, not all of them — a botched migration or a corrupted database
-doesn't care whether the key matches. Exporting takes a few seconds; treat
+**Export before every update anyway.** Exporting takes a few seconds; treat
 it as habit, not a one-time precaution.
 
-If a signing key mismatch happens, the install appears to succeed but your
-phone silently keeps the old version — no error will appear. Before updating,
-check the version in **Settings → About**. After reopening the app, check it
+Before updating, check the version in **Settings → About**. After reopening the app, check it
 again — if it's unchanged, message the owner immediately. **Don't uninstall**
 — that's the only thing that actually erases your data.
 

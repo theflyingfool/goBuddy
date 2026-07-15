@@ -6,24 +6,28 @@ device. Ships as a Capacitor-wrapped Android APK (side-loaded, not Play
 Store); the same TypeScript/Vite web app also runs standalone in a desktop
 browser for editing on a computer (see "Cross-device data" below).
 
-See [docs/data-model.md](./docs/data-model.md) (schema/storage),
-[docs/features.md](./docs/features.md) (feature specs, by release status),
-and [docs/architecture.md](./docs/architecture.md) (codebase map) for the
-full design; [CLAUDE.md](./CLAUDE.md) for the working invariants; and
-[CHANGELOG.md](./CHANGELOG.md) for shipped-version history (see
-[docs/v1-tasks/](./docs/v1-tasks/) for current in-progress status).
+See for the full design:
+- [docs/data-model.md](./docs/data-model.md) (schema/storage),
+- [docs/features.md](./docs/features.md) (feature specs, by release status),
+- [docs/architecture.md](./docs/architecture.md) (codebase map)  [CLAUDE.md](./CLAUDE.md) for the working invariants; and
+See for version history:
+- [CHANGELOG.md](./CHANGELOG.md)
+See for current in-progress status:
+- [docs/v1-tasks/](./docs/v1-tasks/)
 
 ## Stack
 
-TypeScript + Vite, no frontend framework. SQLite is the storage model
-(schema in `src/db/schema.ts`), backed by `@capacitor-community/sqlite` —
-real on-device SQLite on Android, IndexedDB-backed `sql.js` (via
-`jeep-sqlite`) when running as a plain web app. Reference tables
-(species/forms/types/etc.) are wholesale-replaced from the bundled
-`src/data/reference.json` on every load if its content changed; personal
-tables (your catch/shiny/lucky/shadow data) are never touched by that sync
-and carry their own schema-version + migration runner
-(`src/db/migrations.ts`).
+- TypeScript
+- Vite
+- SQLite is the storage model
+  - (schema in `src/db/schema.ts`), backed by `@capacitor-community/sqlite` —
+  real on-device SQLite on Android, IndexedDB-backed `sql.js` (via
+  `jeep-sqlite`) when running as a plain web app. Reference tables
+  (species/forms/types/etc.) are wholesale-replaced from the bundled
+  `src/data/reference.json` on every load if its content changed; personal
+  tables (your catch/shiny/lucky/shadow data) are never touched by that sync
+  and carry their own schema-version + migration runner
+  (`src/db/migrations.ts`).
 
 ## Prerequisites
 

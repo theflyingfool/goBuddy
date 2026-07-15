@@ -44,7 +44,7 @@ function buildFormFieldCascades(): Partial<Record<FormPersonalBooleanField, Form
     cascades[shundo] = [...(cascades[shundo] ?? []), shiny, fourStar];
   }
 
-  // Cross-section cascades (owner-specced, docs/issues.md, 2026-07-14). The
+  // Cross-section cascades (owner-specced, 2026-07-14). The
   // loop above only ever cascades a section up to *its own* base — these
   // bridge across sections, which the loop structurally can't do since it
   // only ever sees one group at a time.
