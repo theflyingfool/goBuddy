@@ -107,18 +107,21 @@ and `docs/data-model.md`'s "Future direction" section (git history at
   out by the current mainline-`version_group` matching rule.
 - **Reference/informational content beyond dex-tracking**: per the owner,
   a much larger tier of static game-reference content is wanted eventually —
-  Mega/Gigantamax candy cost per species, Pokédex flavor text (species
-  descriptions), CP at max level, full learnable-moveset lists (fast +
-  charged, per species/form), and an XP-optimization guide for reaching
-  level 80 efficiently. None of this is personal per-catch data, so per
-  CLAUDE.md's data-ownership principles it belongs in its own
+  Mega/Gigantamax candy cost per species (note: this isn't a separate
+  currency — Mega/Gigantamax leveling uses the same candy/candy XL as any
+  other form, so this is really "how much of that shared resource does this
+  species' Mega/G-max form need," not a new cost type), Pokédex flavor text
+  (species descriptions), CP at max level, full learnable-moveset lists
+  (fast + charged, per species/form), and an XP-optimization guide for
+  reaching level 80 efficiently. None of this is personal per-catch data,
+  so per CLAUDE.md's data-ownership principles it belongs in its own
   reference-ingestion-fed table(s)/feature area rather than bolted onto
   `species`/`form`. Route candy-cost/CP/movesets/dex-text through the same
   ingestion pipeline ([docs/ingestion-runbook.md](ingestion-runbook.md)) once
-  a data source is picked. The XP-optimization piece overlaps with this
-  document's existing **Level Tracker** checklist item above — that stub
-  already gestures at it; treat them as the same future feature rather than
-  building two.
+  a data source is picked. The XP-optimization piece is related to this
+  document's existing **Level Tracker** checklist item above but is a
+  distinct feature (progression tracking vs. an efficiency guide) — keep
+  both as separate roadmap items, not a merge candidate.
 - **Other identified-but-unscoped V2 items**, kept here so they aren't
   silently dropped: full adoption of `executeSet`/`importFromJson`/`copyFromAssets`
   for bulk writes (a V1 contingency that was evaluated and explicitly not
