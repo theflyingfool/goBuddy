@@ -1,6 +1,6 @@
-# GoBuddy V1.0.0 Pre-Launch Verification Checklist
+# PoGo Buddy V1.0.0 Pre-Launch Verification Checklist
 
-This checklist outlines the critical components, documentation links, files, and build pipelines that must be verified prior to launching **GoBuddy Version 1.0.0**.
+This checklist outlines the critical components, documentation links, files, and build pipelines that must be verified prior to launching **PoGo Buddy Version 1.0.0**. (App name confirmed by the owner as "PoGo Buddy" — see `docs/roadmap.md`'s former D6 decision item.)
 
 ---
 
@@ -34,15 +34,18 @@ During the documentation refactoring, many files (e.g., `docs/v1-roadmap/`, `doc
 - **[src/data/repository.ts](file:///home/nick/Repos/GoBuddy/src/data/repository.ts#L52)**:
   Line 52 references `docs/features/planned.md`.
 
-### ⚠️ Stale References to Deleted Folders in Release Tooling
+### ✅ Resolved: Release Tooling Reference
 - **[docs/release-checklist.md](file:///home/nick/Repos/GoBuddy/docs/release-checklist.md#L88)**:
-  Line 88 specifies: `git add package.json package-lock.json android/app/build.gradle CHANGELOG.md docs/features/`.
-  *Note:* The directory `docs/features/` is fully deleted in the refactoring branch. This command will fail or behave incorrectly. It should be changed to: `git add package.json package-lock.json android/app/build.gradle CHANGELOG.md docs/features.md`.
+  Line 88 previously specified `git add ... docs/features/`, a deleted directory. **Fixed**: now stages
+  `docs/features.md` and `docs/roadmap.md` directly.
 
-### 🧹 Cleanup of Temporary Documentation Previews
-- **[docs/features-preview.md](file:///home/nick/Repos/GoBuddy/docs/features-preview.md)** and **[docs/roadmap-preview.md](file:///home/nick/Repos/GoBuddy/docs/roadmap-preview.md)**:
-  These files are added in the branch `refactor/docs-cleanup` but are not referenced anywhere. Their content is fully merged into [docs/features.md](file:///home/nick/Repos/GoBuddy/docs/features.md). Double check if these should be removed prior to merge.
-  *Note:* The **Detailed Roadmap Table** (listing specific target versions such as `v1.1.0`, `v1.2.0`, etc.) from [docs/roadmap-preview.md](file:///home/nick/Repos/GoBuddy/docs/roadmap-preview.md#L49-L70) is omitted from [docs/features.md](file:///home/nick/Repos/GoBuddy/docs/features.md). Confirm if the table should be preserved in `docs/features.md` before deleting the preview files.
+### ✅ Resolved: Documentation Preview Files
+- `docs/features-preview.md` and `docs/roadmap-preview.md`: these temporary preview files no longer
+  exist. `docs/features-preview.md` was renamed to `docs/features.md` (replacing the old flat
+  summary+checklist version) and `docs/roadmap-preview.md` was renamed to `docs/roadmap.md`. The
+  Detailed Roadmap Table (target versions `v1.1.0`, `v1.2.0`, etc.) was preserved as-is in the new
+  `docs/roadmap.md`, which was also expanded with the V2 watchlist, open polish items, and
+  status-TBD sections recovered from the deleted `docs/v1-tasks/`/`docs/v1-roadmap/` files.
 
 ---
 
@@ -88,3 +91,21 @@ A major source of issues prior to release is unstable data models or incorrect i
   Test running a build with a newer schema version on older code, and verify that the app gracefully prevents a boot instead of corrupting data (the downgrade guard).
 - **Boot Rescue Triggering**:
   Verify that if the SQLite connection fails or throws on startup, the Boot Rescue UI successfully intercepts the crash and offers the user a raw-data JSON export.
+
+---
+
+## 5. V1.0.0-Specific Pre-Tag Blockers
+
+One-time items specific to shipping V1.0.0 — not roadmap material, and not
+already covered by the recurring [docs/release-checklist.md](release-checklist.md).
+
+- **Settings "About" should show internal DB version numbers**: currently
+  shows only the app release version (`__APP_VERSION__`). Verify or
+  implement it also displaying the two internal DB version numbers — the
+  personal-data schema version and the reference-data hash — before tagging
+  v1.0.0. Both are already readable via `repo.getAppSetting(...)`/the schema
+  constant; this is a display-only addition.
+- **Verify `docs/install-guide.md`'s "export before updating" guidance is
+  current**: it's already linked from README.md, but should be
+  double-checked as part of pre-ship verification rather than assumed
+  accurate.

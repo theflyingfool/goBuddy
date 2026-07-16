@@ -1,4 +1,4 @@
-# GoBuddy (CLAUDE.md)
+# PoGo Buddy (CLAUDE.md)
 
 ## Project Overview
 

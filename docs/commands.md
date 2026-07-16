@@ -1,6 +1,6 @@
 # Command Reference
 
-Developer commands for running, building, testing, and managing data in GoBuddy.
+Developer commands for running, building, testing, and managing data in PoGo Buddy.
 
 ---
 

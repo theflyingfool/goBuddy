@@ -57,7 +57,7 @@ nothing leaves the browser.
   reference fields (types, region, availability flags), since the bundled
   dataset is filled in incrementally.
 
-Not yet built (see [docs/features.md#planned-deferred-features](./docs/features.md#planned-deferred-features)):
+Not yet built (see [docs/roadmap.md](./docs/roadmap.md)):
 the tri-state search-string builder and the auto-declutter engine.
 
 ## Building the Android app

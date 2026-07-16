@@ -85,7 +85,7 @@ Commit changes and tag the release in git:
 
 * Commit version bump, changelog, and history snapshots:
   ```sh
-  git add package.json package-lock.json android/app/build.gradle CHANGELOG.md docs/features/
+  git add package.json package-lock.json android/app/build.gradle CHANGELOG.md docs/features.md docs/roadmap.md
   git commit -m "Bump version to X.Y.Z"
   ```
 * Create and push git tag:
