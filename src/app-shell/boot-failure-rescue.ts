@@ -1,8 +1,8 @@
 // Rendered by main.ts when createSqliteRepository() itself rejects (DB
 // wouldn't open, a migration failed — including the downgrade guard in
 // src/db/migrations.ts — or reference-sync failed). Offers a raw personal-
-// data export as a last resort, bypassing the entire failed boot path, per
-// docs/v1-tasks/02-data-safety-net.md.
+// data export as a last resort, bypassing the entire failed boot path — see
+// docs/features.md#5-data-safety-net.
 
 import { attemptBootRescueExport } from "../data/boot-rescue";
 import { downloadTextFile } from "../shared/file-download";

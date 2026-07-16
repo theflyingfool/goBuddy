@@ -8,7 +8,7 @@ import { exportPersonalData, readPersonalDataFile } from "./personal-data-transf
 const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
 // Off by default: was a per-import window.confirm() prompt, but that meant
 // re-deciding every single time. A persistent setting means "no" only has
-// to be chosen once. See docs/v1-tasks/02-data-safety-net.md.
+// to be chosen once.
 const BACKUP_BEFORE_IMPORT_SETTING_KEY = "backup_before_import";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -64,7 +64,7 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
   // region-locked forms (an alt account, travel, trading) so Form-complete
   // requiring them is fair; others genuinely never can, which makes the
   // stat permanently unattainable for ~50 species. Per-install choice, not
-  // a fixed app-wide answer (D2, docs/v1-tasks/04-mega-and-gigantamax.md).
+  // a fixed app-wide answer.
   const statsFieldset = el("fieldset", {}, [el("legend", {}, ["Stats"])]);
   statsFieldset.append(
     labeledToggle("Exclude regional-exclusive forms from Form-complete", repo.getAppSetting(EXCLUDE_REGIONAL_SETTING_KEY) === "1", (checked) => {

@@ -254,7 +254,7 @@ async function main() {
     // has actually reached GO yet. Owner-confirmed (2026-07-10) still-bogus
     // despite Mega Dimension listing them: Uxie, Mesprit, Azelf, Butterfree,
     // Lugia — re-verify against a real Z-A mega list before trusting any of
-    // these again, per docs/v1-roadmap/02-reference-data-corrections.md §6.
+    // these again.
     const candidateMegaNames = pokeSpecies?.varieties.map((v) => v.pokemon.name).filter((n) => /-mega(-[xy])?$|-primal$/.test(n)) ?? [];
     if (candidateMegaNames.length > 0 && !parsed.canMegaEvolve) {
       gaps.push({

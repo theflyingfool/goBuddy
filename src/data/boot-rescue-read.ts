@@ -22,9 +22,8 @@ async function tableExists(db: SQLiteDBConnection, table: string): Promise<boole
 // Deliberately reuses the same PersonalDataExport shape personal-data-transfer.ts
 // writes in the normal export flow (so the same Settings import path can read
 // a rescue file back in later) — now including megaPersonal/
-// formBackgroundPersonal, closing the gap docs/v1-tasks/04-mega-and-gigantamax.md
-// flagged. This is a rescue of what the normal export covers, not a
-// more-complete backup.
+// formBackgroundPersonal. This is a rescue of what the normal export
+// covers, not a more-complete backup.
 export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promise<PersonalDataExport> {
   let schemaVersion = CURRENT_PERSONAL_SCHEMA_VERSION;
   try {

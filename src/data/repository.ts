@@ -49,8 +49,8 @@ const SEARCH_KEYWORD_ALIASES: Record<string, SearchKeyword> = {
 // (costume/legendary/mythical/ultrabeast, optionally negated with a leading
 // "!") when the ENTIRE trimmed query is exactly one such token — anything
 // else falls through to plain substring matching. Deliberately not the full
-// AND-of-OR search-string builder specced in docs/features/planned.md
-// (post-V1) — just enough to answer "show me only X" in the box that's
+// AND-of-OR search-string builder specced in docs/roadmap.md's Manual
+// Search Builder item (post-V1) — just enough to answer "show me only X" in the box that's
 // already there. Shared by the grid and bulk-edit's search inputs, both of
 // which route through Repository.listSpeciesSummaries.
 export function parseSearchQuery(raw: string): ParsedSearch {

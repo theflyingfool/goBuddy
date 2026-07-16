@@ -78,9 +78,10 @@ export default defineConfig([
   },
 
   // Markdown — gfm, not commonmark: this repo's docs use GitHub task-list
-  // checkboxes (`- [ ]` / `- [x]`) throughout (docs/v1-tasks/**,
-  // CHANGELOG.md); the commonmark parser doesn't know that syntax and reads
-  // each `[ ]`/`[x]` as a broken markdown link reference.
+  // checkboxes (`- [ ]` / `- [x]`) throughout (docs/roadmap.md,
+  // docs/pre_launch_checklist.md, CHANGELOG.md); the commonmark parser
+  // doesn't know that syntax and reads each `[ ]`/`[x]` as a broken markdown
+  // link reference.
   {
     files: ["**/*.md"],
     plugins: {

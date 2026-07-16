@@ -272,3 +272,16 @@ first recovery pass since they weren't part of that sweep. Recovered
   cross-reference: this document's own "Background Legality" item in §1
   already tracks the fix itself; this note is the original open question
   behind it.
+
+---
+
+## 7. Deferred Onboarding Material
+
+- **In-person onboarding script for desktop-uncomfortable friends**:
+  previously tracked as "write a live-walkthrough script." A short
+  checklist to run through in person with friends who won't self-serve from
+  `docs/install-guide.md` — distinct from that doc, which is written for
+  someone reading it alone. Not written yet; not blocking the v1.0.0 tag,
+  since the owner can currently walk people through it from memory. Moved
+  here 2026-07-16 as a later-not-never item rather than an open dossier
+  task.

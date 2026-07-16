@@ -71,12 +71,14 @@ the tri-state search-string builder and the auto-declutter engine.
 
 Build steps, requirements, and signing parameters are part of the [docs/release-checklist.md](docs/release-checklist.md).
 For a quick build:
+
 ```sh
 export JAVA_HOME=/opt/android-studio/jbr   # or wherever your JDK 21 lives
 export ANDROID_HOME=$HOME/Android/Sdk
 npm run android:build    # Build debug APK
 npm run android:release  # Build signed release APK (requires keystore setup)
 ```
+
 Refer to [docs/install-guide.md](docs/install-guide.md) for sideloading instructions.
 
 ## Cross-device data (phone ↔ desktop)

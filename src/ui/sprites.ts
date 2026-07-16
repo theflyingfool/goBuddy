@@ -1,6 +1,6 @@
 // Sprite art convention: public/sprites/<dex-number zero-padded to 3>[-shiny].png,
 // one pair per National Dex species (sourced from PokeMiners/pogo_assets via
-// scripts/ingest/build-sprite-mapping.ts — see docs/v1-tasks/05-image-pipeline.md).
+// scripts/ingest/build-sprite-mapping.ts).
 import formSpriteSlugsJson from "../data/form-sprite-slugs.json";
 import megaSpriteSlugsJson from "../data/mega-sprite-slugs.json";
 

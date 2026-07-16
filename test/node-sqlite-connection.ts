@@ -3,10 +3,8 @@
 // (query/execute/run/beginTransaction/commitTransaction/rollbackTransaction),
 // backed by Node's built-in synchronous node:sqlite instead of the real
 // @capacitor-community/sqlite plugin. Lets those two modules run unmodified
-// against a throwaway fixture database in a unit test, per
-// docs/v1-tasks/06-performance-and-quality-infra.md's "migration fixture
-// tests" item. Reuses the prepared-statement style already proven in
-// scripts/build-dummy-db.ts.
+// against a throwaway fixture database in a unit test. Reuses the
+// prepared-statement style already proven in scripts/build-dummy-db.ts.
 //
 // Not a full SQLiteDBConnection implementation — the cast below is only
 // safe because the two modules under test never call anything outside this

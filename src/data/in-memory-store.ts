@@ -8,7 +8,7 @@
 // parameterized SQL in completion-stats-sql.ts (CLAUDE.md asks for this, not
 // an in-memory scan). This module used to also carry an equivalent
 // plain-JS implementation for a since-deleted localStorage-backed dummy
-// repository; see docs/v1-tasks/06-performance-and-quality-infra.md.
+// repository.
 
 import { resolveFormFieldCascade } from "../db/cascades";
 import { emptyFormPersonal, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";

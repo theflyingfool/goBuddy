@@ -1,5 +1,5 @@
-// Bootstraps the §7 image pipeline (docs/v1-tasks/05-image-pipeline.md) from
-// PokeMiners/pogo_assets's "Addressable Assets" icon set — a human-readable
+// Bootstraps the sprite/image pipeline from PokeMiners/pogo_assets's
+// "Addressable Assets" icon set — a human-readable
 // naming convention (pm{dex}.f{FORM}.c{COSTUME}.g{gender}.s.icon.png) rather
 // than the opaque numeric form/costume IDs the task doc originally expected,
 // discovered while triaging this task. Deliberately conservative: only ships
