@@ -9,6 +9,16 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see [docs/release-checklist.md](docs/release-checklist.md)'s release workflow), and
 covers the commits between that bump and the previous one. Full historical content states can be checked out directly from git history.
 
+## [0.21.1] — 2026-07-15
+
+- Consolidated documentation: flattened `docs/features/*`, `docs/v1-roadmap/*`,
+  and `docs/v1-tasks/*` into `docs/features.md` and `docs/roadmap.md`, with a
+  new `docs/pre_launch_checklist.md` tracking V1.0.0-specific pre-tag
+  blockers. All still-open items from the deleted files (V2 watchlist,
+  open polish items, status-TBD decisions) were carried forward into
+  `docs/roadmap.md` rather than dropped. Fixed a dangling `docs/features/`
+  reference in the release-checklist's git-add step.
+
 ## [0.21.0] — 2026-07-15
 
 - Fixed Bulk Edit's Caught/Uncaught filter matching at species level instead
