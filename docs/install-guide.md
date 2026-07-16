@@ -1,9 +1,16 @@
-# Installing PoGo Buddy (for friends)
+# Installing PoGo Buddy
+
+There are two ways to run PoGo Buddy: sideloaded on Android, or in a desktop
+browser. Both are fully local — no accounts, no cloud sync, nothing leaves
+your device either way. Pick whichever fits you; you can use both and move
+data between them (see "Moving data between phone and desktop" below).
+
+## Android (sideloaded app)
 
 This app is sideloaded, not installed from the Play Store — that's normal
 for a small local-only tracker like this, not a sign anything's wrong.
 
-## First install
+### First install
 
 1. You'll be given an `.apk` file directly (not a store link).
 2. Tapping it will show an "unknown sources" or "install unknown apps"
@@ -14,17 +21,7 @@ for a small local-only tracker like this, not a sign anything's wrong.
    similar) — this is expected for a small sideloaded app with no Play
    Store listing. Choose install anyway.
 
-## Before you do anything else: back up
-
-**Your Pokédex progress lives only on this phone — there is no cloud sync,
-by design.** Right now, exporting is your only backup:
-
-- Open **Settings → Export** and save the file somewhere you'll find it
-  again (email it to yourself, save to Drive, etc.).
-- Do this after any real play session where you've caught something worth
-  keeping a record of, not just once.
-
-## Updating to a new version
+### Updating to a new version
 
 Every release is signed with the same dedicated release key, so installing a
 new APK over an old one should preserve your data going forward — a
@@ -43,7 +40,7 @@ check the version in **Settings → About**. After reopening the app, check it
 again — if it's unchanged, message the owner immediately. **Don't uninstall**
 — that's the only thing that actually erases your data.
 
-## If something goes wrong
+### If something goes wrong
 
 If the app fails to open (a "couldn't open the database" message or
 similar), the app itself should offer a one-time "export personal data"
@@ -52,3 +49,63 @@ any reason that doesn't appear, **don't uninstall — message the owner
 before doing anything else**, since uninstalling erases the app's data
 permanently. This is exactly why exporting regularly matters more than it
 might seem.
+
+## Desktop / browser
+
+The same app also runs standalone in a desktop browser — no phone required.
+
+### First run
+
+1. Install [Node.js](https://nodejs.org) if you don't already have it
+   (v18.19+ or v20+ — nothing else to install).
+2. In a terminal:
+   ```sh
+   git clone <this repo>
+   cd GoBuddy
+   npm install
+   npm run dev
+   ```
+   If you downloaded this as a ZIP instead of using `git clone`, `npm
+   install` will print a git error (from a setup step that needs a `.git`
+   folder) — that's safe to ignore, `npm run dev` still works fine without
+   it.
+3. Open the URL it prints (usually `http://localhost:5173`) in your
+   browser.
+
+All data is stored locally in the browser (IndexedDB) — nothing leaves your
+computer, same guarantee as the phone app.
+
+### Updating
+
+Pull the latest code (`git pull`, or re-download and replace if you're on a
+ZIP) and run `npm install` again in case dependencies changed, then
+`npm run dev` as before. **Export from Settings before updating**, same
+habit as the Android side — a browser-side migration issue is just as
+capable of needing a fallback as an Android one.
+
+## Back up your data
+
+**Your Pokédex progress lives only on this device — there is no cloud sync,
+by design.** Exporting is your only backup, on either platform:
+
+- Open **Settings → Export** and save the file somewhere you'll find it
+  again (email it to yourself, save to Drive, etc.).
+- Do this after any real play session where you've caught something worth
+  keeping a record of, not just once.
+
+## Moving data between phone and desktop
+
+There's no sync between the two — by design, per the no-network-calls
+constraint. Instead:
+
+- **Export** on one (phone or desktop) writes a JSON snapshot of your
+  personal data (catch/achievement state, not reference data). On Android
+  it's handed to the native share sheet; on desktop it downloads via the
+  browser.
+- **Import** on the other reads that file back in, overwriting matching
+  entries (anything not in the file is left alone). A schema-version
+  mismatch between the file and the running app triggers a warning before
+  it proceeds.
+
+The same file format works in both directions, so you can export from your
+phone, edit on desktop, and import back — or the reverse.

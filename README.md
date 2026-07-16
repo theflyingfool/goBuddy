@@ -6,6 +6,10 @@ device. Ships as a Capacitor-wrapped Android APK (side-loaded, not Play
 Store); the same TypeScript/Vite web app also runs standalone in a desktop
 browser for editing on a computer (see "Cross-device data" below).
 
+**Installing it?** See [docs/install-guide.md](./docs/install-guide.md) —
+covers both the Android app and the desktop/browser version, updating, and
+troubleshooting.
+
 See [docs/data-model.md](./docs/data-model.md) (schema/storage),
 [docs/features.md](./docs/features.md) (feature specs and roadmap),
 and [docs/architecture.md](./docs/architecture.md) (codebase map) for the
@@ -35,13 +39,10 @@ npm run dev
 
 Opens the app at `http://localhost:5173` (or whatever port Vite picks). All
 data is stored locally (IndexedDB via `sql.js`/`jeep-sqlite` in this mode) —
-nothing leaves the browser.
-
-> [!NOTE]
-> If you downloaded this as a ZIP instead of `git clone`-ing it, `npm install`
-> will print a git error from the `prepare` script (it tries to set
-> `core.hooksPath`, which needs a `.git` folder). That failure is safe to
-> ignore — `npm run dev` still works fine without it.
+nothing leaves the browser. See
+[docs/install-guide.md](./docs/install-guide.md#desktop--browser) for the
+friend-facing version of these steps, including the ZIP-download caveat and
+update instructions.
 
 ## Features
 

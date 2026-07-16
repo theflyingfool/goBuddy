@@ -79,8 +79,10 @@ A major source of issues prior to release is unstable data models or incorrect i
 - **Fresh Install CLI Errors (`prepare` script)** — ✅ Resolved:
   `npm install` from a ZIP download (no `.git` folder) still prints a git
   error from the `prepare` hook (`git config core.hooksPath .githooks`), but
-  this is now documented as safe-to-ignore in README.md's "Running it"
-  section — `npm run dev` works regardless. Not code-fixed (the `prepare`
+  this is now documented as safe-to-ignore in
+  `docs/install-guide.md`'s "Desktop / browser" section (README.md's
+  "Running it" links there too) — `npm run dev` works regardless. Not
+  code-fixed (the `prepare`
   script itself is unguarded), just a doc note; revisit guarding it for real
   post-V1 if it keeps confusing people.
 - **Android Upgrade Preservation**:
