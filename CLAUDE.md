@@ -47,6 +47,9 @@ Database & Schema:
 Features & Specs:
 → docs/features.md
 
+Future Roadmap:
+→ docs/roadmap.md
+
 Command Reference:
 → docs/commands.md
 
