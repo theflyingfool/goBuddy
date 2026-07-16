@@ -214,3 +214,61 @@ they get a deliberate decision instead of silently defaulting to either.
   **Note**: this is only about the gating/availability data — the
   *architecture* decision to model Gigantamax as ordinary form rows (not a
   separate personal field) is already settled and unaffected.
+
+---
+
+## 6. Carried Forward from Deleted `docs/features/` Files
+
+These lived in `docs/features/next.md` and `docs/features/planned.md`,
+deleted by the same restructure as `v1-tasks`/`v1-roadmap` but missed by the
+first recovery pass since they weren't part of that sweep. Recovered
+2026-07-16 so nothing already-decided gets silently lost.
+
+- **Quarantine visibility** (deferred past V1 — not building for the tag):
+  `personal_data_quarantine` is currently invisible — a reference-sync that
+  drops a slug still referenced by personal data lands the orphaned row
+  here, but nothing in the app surfaces it; a dev would have to inspect the
+  raw SQLite file. Decided design, scoped small on purpose: a status line at
+  the top of the Settings page, always visible ("0 import data issues
+  found"), rendered bold with the real count when non-zero, plus an export
+  button (send the result back to the owner) that only makes sense to
+  show/enable when the count is non-zero. No popup/modal, no dismiss-state,
+  no new personal-data schema — deliberately rejected as over-building for
+  how rare this should be with a small, personally-onboarded initial user
+  group. Needs: a repository read method for the count (none exists yet),
+  and a dedicated export function, since `personal_data_quarantine` isn't
+  part of the existing `PersonalDataExport` shape. Owner call 2026-07-15:
+  real risk if it ever fires, but not worth building before the v1.0.0 tag —
+  revisit post-V1.
+- **Unify Dex-grid and form-tile rendering into a shared component**:
+  owner-proposed 2026-07-14. The Dex grid's `.species-tile`/`.species-sprite`
+  (`species-grid.ts`) and Bulk Edit/species-detail's `.form-tile`/
+  `.form-tile-sprite` (`bulk-form-edit.ts`, `species-detail.ts`) are two
+  independent implementations of what is visually the same kind of tile —
+  sprite + overlay badges + a label box underneath. A 2026-07-14 tile-sizing
+  pass (matching column widths and sprite-fill behavior across both) had to
+  apply the same CSS values twice in two places, and any future tile-visual
+  change will keep needing to be made twice unless refactored onto one
+  shared rendering/CSS codebase. Not designed yet — just flagging the
+  duplication before a third tile variant makes it worse.
+- **Consolidate Dex grid and Bulk Edit into one page, toggled**:
+  owner-proposed 2026-07-15, prompted by noticing similar logic between the
+  Dex grid and Bulk Edit while the Caught/Uncaught bug fix (#33) was in
+  flight — related to, but distinct from, the tile-rendering duplication
+  item above. Idea: instead of two separate pages/routes for browsing (Dex
+  grid) and editing (Bulk Edit), collapse them into a single page with a
+  toggle to swap between "browse" and "edit" modes over the same underlying
+  data/filter state. Not designed — no toggle UX, no decision on what
+  search/filter state should or shouldn't carry across the toggle, no
+  confirmation the two pages' data-fetching actually share enough to make
+  this cheap rather than just visually tidier. Bigger and riskier than the
+  logic-level tile unification above (merging two pages' UI/routing, not
+  just deduplicating a shared helper), so it stays deferred past V1
+  regardless of what any future investigation into the species-vs-form
+  logic finds.
+- **Open item carried forward**: whether `form_background_personal`
+  assuming every background is possible on every form (rather than modeling
+  real legality) causes any actual UI problems worth revisiting later —
+  cross-reference: this document's own "Background Legality" item in §1
+  already tracks the fix itself; this note is the original open question
+  behind it.

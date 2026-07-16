@@ -39,6 +39,14 @@ During the documentation refactoring, many files (e.g., `docs/v1-roadmap/`, `doc
   Line 88 previously specified `git add ... docs/features/`, a deleted directory. **Fixed**: now stages
   `docs/features.md` and `docs/roadmap.md` directly.
 
+### ✅ Resolved: Content Lost from `docs/features/next.md` and `docs/features/planned.md`
+- These two files were also deleted by the restructure but weren't in scope
+  of the original `v1-tasks`/`v1-roadmap` recovery pass. Found 2026-07-16:
+  they held the quarantine-visibility design spec (owner-decided
+  2026-07-15) and two owner-proposed deferred items (unifying Dex-grid/
+  form-tile rendering; consolidating Dex grid + Bulk Edit into one toggled
+  page). All three recovered and added to `docs/roadmap.md` §6.
+
 ### ✅ Resolved: Documentation Preview Files
 - `docs/features-preview.md` and `docs/roadmap-preview.md`: these temporary preview files no longer
   exist. `docs/features-preview.md` was renamed to `docs/features.md` (replacing the old flat
