@@ -37,6 +37,12 @@ Opens the app at `http://localhost:5173` (or whatever port Vite picks). All
 data is stored locally (IndexedDB via `sql.js`/`jeep-sqlite` in this mode) —
 nothing leaves the browser.
 
+> [!NOTE]
+> If you downloaded this as a ZIP instead of `git clone`-ing it, `npm install`
+> will print a git error from the `prepare` script (it tries to set
+> `core.hooksPath`, which needs a `.git` folder). That failure is safe to
+> ignore — `npm run dev` still works fine without it.
+
 ## Features
 
 - **Pokédex grid** — every species/form, with tri-state (off/include/exclude)

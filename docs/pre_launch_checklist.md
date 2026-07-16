@@ -68,13 +68,13 @@ A major source of issues prior to release is unstable data models or incorrect i
 
 ## 3. Fresh Install & Sideload Verifications
 
-- **Fresh Install CLI Errors (`prepare` script)**:
-  In [package.json](file:///home/nick/Repos/GoBuddy/package.json#L7), the prepare hook `"prepare": "git config core.hooksPath .githooks"` is run on `npm install`.
-  If a user downloads the source code bundle as a ZIP (without `.git`), `npm install` will crash with a git error.
-  *Plan to verify/mitigate:* Double check if the `prepare` command can be guarded:
-  ```json
-  "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
-  ```
+- **Fresh Install CLI Errors (`prepare` script)** — ✅ Resolved:
+  `npm install` from a ZIP download (no `.git` folder) still prints a git
+  error from the `prepare` hook (`git config core.hooksPath .githooks`), but
+  this is now documented as safe-to-ignore in README.md's "Running it"
+  section — `npm run dev` works regardless. Not code-fixed (the `prepare`
+  script itself is unguarded), just a doc note; revisit guarding it for real
+  post-V1 if it keeps confusing people.
 - **Android Upgrade Preservation**:
   Verify the key-signing configuration of the APK. Follow the upgrade path:
   1. Build and install an older release APK (signed with the stable release key).
