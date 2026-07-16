@@ -9,6 +9,23 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see [docs/release-checklist.md](docs/release-checklist.md)'s release workflow), and
 covers the commits between that bump and the previous one. Full historical content states can be checked out directly from git history.
 
+## [0.22.0] — 2026-07-16
+
+- Verified both pre-launch and release checklists item-by-item and fixed
+  what they flagged: 12 remaining stale code-comment references to deleted
+  `docs/v1-tasks`/`docs/v1-roadmap`/`docs/features/` paths, one stale
+  release-checklist wording leftover. Confirmed clean: slug stability
+  check, downgrade guard (unit test), and the Settings "About" DB-version
+  display (already implemented, checklist was stale on that one).
+- Expanded `docs/install-guide.md` to cover the desktop/browser install
+  path alongside Android sideloading; README now links to it as the
+  canonical install doc instead of duplicating the steps.
+- Recovered the quarantine-visibility spec and two deferred UI items that
+  were lost when `docs/features/next.md`/`planned.md` were deleted by the
+  prior docs restructure but missed by its recovery pass.
+- Moved the live-walkthrough-script idea from the review dossier into
+  `docs/roadmap.md` as a named, deferred item.
+
 ## [0.21.1] — 2026-07-15
 
 - Consolidated documentation: flattened `docs/features/*`, `docs/v1-roadmap/*`,
