@@ -92,3 +92,38 @@ direction you expect — a correction pass that *increases* gaps somewhere you
 didn't touch usually means an ordering mistake above, not new missing data.
 
 For release publishing steps and app deployment workflows, refer to the canonical [docs/release-checklist.md](release-checklist.md).
+
+## V2 sourcing note: `pokemon-go-api` submodule is reference-only
+
+The steps above describe the current (pre-V2) pipeline. Per the Phase 0
+ingestion plan (see [roadmap.md](roadmap.md) §3 and
+[v2-data-source-findings.md](v2-data-source-findings.md) §10), species/
+forms/costumes/sprites are moving to `pokemon-go-api`'s hosted JSON API,
+fetched over HTTP the same way the current pipeline fetches from PokeAPI —
+**that HTTP fetch is the only planned integration point.**
+
+Separately, `vendor/reference/pokemon-go-api` is a git submodule vendoring
+that project's own source (PHP/Composer, branch `main`). It is **not**
+read by any `ingest:*` script, not part of the build, and not a dependency
+of anything in this repo — it exists purely as continuity insurance:
+
+- `pokemon-go-api` builds its data from `alexelgt/game_masters`' raw
+  `GAME_MASTER.json` via a PHP pipeline (`composer run-script api-build`),
+  rebuilt on a schedule (`cron: '7 6,8,9,10,18,20,21,22 * * *'` in its own
+  `.github/workflows/page.yml`) and redeployed to GitHub Pages only on
+  detected changes.
+- If that hosted API ever goes stale or the project stops being
+  maintained, this vendored copy is the fallback starting point: either
+  run its PHP/Composer build ourselves as a one-off against a fresh pull of
+  `alexelgt/game_masters`, or use its source as a spec while writing our
+  own TypeScript parser directly against the raw GameMaster file.
+- No SPDX license is present on the `pokemon-go-api` repo — only a README
+  disclaimer ("educational use only," copyright remains Niantic/The
+  Pokémon Company). Fine for a private vendored reference copy inside this
+  repo; reconsider before ever redistributing or publicly forking its code.
+- `alexelgt/game_masters` itself (the raw upstream data, not the parsing
+  logic) is deliberately not vendored the same way — it's large, churns
+  almost daily, and isn't the thing at continuity risk here.
+
+Clone/update it with `git submodule update --init --recursive`. It is
+never required for a normal `npm install` / build / `ingest:*` run.

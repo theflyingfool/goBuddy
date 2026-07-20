@@ -19,6 +19,9 @@ export default defineConfig([
       "data-authoring/**",
       "*.sqlite",
       "package-lock.json",
+      // Vendored reference-only submodule (see docs/ingestion-runbook.md) —
+      // third-party source we don't own or build, not ours to lint.
+      "vendor/**",
     ],
   },
 

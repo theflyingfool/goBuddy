@@ -2,6 +2,13 @@
 
 This is the canonical future roadmap for PoGo Buddy: planned features, enhancement checklists, target versions, the V2 watchlist, open polish items, and items still awaiting an owner decision.
 
+**Versioning reset (post-1.0.0)**: every `v1.1.0`/`v1.2.0`/`v2.0.0` target in
+§2's table below was placeholder numbering, not a commitment. Going forward:
+`1.0.Y` is the only version that ships as a public release, and covers fixes
+only. All new feature work happens under internal `1.X` versions with no
+public release attached — it accumulates toward `2.0`, the next real release.
+§2 "V2 Phased Plan" below is the current plan for that `1.X → 2.0` gap.
+
 ---
 
 ## 1. Master Roadmap Checklist
@@ -50,27 +57,122 @@ A high-density list of planned features grouped by functional area.
 
 Use this table during development to track progress status, notes, and target version releases.
 
-| Feature Name | Target Version | Status | Development & Versioning Notes |
+| Feature Name | Phase / Target | Status | Development & Versioning Notes |
 | :--- | :---: | :---: | :--- |
-| **Multi-Account & Sharing** | `v1.1.0` | Planned | Compare local database vs imported JSON dump from a friend to highlight trade gaps. |
-| **Caught Notes** | `v1.1.0` | Planned | Store notes inside a new `personal_notes` table keyed by form slug. |
-| **Raid Boss 4★ CPs** | `v1.1.0` | Planned | Reference dataset mapping raid boss species to their perfect CP encounters at level 20 (and level 25 weather boosted). |
-| **Showcase Score Calculator** | `v1.1.0` | Planned | Local math helper taking species, height, weight, and IV stats to compute local showcase score. |
-| **Shadow Purification** | `v1.1.0` | Planned | Quick UI lookup to see if shadow IV stats are >= 13/13/13 (resulting in 15/15/15 when purified). |
-| **Evolution Resource Calc** | `v1.2.0` | Planned | Candy/Item calculator to estimate the resources needed to finish regional dex evolutions. |
-| **Type Matchup Matrix** | `v1.2.0` | Planned | Simple grid interface mapping offense/defense multipliers on species view pages. |
-| **Best Buddy Tracker** | `v1.2.0` | Planned | Checkboxes tracking best buddy ribbons and daily buddy activity logs. |
-| **PVP/PVE Team Builder** | `v2.0.0` | Planned | Simulation engine calculating type matchup coverages and ideal movesets. |
-| **PVP Rank Calculator** | `v2.0.0` | Planned | Offline stat-product calculator matching custom IVs against the optimal PvP level stats. |
-| **Wild 100% IV Lookup** | `v2.0.0` | Planned | Wild encounter CP guide for perfect stats at levels 1 to 35. |
-| **Wild CP OCR Assistant** | `v2.0.0` | Planned | OCR tool scanning overlay captures to parse CP values offline. |
+| **Multi-Account & Sharing** | Phase 2 | Planned | Widened scope (see §3 below): local profile switching for multiple GO accounts in one app instance, plus exporting/comparing a profile against a friend's for completion/trade-gap analysis. |
+| **Caught Notes** | `TBD` | Planned | Store notes inside a new `personal_notes` table keyed by form slug. |
+| **Raid Boss 4★ CPs** | `TBD` | Planned | Reference dataset mapping raid boss species to their perfect CP encounters at level 20 (and level 25 weather boosted). |
+| **Showcase Score Calculator** | `TBD` | Planned | Local math helper taking species, height, weight, and IV stats to compute local showcase score. |
+| **Shadow Purification** | `TBD` | Planned | Quick UI lookup to see if shadow IV stats are >= 13/13/13 (resulting in 15/15/15 when purified). |
+| **Evolution Resource Calc** | `TBD` | Planned | Candy/Item calculator to estimate the resources needed to finish regional dex evolutions. |
+| **Type Matchup Matrix** | `TBD` | Planned | Simple grid interface mapping offense/defense multipliers on species view pages. |
+| **Best Buddy Tracker** | `TBD` | Planned | Checkboxes tracking best buddy ribbons and daily buddy activity logs. |
+| **PVP/PVE Team Builder** | `TBD` | Planned | Simulation engine calculating type matchup coverages and ideal movesets. |
+| **PVP Rank Calculator** | `TBD` | Planned | Offline stat-product calculator matching custom IVs against the optimal PvP level stats. |
+| **Wild 100% IV Lookup** | `TBD` | Planned | Wild encounter CP guide for perfect stats at levels 1 to 35. |
+| **Wild CP OCR Assistant** | `TBD` | Planned | OCR tool scanning overlay captures to parse CP values offline. |
 | **Trade Board LF/FT** | `TBD` | Planned | Interface to export a small "trade checklist" text sheet to share with local communities. |
 | **Zygarde / Routes Tracker** | `TBD` | Planned | Progress checklist showing route completions and Zygarde Cell counts. |
 | **Gym Badge Tracker** | `TBD` | Planned | Basic local list of visited gyms and badge tiers. |
 
+Only **Multi-Account & Sharing** currently has a phase assignment (Phase 2,
+below) — everything else in this table is unsequenced backlog until it's
+slotted into a future phase.
+
 ---
 
-## 3. V2 Watchlist (Deferred, With Rationale)
+## 3. V2 Phased Plan
+
+The concrete plan for the `1.X → 2.0` gap. Phases run **strictly sequentially,
+one at a time** — not in parallel — to keep scope and cost bounded. Each
+phase should be finished and confirmed before the next starts.
+
+### Phase 0 — Ingestion & Reference Data Overhaul
+
+Runs first: richer backend data makes it easier to see which follow-on
+features are cheapest to build.
+
+- Spike: pull data from [pogoapi.net](https://pogoapi.net/documentation/) and
+  [pokemon-go-api/pokemon-go-api](https://github.com/pokemon-go-api/pokemon-go-api),
+  and compare field coverage/quality/freshness against the current
+  PokeAPI + CSV + wikitext pipeline (see [ingestion-runbook.md](ingestion-runbook.md)).
+  Spike findings, sample payloads, and a table-design starting point:
+  [v2-data-source-findings.md](v2-data-source-findings.md). Current read:
+  pogoapi.net covers species/forms/costumes *and* the previously-uncovered
+  player-progression data (XP, levels, medals, friendship, battle league);
+  sprites are not in pogoapi.net at all but are available from
+  pokemon-go-api's companion `assets` repo — likely both sources end up used,
+  each for what it's actually good at.
+- Decision gate: replace the current pipeline if the new sources are
+  equal-or-better coverage and simpler to maintain; otherwise use them as
+  supplemental sources for fields we currently lack. Don't assume the
+  outcome — actually check coverage before deciding.
+- While rebuilding ingestion, store broader reference fields than we
+  currently surface in `reference.json`, even for fields nothing uses yet —
+  cheap to capture now, avoids re-scraping later.
+- Fix known ingestion footguns while the pipeline is already being touched:
+  `ingest:build` wiping previously-imported event-costume rows on every run,
+  silent stale-intermediate-file bugs, and CSV corrections silently no-op'ing
+  on fields not covered by `reference-csv-format.ts`.
+- Output feeds updates to `docs/ingestion-runbook.md` and `docs/data-model.md`.
+
+### Phase 1 — Personal Data Timestamps & Migration/Update-Script Fixes
+
+Separate subject matter from Phase 0 (ingestion/reference data vs. personal
+collection data) but still runs sequentially after it, not concurrently.
+
+- Add timestamp column(s) (e.g. `created_at`/`updated_at`) to the personal
+  tables (`species_personal`, `form_personal`, `form_background_personal`,
+  `mega_personal`) — currently none exist. Needed as a foundation for Phase
+  2's multi-account merge/comparison logic.
+- Extend the migration system (`src/db/migrations.ts`'s
+  `runPersonalMigrations()`, or a parallel mechanism) so a migration step can
+  **backfill/re-infer** data into existing rows, not just alter table shape.
+  Concrete known bug to fix: a personal-data row was found with 4★
+  (perfect-IV) checked and `registered` checked, but `caught` unchecked — an
+  inconsistent state given the app's own inference rules (4★/registered
+  should imply caught). This needs the actual inference rules defined between
+  these boolean fields, and a one-time consistency sweep over existing rows,
+  not just handling for future schema-version bumps.
+- Open question, not yet resolved: whether "let user tables at any version
+  use the update script" describes a gap beyond what
+  `runPersonalMigrations()` already does (it already replays migrations from
+  any stored `schema_version` forward) — possibly refers to exported/backed-up
+  DB files from very old installs, or DBs that skipped migrations somehow.
+
+### Phase 2 — Multi-Account
+
+- **Local profile concept**: multiple GO accounts tracked in one app
+  instance, switchable, each with its own personal-data scope. Open decision:
+  one DB file with a `profile_id` column added to personal tables, vs.
+  multiple SQLite files (one per profile) — depends on how Phase 1's
+  timestamp/migration work shapes the personal tables.
+  - **Settings page**: add an Account/Username field identifying the current
+    profile, plus a dropdown to switch the active account. The switcher may
+    also make sense elsewhere (header, other pages) beyond Settings — not
+    decided yet.
+  - **Stats page**: add a "compare" section to select the current account
+    plus one other account and view both side by side.
+- **Sharing/comparison**: export a profile (or subset) to hand to a friend
+  for read-only completion/trade-gap comparison. This is the scenario behind
+  the Stats-page compare view above, not a separate one-off import/export
+  flow.
+- Depends on Phase 0 (richer reference data may change what's worth
+  comparing) and Phase 1 (timestamps needed for merge/diff logic) having
+  already landed.
+
+### Not yet committed
+
+- **Identity/slug rework** and **reference/personal DB file split** — see §4
+  V2 Watchlist below. Revisit once Phase 2's profile-storage decision
+  (single DB with `profile_id` vs. multiple files) is made, since they touch
+  the same schema surface.
+- **Vue 3 (or similar) for the stats page** — worth considering once the
+  Stats-page compare view above is built, not a requirement.
+
+---
+
+## 4. V2 Watchlist (Deferred, With Rationale)
 
 These items were deliberately pushed past V1, each for a specific reason —
 not just "later." Recovered from the pre-restructure `docs/v1-tasks/09-v2-watchlist.md`
@@ -84,12 +186,16 @@ and `docs/data-model.md`'s "Future direction" section (git history at
   image-pipeline's numeric-ID matching work and would force a migration of
   every downstream reference (sprite manifests, exports, costume-lookup
   overrides); doing it now would block other in-flight V1 work rather than
-  simplify it.
+  simplify it. Cross-reference: §3 Phase 2 ("Not yet committed") flags this
+  as worth revisiting once the multi-account profile-storage decision lands,
+  since both touch the same schema surface.
 - **Reference/personal database file split**: Split the single SQLite file
   into two physical files — one for bundled reference data, one for personal
   collection data. Deferred alongside the slug rework since both are the same
   "heavier DB rework" the owner is planning post-V1; bundling them together
-  is less total churn than doing either alone first.
+  is less total churn than doing either alone first. Cross-reference: §3
+  Phase 2 ("Not yet committed") flags this the same way as the slug rework
+  above.
 - **Purified-form branch**: A dedicated purified-lucky/purified-shiny/purified-hundo
   branch of achievement tracking, distinct from the existing Shadow/Purified
   boolean. Not scoped or schema-designed yet.
@@ -140,7 +246,7 @@ and `docs/data-model.md`'s "Future direction" section (git history at
 
 ---
 
-## 4. Open Polish Items (Not Blocking V1 Tag)
+## 5. Open Polish Items (Not Blocking V1 Tag)
 
 Known rough edges, not release blockers. Recovered from the pre-restructure
 `docs/v1-tasks/03-visual-and-legibility.md`, `05-image-pipeline.md`, and
@@ -186,7 +292,7 @@ Known rough edges, not release blockers. Recovered from the pre-restructure
 
 ---
 
-## 5. Status-TBD Items (Needs an Owner Decision: V1 or V2)
+## 6. Status-TBD Items (Needs an Owner Decision: V1 or V2)
 
 These are explicitly *not* bucketed as V1 or V2 yet — flagging them here so
 they get a deliberate decision instead of silently defaulting to either.
@@ -217,7 +323,7 @@ they get a deliberate decision instead of silently defaulting to either.
 
 ---
 
-## 6. Carried Forward from Deleted `docs/features/` Files
+## 7. Carried Forward from Deleted `docs/features/` Files
 
 These lived in `docs/features/next.md` and `docs/features/planned.md`,
 deleted by the same restructure as `v1-tasks`/`v1-roadmap` but missed by the
@@ -275,7 +381,7 @@ first recovery pass since they weren't part of that sweep. Recovered
 
 ---
 
-## 7. Deferred Onboarding Material
+## 8. Deferred Onboarding Material
 
 - **In-person onboarding script for desktop-uncomfortable friends**:
   previously tracked as "write a live-walkthrough script." A short
