@@ -9,6 +9,15 @@ Each entry corresponds to a `package.json`/`android/app/build.gradle`
 version bump (see [docs/release-checklist.md](docs/release-checklist.md)'s release workflow), and
 covers the commits between that bump and the previous one. Full historical content states can be checked out directly from git history.
 
+## [1.0.0] — 2026-07-19
+
+- First tagged release. Both `docs/pre_launch_checklist.md` and
+  `docs/release-checklist.md` verified item-by-item; all fixable items
+  resolved. Two items remain open by nature (require a physical device at
+  actual build/sideload time): Android in-place upgrade preservation and
+  boot-rescue crash-path triggering — both are exercised as part of this
+  release's own manual verification pass, not before it.
+
 ## [0.22.0] — 2026-07-16
 
 - Verified both pre-launch and release checklists item-by-item and fixed
