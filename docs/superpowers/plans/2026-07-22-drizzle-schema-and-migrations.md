@@ -906,19 +906,42 @@ export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<voi
   await bootstrapDrizzleTrackingForExistingDevice(db);
   await assertNotADowngrade(db);
 
-  const drizzleDb = await getDrizzleDb();
-  await migrate(drizzleDb, async (queries) => {
-    await db.beginTransaction();
-    try {
-      for (const query of queries) {
-        await db.run(query, [], false);
+  // PRAGMA foreign_keys is a documented no-op when issued inside an active
+  // transaction (SQLite refuses to change enforcement mid-transaction) — the
+  // migrate() callback below wraps every pending migration's statements in
+  // one transaction, so migration 0001's own embedded `PRAGMA
+  // foreign_keys=OFF/ON` (see 0001_timestamps_to_epoch_ms.sql's header
+  // comment) has no effect there; it's correct SQL, just inert under this
+  // runner. FK enforcement must instead be toggled OFF here, before that
+  // transaction ever opens — every table 0001 rebuilds carries a REFERENCES
+  // clause into tables that don't exist yet on first boot (reference tables
+  // are created by syncReferenceData(), which runs AFTER this function
+  // returns), and SQLite validates a REFERENCES target's existence at
+  // INSERT time whenever enforcement is on, regardless of row count.
+  // Restored to ON only after migrate() fully completes, matching the app's
+  // normal enforced-FK operating state. Verified empirically: issuing this
+  // PRAGMA inside a transaction leaves `PRAGMA foreign_keys` reading back
+  // as still-enabled and a dangling-FK insert still fails — confirm this
+  // still holds for whatever SQLite build backs the connection under test
+  // before trusting this fix.
+  await db.run("PRAGMA foreign_keys = OFF", [], false);
+  try {
+    const drizzleDb = await getDrizzleDb();
+    await migrate(drizzleDb, async (queries) => {
+      await db.beginTransaction();
+      try {
+        for (const query of queries) {
+          await db.run(query, [], false);
+        }
+        await db.commitTransaction();
+      } catch (err) {
+        await db.rollbackTransaction();
+        throw err;
       }
-      await db.commitTransaction();
-    } catch (err) {
-      await db.rollbackTransaction();
-      throw err;
-    }
-  }, { migrationsFolder: "./src/db/migrations" });
+    }, { migrationsFolder: "./src/db/migrations" });
+  } finally {
+    await db.run("PRAGMA foreign_keys = ON", [], false);
+  }
 }
 ```
 
@@ -927,11 +950,15 @@ export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<voi
 Run: `npx tsc --noEmit -p tsconfig.json`
 Expected: no errors.
 
-- [ ] **Step 4: Verify end-to-end against a real v6 fixture before committing**
+- [ ] **Step 4: Verify the foreign_keys-pragma-in-transaction behavior directly, don't just trust the comment above**
 
-This task's whole point is data-integrity-critical, and Task 8's committed fixture test comes later — don't wait for it to find out whether this works. Build a throwaway v6-shaped fixture (real `PERSONAL_SCHEMA_SQL`/`REFERENCE_SCHEMA_SQL` from `src/db/schema.ts`, with a `schema_version` row of `6` and at least one real row with a real ISO-string timestamp in a timestamp column), run `runPersonalMigrations()` against it end-to-end through the real `getDrizzleDb()` wiring (not a bypassed/mocked Drizzle client), then do an actual `drizzle.select()` against the migrated table and confirm the timestamp column comes back as a valid `Date`, not `Invalid Date`. If `.superpowers/sdd/verify-migration-bootstrap.test.ts` already exists from a prior pass, use and extend it rather than writing this from scratch.
+Before trusting Step 2's `PRAGMA foreign_keys = OFF` placement, prove to yourself it's actually necessary and actually works, on whichever SQLite backs your test environment: write a short throwaway script that (a) opens a connection with `foreign_keys=ON`, (b) starts a transaction, issues `PRAGMA foreign_keys=OFF` **inside** it, and confirms via `PRAGMA foreign_keys` read-back that it's still reported as `1` (still on) — reproducing the no-op — then (c) confirms that issuing the same PRAGMA **before** `BEGIN` (i.e., the placement `runPersonalMigrations` now uses) actually disables enforcement for statements inside the subsequent transaction. If your environment's SQLite build behaves differently than this, STOP and report BLOCKED — this is exactly the kind of environment-specific behavior that must not be assumed.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Verify end-to-end against a real v6 fixture before committing**
+
+This task's whole point is data-integrity-critical, and Task 8's committed fixture test comes later — don't wait for it to find out whether this works. Build a throwaway v6-shaped fixture (real `PERSONAL_SCHEMA_SQL`/`REFERENCE_SCHEMA_SQL` from `src/db/schema.ts`, with a `schema_version` row of `6` and at least one real row with a real ISO-string timestamp in a timestamp column), run `runPersonalMigrations()` against it end-to-end through the real `getDrizzleDb()` wiring (not a bypassed/mocked Drizzle client, and not the raw `sqlite3` CLI or a bare `.exec()` call — those don't wrap statements in an explicit transaction the way the real runner does, and would not have caught the no-op-PRAGMA issue this task's design just fixed). Then do an actual `drizzle.select()` against the migrated table and confirm the timestamp column comes back as a valid `Date`, not `Invalid Date`. Also confirm `pokemon_instance`'s rebuild (which drops and recreates a table that `pokemon_instance_max_move`/`pokemon_instance_tag` hold FK references into) succeeds without a "FOREIGN KEY constraint failed" or "no such table" error under this real transactional runner specifically. If `.superpowers/sdd/verify-migration-bootstrap.test.ts` already exists from a prior pass, use and extend it rather than writing this from scratch — but re-verify it actually exercises the real `db.beginTransaction()`/`commitTransaction()` path, not a simplified stand-in.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/db/migrations.ts
