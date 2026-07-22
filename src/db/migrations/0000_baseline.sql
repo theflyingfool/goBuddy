@@ -1,9 +1,13 @@
--- Hand-edited after `npm run db:generate`: restores REFERENCES clauses
+-- Hand-edited after `npm run db:generate`: (1) restores REFERENCES clauses
 -- pointing at reference tables (species, form, mega_variant, backgrounds,
 -- medal, player_level), which live in src/db/schema/reference.ts and are
 -- deliberately excluded from drizzle-kit's schema path. Any future
 -- drizzle-kit generate that touches one of the columns below must repeat
 -- this hand-edit — drizzle-kit does not know these tables exist.
+-- (2) This migration deliberately encodes the schema real v6 devices
+-- ALREADY HAVE on disk (TEXT timestamps) — not schema/personal.ts's final
+-- INTEGER-timestamp shape. See migration 0001 for that conversion, and
+-- this plan's Architecture note for why the split exists.
 CREATE TABLE `app_settings` (
 	`key` text PRIMARY KEY NOT NULL,
 	`value` text NOT NULL
@@ -14,42 +18,42 @@ CREATE TABLE `form_background_personal` (
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
 	`achievement_field` text NOT NULL,
 	`background_slug` text NOT NULL REFERENCES backgrounds(slug),
-	`updated_at` integer NOT NULL,
+	`updated_at` text DEFAULT '1970-01-01T00:00:00.000Z' NOT NULL,
 	PRIMARY KEY(`form_slug`, `achievement_field`, `background_slug`)
 );
 --> statement-breakpoint
 CREATE TABLE `form_personal` (
 	`form_slug` text PRIMARY KEY NOT NULL REFERENCES form(slug),
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
-	`caught` integer DEFAULT false NOT NULL,
-	`shiny` integer DEFAULT false NOT NULL,
-	`floor` integer DEFAULT false NOT NULL,
-	`four_star` integer DEFAULT false NOT NULL,
-	`shundo` integer DEFAULT false NOT NULL,
-	`lucky` integer DEFAULT false NOT NULL,
-	`lucky_shiny` integer DEFAULT false NOT NULL,
-	`lucky_floor` integer DEFAULT false NOT NULL,
-	`lucky_four_star` integer DEFAULT false NOT NULL,
-	`lucky_shundo` integer DEFAULT false NOT NULL,
-	`shadow` integer DEFAULT false NOT NULL,
-	`shadow_shiny` integer DEFAULT false NOT NULL,
-	`shadow_floor` integer DEFAULT false NOT NULL,
-	`shadow_four_star` integer DEFAULT false NOT NULL,
-	`shadow_shundo` integer DEFAULT false NOT NULL,
-	`dynamax` integer DEFAULT false NOT NULL,
-	`dynamax_floor` integer DEFAULT false NOT NULL,
-	`dynamax_shiny` integer DEFAULT false NOT NULL,
-	`dynamax_four_star` integer DEFAULT false NOT NULL,
-	`dynamax_shundo` integer DEFAULT false NOT NULL,
-	`lucky_dynamax` integer DEFAULT false NOT NULL,
-	`lucky_dynamax_floor` integer DEFAULT false NOT NULL,
-	`lucky_dynamax_shiny` integer DEFAULT false NOT NULL,
-	`lucky_dynamax_four_star` integer DEFAULT false NOT NULL,
-	`lucky_dynamax_shundo` integer DEFAULT false NOT NULL,
+	`caught` integer DEFAULT 0 NOT NULL,
+	`shiny` integer DEFAULT 0 NOT NULL,
+	`floor` integer DEFAULT 0 NOT NULL,
+	`four_star` integer DEFAULT 0 NOT NULL,
+	`shundo` integer DEFAULT 0 NOT NULL,
+	`lucky` integer DEFAULT 0 NOT NULL,
+	`lucky_shiny` integer DEFAULT 0 NOT NULL,
+	`lucky_floor` integer DEFAULT 0 NOT NULL,
+	`lucky_four_star` integer DEFAULT 0 NOT NULL,
+	`lucky_shundo` integer DEFAULT 0 NOT NULL,
+	`shadow` integer DEFAULT 0 NOT NULL,
+	`shadow_shiny` integer DEFAULT 0 NOT NULL,
+	`shadow_floor` integer DEFAULT 0 NOT NULL,
+	`shadow_four_star` integer DEFAULT 0 NOT NULL,
+	`shadow_shundo` integer DEFAULT 0 NOT NULL,
+	`dynamax` integer DEFAULT 0 NOT NULL,
+	`dynamax_floor` integer DEFAULT 0 NOT NULL,
+	`dynamax_shiny` integer DEFAULT 0 NOT NULL,
+	`dynamax_four_star` integer DEFAULT 0 NOT NULL,
+	`dynamax_shundo` integer DEFAULT 0 NOT NULL,
+	`lucky_dynamax` integer DEFAULT 0 NOT NULL,
+	`lucky_dynamax_floor` integer DEFAULT 0 NOT NULL,
+	`lucky_dynamax_shiny` integer DEFAULT 0 NOT NULL,
+	`lucky_dynamax_four_star` integer DEFAULT 0 NOT NULL,
+	`lucky_dynamax_shundo` integer DEFAULT 0 NOT NULL,
 	`best_shiny` text,
 	`best_non_shiny` text,
 	`best_lucky` text,
-	`updated_at` integer NOT NULL,
+	`updated_at` text DEFAULT '1970-01-01T00:00:00.000Z' NOT NULL,
 	CONSTRAINT "form_personal_caught_bool" CHECK("form_personal"."caught" IN (0, 1)),
 	CONSTRAINT "form_personal_shiny_bool" CHECK("form_personal"."shiny" IN (0, 1)),
 	CONSTRAINT "form_personal_floor_bool" CHECK("form_personal"."floor" IN (0, 1)),
@@ -82,16 +86,16 @@ CREATE TABLE `medal_progress_personal` (
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
 	`current_rank` integer DEFAULT 0 NOT NULL,
 	`current_count` integer DEFAULT 0 NOT NULL,
-	`updated_at` integer NOT NULL,
+	`updated_at` text NOT NULL,
 	PRIMARY KEY(`medal_slug`, `profile_id`)
 );
 --> statement-breakpoint
 CREATE TABLE `mega_personal` (
 	`mega_variant_slug` text PRIMARY KEY NOT NULL REFERENCES mega_variant(slug),
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
-	`evolved` integer DEFAULT false NOT NULL,
-	`shiny_evolved` integer DEFAULT false NOT NULL,
-	`updated_at` integer NOT NULL,
+	`evolved` integer DEFAULT 0 NOT NULL,
+	`shiny_evolved` integer DEFAULT 0 NOT NULL,
+	`updated_at` text DEFAULT '1970-01-01T00:00:00.000Z' NOT NULL,
 	CONSTRAINT "mega_personal_evolved_bool" CHECK("mega_personal"."evolved" IN (0, 1)),
 	CONSTRAINT "mega_personal_shinyEvolved_bool" CHECK("mega_personal"."shiny_evolved" IN (0, 1))
 );
@@ -101,13 +105,13 @@ CREATE TABLE `personal_data_quarantine` (
 	`source_table` text NOT NULL,
 	`slug` text NOT NULL,
 	`payload_json` text NOT NULL,
-	`quarantined_at` integer NOT NULL
+	`quarantined_at` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `player_progress_log` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
-	`recorded_at` integer NOT NULL,
+	`recorded_at` text NOT NULL,
 	`current_level` integer,
 	`total_xp` integer
 );
@@ -116,7 +120,7 @@ CREATE TABLE `player_progress_personal` (
 	`profile_id` integer PRIMARY KEY NOT NULL REFERENCES profile(id),
 	`current_level` integer REFERENCES player_level(level),
 	`total_xp` integer,
-	`updated_at` integer NOT NULL
+	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `pokemon_instance` (
@@ -124,15 +128,15 @@ CREATE TABLE `pokemon_instance` (
 	`form_slug` text NOT NULL REFERENCES form(slug),
 	`profile_id` integer NOT NULL REFERENCES profile(id),
 	`status` text DEFAULT 'kept' NOT NULL,
-	`recorded_at` integer NOT NULL,
-	`caught_at` integer,
-	`updated_at` integer NOT NULL,
+	`recorded_at` text NOT NULL,
+	`caught_at` text,
+	`updated_at` text NOT NULL,
 	`cp` integer,
 	`iv_percent` real,
-	`shiny` integer DEFAULT false NOT NULL,
-	`lucky` integer DEFAULT false NOT NULL,
-	`shadow` integer DEFAULT false NOT NULL,
-	`purified` integer DEFAULT false NOT NULL,
+	`shiny` integer DEFAULT 0 NOT NULL,
+	`lucky` integer DEFAULT 0 NOT NULL,
+	`shadow` integer DEFAULT 0 NOT NULL,
+	`purified` integer DEFAULT 0 NOT NULL,
 	`hearts_earned` integer,
 	`current_mega_level` integer,
 	`nickname` text,
@@ -148,7 +152,7 @@ CREATE TABLE `pokemon_instance_max_move` (
 	`pokemon_instance_id` integer NOT NULL REFERENCES pokemon_instance(id),
 	`move_slot` text NOT NULL,
 	`level` integer,
-	`updated_at` integer NOT NULL,
+	`updated_at` text NOT NULL,
 	PRIMARY KEY(`pokemon_instance_id`, `move_slot`)
 );
 --> statement-breakpoint
@@ -162,17 +166,17 @@ CREATE TABLE `profile` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`username` text NOT NULL,
 	`friend_code` text,
-	`created_at` integer NOT NULL
+	`created_at` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `species_personal` (
 	`species_slug` text PRIMARY KEY NOT NULL REFERENCES species(slug),
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
-	`registered` integer DEFAULT false NOT NULL,
-	`xxl` integer DEFAULT false NOT NULL,
-	`xxs` integer DEFAULT false NOT NULL,
-	`purified` integer DEFAULT false NOT NULL,
-	`updated_at` integer NOT NULL,
+	`registered` integer DEFAULT 0 NOT NULL,
+	`xxl` integer DEFAULT 0 NOT NULL,
+	`xxs` integer DEFAULT 0 NOT NULL,
+	`purified` integer DEFAULT 0 NOT NULL,
+	`updated_at` text DEFAULT '1970-01-01T00:00:00.000Z' NOT NULL,
 	CONSTRAINT "species_personal_registered_bool" CHECK("species_personal"."registered" IN (0, 1)),
 	CONSTRAINT "species_personal_xxl_bool" CHECK("species_personal"."xxl" IN (0, 1)),
 	CONSTRAINT "species_personal_xxs_bool" CHECK("species_personal"."xxs" IN (0, 1)),

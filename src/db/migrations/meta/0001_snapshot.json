@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d5986422-2f88-46fd-a405-c54a2b1fb8cb",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "793f2e7e-650f-4064-bd09-ffeaa8ad3af6",
+  "prevId": "d5986422-2f88-46fd-a405-c54a2b1fb8cb",
   "tables": {
     "app_settings": {
       "name": "app_settings",
@@ -62,11 +62,10 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "'1970-01-01T00:00:00.000Z'"
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -325,11 +324,10 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "'1970-01-01T00:00:00.000Z'"
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -475,7 +473,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -531,11 +529,10 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "'1970-01-01T00:00:00.000Z'"
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -586,7 +583,7 @@
         },
         "quarantined_at": {
           "name": "quarantined_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -618,7 +615,7 @@
         },
         "recorded_at": {
           "name": "recorded_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -670,7 +667,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -716,21 +713,21 @@
         },
         "recorded_at": {
           "name": "recorded_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
         "caught_at": {
           "name": "caught_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -863,7 +860,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -941,7 +938,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -1005,11 +1002,10 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "'1970-01-01T00:00:00.000Z'"
+          "autoincrement": false
         }
       },
       "indexes": {},
