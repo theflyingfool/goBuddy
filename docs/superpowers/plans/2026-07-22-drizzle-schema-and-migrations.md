@@ -4,7 +4,7 @@
 
 **Goal:** Replace `src/db/schema.ts`'s hand-written personal-table DDL and `src/db/migrations.ts`'s hand-rolled versioned runner with Drizzle schema definitions + drizzle-kit generated migrations, executed through `drizzle-orm/sqlite-proxy`, while safely bootstrapping already-shipped v6 devices into the new migration-tracking table without replaying DDL against tables that already have those columns.
 
-**Architecture:** Personal tables move to a Drizzle `sqliteTable()` schema (`src/db/schema/personal.ts`) that drizzle-kit diffs to generate SQL migration files under `src/db/migrations/`. Reference tables get a parallel Drizzle schema (`src/db/schema/reference.ts`) for typed queries only — excluded from drizzle-kit's config, since they're wholesale-replaced by `reference-sync.ts`, never migrated. A new `src/db/drizzle-client.ts` wraps the existing `SQLiteDBConnection` (from `src/db/sqlite-client.ts`, unchanged) in Drizzle's `sqlite-proxy` driver. `src/db/migrations.ts` is rewritten to run `drizzle-orm/sqlite-proxy/migrator`'s `migrate()`, with a one-time bootstrap step that seeds Drizzle's `__drizzle_migrations` tracking table for devices already at personal-schema v6, so they're treated as caught up to migration `0000` without replaying it.
+**Architecture:** Personal tables move to a Drizzle `sqliteTable()` schema (`src/db/schema/personal.ts`) that drizzle-kit diffs to generate SQL migration files under `src/db/migrations/`. Reference tables get a parallel Drizzle schema (`src/db/schema/reference.ts`) for typed queries only — excluded from drizzle-kit's config, since they're wholesale-replaced by `reference-sync.ts`, never migrated. A new `src/db/drizzle-client.ts` wraps the existing `SQLiteDBConnection` (from `src/db/sqlite-client.ts`, unchanged) in Drizzle's `sqlite-proxy` driver. `src/db/migrations.ts` is rewritten to run `drizzle-orm/sqlite-proxy/migrator`'s `migrate()`, with a one-time bootstrap step that seeds Drizzle's `__drizzle_migrations` tracking table for devices already at personal-schema v6, so they're treated as caught up to migration `0000` — a migration that reproduces the *actual shipped v6 schema* (TEXT timestamps) rather than the final target shape. Migration `0001` then converts every timestamp column from TEXT to INTEGER via a real SQLite table-rebuild, applied through the normal `migrate()` path on **every** device — fresh installs and upgrading v6 devices alike — rather than living as bespoke bootstrap-only logic. This two-migration split exists specifically because SQLite column affinity is fixed at `CREATE TABLE` time: an in-place `UPDATE` into a `TEXT`-affinity column re-stores the value as text no matter what type is bound, so converting the *value* without rebuilding the *table* would leave every existing timestamp reading back as `Invalid Date` through Drizzle's `timestamp_ms` mode. (This was caught during Task 6's implementation via an end-to-end read-back check — see that task for the concrete repro — and is why this plan's Task 4/6 split differs from an earlier draft that attempted in-place conversion.)
 
 **Tech Stack:** `drizzle-orm` (stable `0.44.x`), `drizzle-kit` (dev dependency), existing `@capacitor-community/sqlite` connection, existing `node:sqlite`-backed test adapter (`test/node-sqlite-connection.ts`).
 
@@ -12,12 +12,15 @@
 
 - Pin `drizzle-orm` to a stable `0.44.x` release (not the `1.0.0-rc` prerelease line) and `drizzle-kit@0.31.x`.
 - `drizzle.config.ts`'s `schema` path covers **only** `src/db/schema/personal.ts` — reference tables must never appear in a generated migration.
-- Every personal-table timestamp column (`created_at`, `updated_at`, `recorded_at`, `caught_at`, `quarantined_at`) uses Drizzle's `integer({ mode: 'timestamp_ms' })` — stores/reads as Unix epoch milliseconds, replacing today's ISO-string `TEXT` columns. This is a real on-disk format change requiring a data-converting migration for existing devices (Task 6), not just a schema-declaration change.
-- Every existing `INTEGER ... CHECK (x IN (0,1))` boolean column becomes `integer({ mode: 'boolean' })` **plus** an explicit `check()` constraint reproducing the same `IN (0, 1)` SQL — Drizzle's boolean mode only affects the JS↔SQLite encode/decode boundary, it does not emit a CHECK constraint on its own, and the design spec requires migration `0000` to reproduce today's schema exactly.
+- **Final** state (`src/db/schema/personal.ts`, already committed by Task 2): every personal-table timestamp column (`created_at`, `updated_at`, `recorded_at`, `caught_at`, `quarantined_at`) uses Drizzle's `integer({ mode: 'timestamp_ms' })` — Unix epoch milliseconds. This is the target shape the app queries against going forward. It is **not** what migration `0000` encodes — see Task 4.
+- Every existing `INTEGER ... CHECK (x IN (0,1))` boolean column becomes `integer({ mode: 'boolean' })` **plus** an explicit `check()` constraint reproducing the same `IN (0, 1)` SQL — Drizzle's boolean mode only affects the JS↔SQLite encode/decode boundary, it does not emit a CHECK constraint on its own.
 - `payload_json` (`personal_data_quarantine`) uses `integer`-free `text({ mode: 'json' })`.
 - Columns that reference a **reference table** (`species.slug`, `form.slug`, `mega_variant.slug`, `backgrounds.slug`, `medal.slug`, `player_level.level`) are declared as plain columns in `schema/personal.ts` **without** Drizzle's `.references()` — the referenced tables live in `schema/reference.ts`, deliberately outside drizzle-kit's schema path, and `.references()` requires the target table to be part of the same generate run. The `REFERENCES` SQL clause for these columns is added back by hand-editing the generated migration file (Task 4) so runtime FK enforcement is unchanged.
+- **Migration `0000` must reproduce the literal, actually-shipped v6 schema** — `src/db/schema.ts`'s `PERSONAL_SCHEMA_SQL` verbatim, including its TEXT timestamp columns and their old string defaults (e.g. `'1970-01-01T00:00:00.000Z'`). This is deliberately **not** the same as `schema/personal.ts`'s final target shape — see Task 4 for why (the honest-baseline principle: `__drizzle_migrations` marking a device "at 0000" must mean the device's on-disk schema truly matches 0000, or every later migration's assumptions are unsound).
+- **Migration `0001` converts every timestamp column from TEXT to INTEGER** via SQLite's table-rebuild pattern (create new table with the target shape, `INSERT ... SELECT` with a per-column conversion expression, drop the old table, rename), applied through the normal `migrate()` path — not bespoke bootstrap code — so it runs identically on fresh installs (where it's a no-op over empty tables) and upgrading v6 devices (where it does the real conversion). Convert timestamps via `CAST(ROUND((julianday(col) - 2440587.5) * 86400000) AS INTEGER)`, not JS-side `Date` parsing or `strftime('%s', ...)` — see Task 4 for why; this expression returns `NULL` unchanged for a `NULL` input (SQL NULL propagates through `julianday`/arithmetic/`ROUND`/`CAST`), so it needs no separate `CASE WHEN` for the one nullable timestamp column (`pokemon_instance.caught_at`). Explicit primary-key values (`id`, `species_slug`, etc.) are preserved verbatim across the rebuild via column-for-column `INSERT ... SELECT`; `tag`'s `UNIQUE(profile_id, name)` index must be re-issued after rebuilding that table (drizzle-kit emits it as a separate `CREATE UNIQUE INDEX`, dropped along with the old table). drizzle-kit's own generated `PRAGMA foreign_keys=OFF` / `...=ON` bracketing around each table's rebuild is sufficient and must be preserved as-is — do not introduce `defer_foreign_keys` on top of it.
 - No change to `src/db/sqlite-client.ts`, the native/web platform split, or `src/data/in-memory-store.ts`.
 - `src/db/types.ts` (the hand-written camelCase mirror) is **not deleted** in this plan, despite the original design note — it's still the type source for `in-memory-store.ts`, `defaults.ts`, `personal-demo-seed.ts`, `field-groups.ts`, and `repository.ts`, none of which this plan touches. Only the Drizzle-facing modules built in this plan (`migrations.ts`, and Plan 2's `completion-stats-sql.ts`/`reference-sync.ts`) use Drizzle's `$inferSelect`/`$inferInsert` types. Reconciling `types.ts` fully into Drizzle's inferred types, if wanted later, is a separate follow-up plan.
+- **Known, accepted limitation:** rebuilding an `AUTOINCREMENT` table (`profile`, `pokemon_instance`, `tag`, `player_progress_log`, `personal_data_quarantine`) via drop-and-recreate does not preserve SQLite's `sqlite_sequence` high-water mark if rows were previously deleted — a future insert could theoretically reuse an id higher than the table's current max row but lower than a previously-deleted row's id once held. Accepted as low-risk for this single-device, non-synced app (ids are never shared across devices); not fixed in this plan.
 
 ---
 
@@ -612,34 +615,53 @@ git commit -m "Add Drizzle schema for reference tables (query-only)"
 
 ---
 
-## Task 4: Generate and hand-verify the baseline migration `0000`
+## Task 4: Generate and hand-verify migrations `0000` (honest v6 baseline) and `0001` (timestamp conversion)
+
+**Why two migrations, not one:** SQLite column affinity is fixed at `CREATE TABLE` time — an `UPDATE` into a `TEXT`-affinity column re-stores whatever value is bound as text, no matter its JS type. If migration `0000` declared timestamp columns as INTEGER (matching `schema/personal.ts`'s final shape) while real v6 devices' on-disk tables still have `TEXT` columns, marking those devices "at migration 0000" in `__drizzle_migrations` would be a lie — their columns would still be `TEXT` forever, since nothing ever ran a `CREATE TABLE` for them. `0000` must instead encode the schema those devices **actually have on disk today** (verbatim from `src/db/schema.ts`'s `PERSONAL_SCHEMA_SQL`, TEXT timestamps included). `0001` then does the real conversion via a genuine SQLite table-rebuild (create-copy-drop-rename), applied through the normal migration path on every device — fresh installs (a no-op over empty tables) and upgrading v6 devices (the real conversion) alike. This is why an earlier attempt at converting timestamps via bootstrap-only `UPDATE` statements was wrong and was caught before shipping — see this plan's top-level Architecture note.
 
 **Files:**
-- Create (generated then hand-edited): `src/db/migrations/0000_baseline.sql`, `src/db/migrations/meta/0000_snapshot.json`, `src/db/migrations/meta/_journal.json`
+- Create (generated then hand-edited): `src/db/migrations/0000_baseline.sql`, `src/db/migrations/0001_timestamps_to_epoch_ms.sql`, and their `meta/*_snapshot.json` + `meta/_journal.json` companions.
+- Temporarily modified then reverted: `src/db/schema/personal.ts` (see Step 1 — the file's *committed* state, from Task 2, is unchanged by the end of this task).
 
 **Interfaces:**
-- Consumes: `src/db/schema/personal.ts` (Task 2).
+- Consumes: `src/db/schema/personal.ts` as committed by Task 2 (the final INTEGER-timestamp shape) and `src/db/schema.ts`'s `PERSONAL_SCHEMA_SQL` (ground truth for `0000`).
 - Produces: the migration file set Task 6's `migrate()` call reads via `readMigrationFiles()`.
 
-- [ ] **Step 1: Generate**
+- [ ] **Step 1: Temporarily revert `personal.ts`'s timestamp columns to TEXT, matching the real shipped v6 schema exactly**
+
+This is a scratch edit purely to get drizzle-kit to generate `0000` with the correct (TEXT) column types — it is reverted in Step 4, before `personal.ts` is ever committed in this state.
+
+In `src/db/schema/personal.ts`, change every timestamp column from `integer("<col>", { mode: "timestamp_ms" })` to `text("<col>")`, matching `PERSONAL_SCHEMA_SQL`'s exact nullability and defaults:
+
+- `profile.createdAt`: `integer("created_at", { mode: "timestamp_ms" }).notNull()` → `text("created_at").notNull()`
+- `speciesPersonal.updatedAt`, `formPersonal.updatedAt`, `formBackgroundPersonal.updatedAt`, `megaPersonal.updatedAt`: → `text("updated_at").notNull().default("1970-01-01T00:00:00.000Z")` (matches `PERSONAL_SCHEMA_SQL`'s `DEFAULT '1970-01-01T00:00:00.000Z'` on each of these four tables)
+- `pokemonInstance.recordedAt`, `pokemonInstance.updatedAt`: → `text("recorded_at").notNull()` / `text("updated_at").notNull()` (no default in `PERSONAL_SCHEMA_SQL`)
+- `pokemonInstance.caughtAt`: → `text("caught_at")` (nullable, no default)
+- `pokemonInstanceMaxMove.updatedAt`, `playerProgressPersonal.updatedAt`, `medalProgressPersonal.updatedAt`, `playerProgressLog.recordedAt`, `personalDataQuarantine.quarantinedAt`: → plain `text("<col>").notNull()` (no default in `PERSONAL_SCHEMA_SQL`)
+
+- [ ] **Step 2: Generate `0000` from the temporarily-reverted schema**
 
 Run: `npm run db:generate -- --name baseline`
 Expected: creates `src/db/migrations/0000_baseline.sql` plus `src/db/migrations/meta/0000_snapshot.json` and `meta/_journal.json`.
 
-- [ ] **Step 2: Hand-edit the generated SQL to restore cross-schema `REFERENCES` clauses**
+- [ ] **Step 3: Hand-edit `0000_baseline.sql` to restore cross-schema `REFERENCES` clauses**
 
-Open `src/db/migrations/0000_baseline.sql`. For every column listed below, add the matching `REFERENCES` clause (drizzle-kit won't have generated these — see Task 2's note on why). Add this comment at the top of the file first:
+Add this comment at the top of the file first:
 
 ```sql
--- Hand-edited after `npm run db:generate`: restores REFERENCES clauses
+-- Hand-edited after `npm run db:generate`: (1) restores REFERENCES clauses
 -- pointing at reference tables (species, form, mega_variant, backgrounds,
 -- medal, player_level), which live in src/db/schema/reference.ts and are
 -- deliberately excluded from drizzle-kit's schema path. Any future
 -- drizzle-kit generate that touches one of the columns below must repeat
 -- this hand-edit — drizzle-kit does not know these tables exist.
+-- (2) This migration deliberately encodes the schema real v6 devices
+-- ALREADY HAVE on disk (TEXT timestamps) — not schema/personal.ts's final
+-- INTEGER-timestamp shape. See migration 0001 for that conversion, and
+-- this plan's Architecture note for why the split exists.
 ```
 
-Then amend these columns (match against whatever column order drizzle-kit emitted):
+Then amend these columns with the matching `REFERENCES` clause (match against whatever column order drizzle-kit emitted):
 
 - `species_personal.species_slug` → `REFERENCES species(slug)`
 - `form_personal.form_slug` → `REFERENCES form(slug)`
@@ -650,20 +672,68 @@ Then amend these columns (match against whatever column order drizzle-kit emitte
 - `pokemon_instance.background_slug` → `REFERENCES backgrounds(slug)`
 - `medal_progress_personal.medal_slug` → `REFERENCES medal(slug)`
 - `player_progress_personal.current_level` → `REFERENCES player_level(level)`
-- every `profile_id` column → `REFERENCES profile(id)` (this one **is** in-schema — `profile` is in `schema/personal.ts` — confirm drizzle-kit already generated it; if not, add it)
-- every `pokemon_instance_id` column (`pokemon_instance_tag`, `pokemon_instance_max_move`) → `REFERENCES pokemon_instance(id)` (in-schema, confirm auto-generated)
-- `pokemon_instance_tag.tag_id` → `REFERENCES tag(id)` (in-schema, confirm auto-generated)
+- every `profile_id` column → `REFERENCES profile(id)`
+- every `pokemon_instance_id` column (`pokemon_instance_tag`, `pokemon_instance_max_move`) → `REFERENCES pokemon_instance(id)`
+- `pokemon_instance_tag.tag_id` → `REFERENCES tag(id)`
 
-- [ ] **Step 3: Diff against today's `PERSONAL_SCHEMA_SQL` column-by-column**
+Note from a prior run of this task: drizzle-kit generated **zero** foreign keys anywhere in this file, including for in-schema columns (`profile_id`, `pokemon_instance_id`, `tag_id`) — `personal.ts` never calls `.references()` at all (deliberately, per its own header comment). Expect to add **every** REFERENCES clause above by hand, not just the cross-schema ones.
 
-Open `src/db/schema.ts`'s `PERSONAL_SCHEMA_SQL` side by side with the hand-edited `0000_baseline.sql`. Confirm, table by table: same column set, same nullability, same defaults (note: timestamp columns' defaults change from `'1970-01-01T00:00:00.000Z'` string literals to no default — Task 6 backfills real timestamps during the bootstrap, not via a column default), same `CHECK` constraints, same primary/foreign keys. Fix any mismatch directly in `0000_baseline.sql`.
+- [ ] **Step 4: Diff `0000_baseline.sql` against `PERSONAL_SCHEMA_SQL` column-by-column — this must now be an EXACT match, no exceptions**
 
-- [ ] **Step 4: Commit**
+Open `src/db/schema.ts`'s `PERSONAL_SCHEMA_SQL` side by side with the hand-edited `0000_baseline.sql`. Confirm, table by table: same column set, same types (including the TEXT timestamps from Step 1), same nullability, same defaults, same `CHECK` constraints, same primary/foreign keys. Unlike an earlier draft of this task, there should be **zero** deliberate exceptions this time — `0000` is meant to be a literal snapshot of what's already shipped. The one expected non-table difference: `schema_version` (present in `PERSONAL_SCHEMA_SQL`, absent here) is correctly **not** part of this migration — Drizzle's own `__drizzle_migrations` table replaces its role; do not add it.
+
+Fix any mismatch directly in `0000_baseline.sql`. If a mismatch traces back to a bug in `personal.ts` itself (not just this migration), fix `personal.ts` too, but remember Step 1's TEXT-column edit there is temporary — don't let a real bug fix get lost when you revert it in Step 6.
+
+- [ ] **Step 5: Revert `personal.ts`'s timestamp columns back to INTEGER, then generate `0001` as the type-change diff**
+
+```bash
+git checkout -- src/db/schema/personal.ts
+```
+
+This restores `personal.ts` to Task 2's committed state (`integer(..., { mode: "timestamp_ms" })` on every timestamp column) — if Step 4 found a genuine bug fix that belongs in `personal.ts` permanently, re-apply just that fix now, on top of the reverted file, before generating.
+
+Run: `npm run db:generate -- --name timestamps_to_epoch_ms`
+Expected: drizzle-kit detects a type change on every timestamp column across 11 tables and generates `src/db/migrations/0001_timestamps_to_epoch_ms.sql` using SQLite's table-rebuild pattern (create a `__new_<table>` with the target shape, `INSERT INTO __new_<table> SELECT ... FROM <table>`, `DROP TABLE <table>`, `ALTER TABLE __new_<table> RENAME TO <table>`, each block bracketed by `PRAGMA foreign_keys=OFF`/`=ON`) for each affected table. If drizzle-kit instead prompts interactively (asking whether a column was renamed, etc.) rather than generating directly, STOP and report BLOCKED — do not guess an answer to an interactive prompt on migration code that will run against real user data.
+
+- [ ] **Step 6: Hand-edit `0001`'s `INSERT ... SELECT` statements to convert timestamp values, not just copy them**
+
+For every affected table's generated `INSERT INTO __new_<table> (...) SELECT ... FROM <table>`, change each timestamp column's selected expression from a plain `"<col>"` copy to:
+
+```sql
+CAST(ROUND((julianday("<col>") - 2440587.5) * 86400000) AS INTEGER)
+```
+
+For example, `profile`'s generated block:
+
+```sql
+-- before (drizzle-kit's plain copy — WRONG, would carry the ISO string into an INTEGER-affinity column as text):
+INSERT INTO `__new_profile`("id", "username", "friend_code", "created_at") SELECT "id", "username", "friend_code", "created_at" FROM `profile`;
+
+-- after:
+INSERT INTO `__new_profile`("id", "username", "friend_code", "created_at")
+  SELECT "id", "username", "friend_code",
+         CAST(ROUND((julianday("created_at") - 2440587.5) * 86400000) AS INTEGER)
+  FROM `profile`;
+```
+
+Apply the same pattern to every timestamp column in every affected table's `INSERT ... SELECT` (`species_personal.updated_at`, `form_personal.updated_at`, `form_background_personal.updated_at`, `mega_personal.updated_at`, `pokemon_instance.recorded_at`/`caught_at`/`updated_at`, `pokemon_instance_max_move.updated_at`, `player_progress_personal.updated_at`, `medal_progress_personal.updated_at`, `player_progress_log.recorded_at`, `personal_data_quarantine.quarantined_at`). Leave every non-timestamp column's `SELECT` expression as drizzle-kit generated it (a plain column copy) — this preserves every explicit primary-key value (`id`, `species_slug`, `form_slug`, etc.) verbatim. Do not add a `CASE WHEN ... IS NULL` guard for `pokemon_instance.caught_at` — the conversion expression already returns `NULL` for a `NULL` input (SQL NULL propagates through `julianday`/arithmetic/`ROUND`/`CAST`).
+
+Confirm `tag`'s rebuild block includes drizzle-kit's regenerated `CREATE UNIQUE INDEX` for `UNIQUE(profile_id, name)` after the `ALTER TABLE ... RENAME` (it should — drizzle-kit re-emits indexes on a recreated table automatically; if it's missing, add it back by hand, matching Task 2's `tag_profile_id_name_unique` index name).
+
+Do not add `PRAGMA defer_foreign_keys` or otherwise touch drizzle-kit's own `PRAGMA foreign_keys=OFF`/`=ON` bracketing — it already makes each table's rebuild FK-safe.
+
+- [ ] **Step 7: Verify both migrations apply cleanly in sequence, and that timestamps read back correctly**
+
+Apply both files to a fresh SQLite database in order (`sqlite3 /tmp/verify.sqlite < src/db/migrations/0000_baseline.sql` then `< src/db/migrations/0001_timestamps_to_epoch_ms.sql`), confirm no errors, and spot-check one converted column's `typeof()` is `integer` afterward (e.g. `sqlite3 /tmp/verify.sqlite "PRAGMA table_info(profile)"` should show `created_at` as type `INTEGER`).
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/db/migrations/
-git commit -m "Generate and hand-verify baseline Drizzle migration 0000"
+git commit -m "Generate and hand-verify migrations 0000 (honest v6 baseline) and 0001 (timestamp conversion)"
 ```
+
+Confirm `git status` shows `src/db/schema/personal.ts` unchanged from Task 2's commit (Step 5's `git checkout` should have already guaranteed this, unless Step 4 required a permanent fix — in that case, that fix belongs in its own commit, separate from the migration files, mirroring how Task 4's `pokemon_instance` bug fixes were committed separately in the original pass of this plan).
 
 ---
 
@@ -723,15 +793,17 @@ git commit -m "Add sqlite-proxy Drizzle client wrapping the existing SQLite conn
 
 ---
 
-## Task 6: Rewrite the migration runner with the v6 bootstrap and timestamp conversion
+## Task 6: Rewrite the migration runner with the v6 bootstrap
 
 **Files:**
 - Modify: `src/db/migrations.ts` (full rewrite)
-- Modify: `test/node-sqlite-connection.ts` (add a `values`/raw-array method needed by the proxy's `"values"` case — check first if the existing shape already covers it, per Step 1 below)
+- Reuse (do not discard): `.superpowers/sdd/verify-migration-bootstrap.test.ts`, if present — a prior pass at this task wrote it as an adhoc end-to-end verification script (real v6 fixture → `runPersonalMigrations()` → real Drizzle read-back) and it's a useful starting point for Task 8's fixture test. Leave it in place; Task 8 owns turning it into the committed test.
 
 **Interfaces:**
-- Consumes: `getDrizzleDb()` (Task 5), migration files under `src/db/migrations/` (Task 4).
+- Consumes: `getDrizzleDb()` (Task 5), migration files under `src/db/migrations/` (Task 4: `0000_baseline.sql` + `0001_timestamps_to_epoch_ms.sql`).
 - Produces: `runPersonalMigrations(db: SQLiteDBConnection): Promise<void>` — same exported name and signature as today, so `src/main.ts`'s boot path and `reference-sync.ts`'s call site (which runs after it) don't change.
+
+**Design note — why this is simpler than an earlier draft of this task:** because migration `0001` (Task 4) now does the actual TEXT→INTEGER timestamp conversion via a real SQLite table-rebuild, applied through the normal `migrate()` path, this task's bootstrap has exactly one job: seed `__drizzle_migrations` with a row for migration `0000` (**only** `0000` — not skipping `0001`) so an existing v6 device is recognized as "already at the schema it truly has on disk" and doesn't get `0000`'s `CREATE TABLE` statements replayed against tables that already exist. `migrate()` then picks up `0001` (and anything later) as genuinely pending and applies it normally — on both fresh installs (a no-op, since 0001's rebuild runs over empty tables) and upgrading v6 devices (the real conversion). No JS-side value conversion, and no `rowid` bookkeeping, belongs in this file at all.
 
 - [ ] **Step 1: Confirm the test adapter supports `db.query` returning plain rows (no change needed)**
 
@@ -749,20 +821,26 @@ git commit -m "Add sqlite-proxy Drizzle client wrapping the existing SQLite conn
 // Bootstrap: a v6 device has a `schema_version` table (version = 6) but no
 // `__drizzle_migrations` table yet. On first boot under this code, seed
 // `__drizzle_migrations` with a row matching migration 0000's own
-// timestamp/hash *before* calling migrate() — this tells Drizzle "this
-// device is already caught up through 0000", so 0000's CREATE TABLE
-// statements are never replayed against tables that already have those
-// columns (which would error, or silently duplicate work). The old
-// `schema_version` table is left in place afterward — unread, harmless.
+// timestamp *before* calling migrate() — this tells Drizzle "this device is
+// already caught up through 0000", so 0000's CREATE TABLE statements are
+// never replayed against tables that already exist. migration 0000
+// deliberately encodes the schema v6 devices actually have on disk (TEXT
+// timestamps) — not the final INTEGER-timestamp shape — precisely so this
+// bootstrap step can be this simple: migration 0001 (not skipped here) then
+// does the real TEXT->INTEGER conversion via a table-rebuild, applied
+// through the normal migrate() path below, identically for fresh installs
+// (a no-op over empty tables) and upgrading v6 devices (the real
+// conversion). See src/db/migrations/0000_baseline.sql's header comment and
+// this plan's Architecture note for the full reasoning — an earlier draft
+// of this file tried to convert timestamp values in place via UPDATE
+// without rebuilding the table, which does not work: SQLite column
+// affinity is fixed at CREATE TABLE time, so a value written into a
+// TEXT-affinity column is always re-stored as text regardless of what type
+// was bound, silently corrupting every timestamp the first time Drizzle's
+// timestamp_ms mode tried to read it back as a Date.
 //
-// Timestamp conversion: migration 0000 declares every timestamp column as
-// INTEGER (Drizzle's timestamp_ms mode), but a real v6 device's rows still
-// hold ISO-string TEXT in those columns (SQLite's dynamic typing let the
-// old TEXT columns silently keep string values even after the bootstrap
-// treats the table as "already at 0000's shape"). convertTimestampColumns()
-// rewrites every existing timestamp column's stored value from an ISO
-// string to epoch milliseconds, run once as part of the same bootstrap
-// step, before any Drizzle query ever reads these columns.
+// The old `schema_version` table is left in place afterward — unread,
+// harmless.
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { migrate } from "drizzle-orm/sqlite-proxy/migrator";
@@ -784,20 +862,6 @@ const BASELINE_MIGRATION_MILLIS: number = BASELINE_ENTRY.when;
 const BASELINE_MIGRATION_HASH = "v6-bootstrap-baseline";
 const BUNDLED_LATEST_MIGRATION_MILLIS: number = Math.max(...journal.entries.map((e: { when: number }) => e.when));
 
-const TIMESTAMP_COLUMNS: { table: string; columns: string[] }[] = [
-  { table: "profile", columns: ["created_at"] },
-  { table: "species_personal", columns: ["updated_at"] },
-  { table: "form_personal", columns: ["updated_at"] },
-  { table: "form_background_personal", columns: ["updated_at"] },
-  { table: "mega_personal", columns: ["updated_at"] },
-  { table: "pokemon_instance", columns: ["recorded_at", "caught_at", "updated_at"] },
-  { table: "pokemon_instance_max_move", columns: ["updated_at"] },
-  { table: "player_progress_personal", columns: ["updated_at"] },
-  { table: "medal_progress_personal", columns: ["updated_at"] },
-  { table: "player_progress_log", columns: ["recorded_at"] },
-  { table: "personal_data_quarantine", columns: ["quarantined_at"] },
-];
-
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {
   const result = await db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
   return (result.values?.length ?? 0) > 0;
@@ -810,35 +874,10 @@ async function getOldSchemaVersion(db: SQLiteDBConnection): Promise<number | nul
   return row ? row.version : null;
 }
 
-// Rewrites every existing timestamp column's ISO-string value to epoch
-// milliseconds, in place. NULL values and already-numeric values are left
-// untouched (a second bootstrap run, or a fresh-install table with no rows
-// yet, must be a safe no-op).
-async function convertTimestampColumns(db: SQLiteDBConnection): Promise<void> {
-  for (const { table, columns } of TIMESTAMP_COLUMNS) {
-    if (!(await tableExists(db, table))) continue;
-    for (const column of columns) {
-      const rows = (await db.query(`SELECT rowid, ${column} FROM ${table} WHERE ${column} IS NOT NULL AND typeof(${column}) = 'text'`)).values ?? [];
-      for (const row of rows as Record<string, unknown>[]) {
-        const isoValue = row[column] as string;
-        const epochMs = new Date(isoValue).getTime();
-        // A malformed/unparseable stored value is treated as "unknown" (0 —
-        // epoch start) rather than left as text, since Drizzle's
-        // timestamp_ms mode requires a numeric column going forward and a
-        // NaN would break every future read of this row.
-        const safeValue = Number.isNaN(epochMs) ? 0 : epochMs;
-        await db.run(`UPDATE ${table} SET ${column} = ? WHERE rowid = ?`, [safeValue, row.rowid], false);
-      }
-    }
-  }
-}
-
 async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection): Promise<void> {
   const oldVersion = await getOldSchemaVersion(db);
   if (oldVersion === null) return; // fresh install — nothing to bootstrap
   if (await tableExists(db, MIGRATIONS_TABLE)) return; // already bootstrapped
-
-  await convertTimestampColumns(db);
 
   await db.execute(
     `CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
@@ -886,9 +925,13 @@ export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<voi
 - [ ] **Step 3: Typecheck**
 
 Run: `npx tsc --noEmit -p tsconfig.json`
-Expected: no errors (this compiles the whole `src/` tree — acceptable here since Task 4-6 together touch enough of `src/db/` that a full check is warranted before moving to tests).
+Expected: no errors.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Verify end-to-end against a real v6 fixture before committing**
+
+This task's whole point is data-integrity-critical, and Task 8's committed fixture test comes later — don't wait for it to find out whether this works. Build a throwaway v6-shaped fixture (real `PERSONAL_SCHEMA_SQL`/`REFERENCE_SCHEMA_SQL` from `src/db/schema.ts`, with a `schema_version` row of `6` and at least one real row with a real ISO-string timestamp in a timestamp column), run `runPersonalMigrations()` against it end-to-end through the real `getDrizzleDb()` wiring (not a bypassed/mocked Drizzle client), then do an actual `drizzle.select()` against the migrated table and confirm the timestamp column comes back as a valid `Date`, not `Invalid Date`. If `.superpowers/sdd/verify-migration-bootstrap.test.ts` already exists from a prior pass, use and extend it rather than writing this from scratch.
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/db/migrations.ts
@@ -951,9 +994,15 @@ test("runPersonalMigrations on a brand-new database creates every personal table
 test("runPersonalMigrations is a no-op replay for a device already at the current migration", async () => {
   const db = freshDb();
   await runPersonalMigrations(nodeSqliteConnection(db));
+  // A fresh install applies both migrations (0000, then 0001's timestamp
+  // rebuild — a no-op over the empty tables 0000 just created) — expect 2
+  // rows, not 1. Adjust this count if a later task adds migration 0002+.
+  const countAfterFirst = (db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number }).c;
+  assert.equal(countAfterFirst, 2);
+
   await runPersonalMigrations(nodeSqliteConnection(db));
-  const row = db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number };
-  assert.equal(row.c, 1, "second run should not insert another migration row");
+  const countAfterSecond = (db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number }).c;
+  assert.equal(countAfterSecond, countAfterFirst, "second run should not insert another migration row");
 });
 ```
 
@@ -1062,6 +1111,10 @@ CREATE TABLE personal_data_quarantine (id INTEGER PRIMARY KEY AUTOINCREMENT, sou
 
 - [ ] **Step 2: Write the replay test**
 
+If `.superpowers/sdd/verify-migration-bootstrap.test.ts` exists (a prior pass at Task 6 wrote it as an adhoc verification script that exercises exactly this scenario, including a real end-to-end Drizzle read-back), use it as the starting point for this file rather than writing from scratch — move/adapt it into `test/drizzle-v6-bootstrap.test.ts`, keeping whatever of its checks are still valid.
+
+This test must verify more than "the row still exists": it must confirm the **actual on-disk column type changed** (not just that a raw `db.prepare` read happens to still work), and that a **real Drizzle read** of the converted column returns a valid `Date`, not `Invalid Date` — that gap is exactly what an earlier draft of this migration missed, and it doesn't show up in a plain `db.prepare(...).get()` check the way it does through Drizzle's own value mapping.
+
 ```ts
 // test/drizzle-v6-bootstrap.test.ts
 import { test } from "node:test";
@@ -1072,6 +1125,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 import { runPersonalMigrations } from "../src/db/migrations";
+import { getDrizzleDb } from "../src/db/drizzle-client";
+import { profile, speciesPersonal, pokemonInstance } from "../src/db/schema/personal";
+import { eq } from "drizzle-orm";
 import { nodeSqliteConnection } from "./node-sqlite-connection";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1083,11 +1139,9 @@ function v6FixtureDb(): DatabaseSync {
   return db;
 }
 
-test("bootstrapping a real v6 device preserves every existing row untouched", async () => {
+test("bootstrapping a real v6 device preserves every existing row and correctly converts timestamps", async () => {
   const db = v6FixtureDb();
-
-  const beforeSpecies = db.prepare("SELECT * FROM species_personal WHERE species_slug = 'bulbasaur'").get();
-  const beforeInstance = db.prepare("SELECT * FROM pokemon_instance WHERE form_slug = 'bulbasaur-standard-male'").get() as Record<string, unknown>;
+  const maxExistingInstanceId = (db.prepare("SELECT MAX(id) as m FROM pokemon_instance").get() as { m: number }).m;
 
   await runPersonalMigrations(nodeSqliteConnection(db));
 
@@ -1097,19 +1151,31 @@ test("bootstrapping a real v6 device preserves every existing row untouched", as
   const afterInstance = db.prepare("SELECT form_slug, cp, shiny FROM pokemon_instance WHERE form_slug = 'bulbasaur-standard-male'").get();
   assert.deepEqual(afterInstance, { form_slug: "bulbasaur-standard-male", cp: 1200, shiny: 1 });
 
-  // Timestamp columns converted from ISO text to epoch ms, not lost.
-  const convertedUpdatedAt = db.prepare("SELECT updated_at FROM species_personal WHERE species_slug = 'bulbasaur'").get() as { updated_at: number };
-  assert.equal(convertedUpdatedAt.updated_at, new Date("2026-06-15T10:30:00.000Z").getTime());
+  // The column's actual on-disk storage class changed, not just its display value.
+  const rawType = db.prepare("SELECT typeof(updated_at) as t FROM species_personal WHERE species_slug = 'bulbasaur'").get() as { t: string };
+  assert.equal(rawType.t, "integer");
 
-  const convertedCaughtAt = db.prepare("SELECT caught_at FROM pokemon_instance WHERE form_slug = 'bulbasaur-standard-male'").get() as { caught_at: number };
-  assert.equal(convertedCaughtAt.caught_at, new Date("2026-06-14T18:00:00.000Z").getTime());
+  // A real Drizzle read (the same path the app uses) returns a valid Date, not Invalid Date.
+  const drizzleDb = await getDrizzleDb();
+  const [speciesRow] = await drizzleDb.select().from(speciesPersonal).where(eq(speciesPersonal.speciesSlug, "bulbasaur"));
+  assert.ok(speciesRow.updatedAt instanceof Date && !Number.isNaN(speciesRow.updatedAt.getTime()), "expected a valid Date, not Invalid Date");
+  assert.equal(speciesRow.updatedAt.getTime(), new Date("2026-06-15T10:30:00.000Z").getTime());
 
-  // Drizzle's tracking table is seeded, not left empty or double-applying 0000.
+  const [instanceRow] = await drizzleDb.select().from(pokemonInstance).where(eq(pokemonInstance.formSlug, "bulbasaur-standard-male"));
+  assert.equal(instanceRow.caughtAt?.getTime(), new Date("2026-06-14T18:00:00.000Z").getTime());
+  assert.equal(instanceRow.recordedAt.getTime(), new Date("2026-06-15T10:31:00.000Z").getTime());
+
+  const [profileRow] = await drizzleDb.select().from(profile).where(eq(profile.id, 1));
+  assert.equal(profileRow.createdAt.getTime(), new Date("2026-01-01T00:00:00.000Z").getTime());
+
+  // Drizzle's tracking table reflects both migrations applied (0000's bootstrap row, 0001 applied normally).
   const migrationRows = db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number };
-  assert.equal(migrationRows.c, 1);
+  assert.equal(migrationRows.c, 2);
 
-  void beforeSpecies;
-  void beforeInstance;
+  // AUTOINCREMENT sequence continuity survives the table rebuild: a new row's id doesn't collide with
+  // any id that existed before migration.
+  const insertResult = db.prepare("INSERT INTO pokemon_instance (form_slug, profile_id, recorded_at, updated_at) VALUES ('bulbasaur-standard-male', 1, 0, 0)").run();
+  assert.ok(Number(insertResult.lastInsertRowid) > maxExistingInstanceId, "new row's id should not collide with a pre-migration id");
 });
 
 test("a second boot after bootstrapping is a no-op", async () => {
@@ -1127,9 +1193,15 @@ test("a second boot after bootstrapping is a no-op", async () => {
 - [ ] **Step 3: Run — this must pass before this plan is considered done**
 
 Run: `npm run test -- test/drizzle-v6-bootstrap.test.ts`
-Expected: both tests PASS. If the timestamp-conversion assertions fail, fix `convertTimestampColumns()` in `src/db/migrations.ts` (Task 6) — do not weaken this test.
+Expected: both tests PASS. If the timestamp-conversion assertions fail, the bug is in migration `0001`'s hand-edited `INSERT ... SELECT` expressions (Task 4, Step 6) — fix it there, and re-verify Task 4's Step 7 (apply-both-migrations-in-sequence check) still passes too. Do not weaken this test.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Delete the superseded scratch verification script, if it still exists**
+
+```bash
+rm -f .superpowers/sdd/verify-migration-bootstrap.test.ts
+```
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add test/fixtures/v6-personal-schema.sql test/drizzle-v6-bootstrap.test.ts

@@ -14,6 +14,10 @@ export default defineConfig([
       "android/**",
       "node_modules/**",
       ".claude/**",
+      // Scratch working state for the subagent-driven-development skill
+      // (task briefs, implementer reports, review packages) — not project
+      // source, not meant to be linted.
+      ".superpowers/**",
       ".obsidian/**",
       "scripts/ingest/.cache/**",
       "data-authoring/**",
