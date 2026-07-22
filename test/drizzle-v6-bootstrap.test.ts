@@ -69,8 +69,13 @@ test("bootstrapping a real v6 device preserves every existing row and correctly 
   const migrationRows = db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number };
   assert.equal(migrationRows.c, 2);
 
-  // AUTOINCREMENT sequence continuity survives the table rebuild: a new row's id doesn't collide with
-  // any id that existed before migration. FK enforcement is toggled off just for this insert: the
+  // A new row's id doesn't collide with any id that survived the rebuild. Note this doesn't prove
+  // AUTOINCREMENT's sequence high-water mark survives a rebuild in general — with a single
+  // pre-existing row, the next id is 2 regardless of whether the sequence was preserved; that would
+  // only be exercised by a fixture with a gap (a previously hard-deleted row above the current max),
+  // a scenario the app doesn't currently produce (pokemon_instance rows are soft-deleted via
+  // `status`, never hard-deleted) — see this plan's "Known, accepted limitation" note. FK enforcement
+  // is toggled off just for this insert: the
   // post-migration pokemon_instance table carries REFERENCES clauses into species/form/backgrounds
   // (reference tables the real app creates via syncReferenceData(), which runs after
   // runPersonalMigrations() and is out of scope for this test) — SQLite validates a REFERENCES

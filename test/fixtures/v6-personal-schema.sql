@@ -1,6 +1,11 @@
--- Reproduces a real shipped v1.0.0 device: personal-schema v6 exactly as
--- src/db/schema.ts's PERSONAL_SCHEMA_SQL defined it (git history, pre-Drizzle),
--- with ISO-string TEXT timestamps — not the new Drizzle epoch-ms shape.
+-- Reproduces a real shipped v1.0.0 device's column set: personal-schema v6
+-- exactly as src/db/schema.ts's PERSONAL_SCHEMA_SQL defined it (still in git
+-- HEAD, pre-Drizzle), with ISO-string TEXT timestamps — not the new Drizzle
+-- epoch-ms shape. Intentionally omits PERSONAL_SCHEMA_SQL's REFERENCES/CHECK
+-- clauses (this fixture has no reference tables to reference, and adding
+-- them would break this file's own seed INSERTs under foreign_keys=ON) —
+-- the column set, not the full DDL, is what needs to match exactly, since
+-- that's what migration 0001's rebuild selects by name.
 CREATE TABLE schema_version (version INTEGER NOT NULL);
 INSERT INTO schema_version (version) VALUES (6);
 
