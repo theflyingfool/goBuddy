@@ -229,6 +229,8 @@ export interface SpeciesPersonal {
   xxl: boolean;
   xxs: boolean;
   purified: boolean;
+  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
+  updatedAt: string;
 }
 
 export interface FormPersonal {
@@ -267,6 +269,9 @@ export interface FormPersonal {
   bestShiny: string | null;
   bestNonShiny: string | null;
   bestLucky: string | null;
+
+  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
+  updatedAt: string;
 }
 
 // Every independently-ownable variant of a form — used both to drive the
@@ -337,12 +342,16 @@ export interface FormBackgroundPersonal {
   formSlug: string;
   achievementField: FormPersonalBooleanField;
   backgroundSlug: string;
+  /** When this link was added — the composite PK has no "value" to compare on merge (a row either exists or doesn't), so this is informational, not a merge tiebreaker. */
+  updatedAt: string;
 }
 
 export interface MegaPersonal {
   megaVariantSlug: string;
   evolved: boolean;
   shinyEvolved: boolean;
+  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
+  updatedAt: string;
 }
 
 export const SPECIES_PERSONAL_BOOLEAN_FIELDS = [

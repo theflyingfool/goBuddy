@@ -69,7 +69,7 @@ const noopHooks = {
   onFormPersonalChanged() {},
   onAppSettingChanged() {},
   onMegaPersonalChanged() {},
-  onPersonalDataCleared() {},
+  onFormBackgroundPersonalAdded() {},
 };
 
 test("export/import round-trips species, form, and app-setting personal data", async () => {
@@ -107,8 +107,8 @@ test("import skips rows whose slug no longer resolves against the loaded referen
     exportedAt: new Date().toISOString(),
     schemaVersion: 1,
     speciesPersonal: {
-      bulbasaur: { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: false, purified: false },
-      "no-longer-exists": { speciesSlug: "no-longer-exists", registered: true, xxl: false, xxs: false, purified: false },
+      bulbasaur: { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: false, purified: false, updatedAt: new Date().toISOString() },
+      "no-longer-exists": { speciesSlug: "no-longer-exists", registered: true, xxl: false, xxs: false, purified: false, updatedAt: new Date().toISOString() },
     },
     formPersonal: {},
     appSettings: {},
@@ -119,7 +119,7 @@ test("import skips rows whose slug no longer resolves against the loaded referen
   assert.equal(dest.getSpeciesWithForms("bulbasaur").personal.registered, true);
 });
 
-test("import replaces the current collection instead of merging with it", async () => {
+test("import merges instead of wiping: a local row absent from the import survives untouched", async () => {
   const destState = emptyState();
   const dest = createInMemoryRepository(referenceData, destState, noopHooks);
 
@@ -138,11 +138,53 @@ test("import replaces the current collection instead of merging with it", async 
 
   assert.deepEqual(result, { skippedSpeciesSlugs: 0, skippedFormSlugs: 0 });
   const withForms = dest.getSpeciesWithForms("bulbasaur");
-  assert.equal(withForms.personal.xxl, false);
-  assert.equal(withForms.personal.registered, false);
-  assert.equal(withForms.forms[0].personal.shiny, false);
-  // App settings/preferences are a separate table, untouched by the clear.
+  // A wipe-and-restore would have cleared these; a merge leaves them alone
+  // since the import didn't mention bulbasaur at all.
+  assert.equal(withForms.personal.xxl, true);
+  assert.equal(withForms.personal.registered, true);
+  assert.equal(withForms.forms[0].personal.shiny, true);
   assert.equal(dest.getAppSetting("grid_indicators"), JSON.stringify(["shiny"]));
+});
+
+test("import keeps the local row when it's newer than the imported one", async () => {
+  const destState = emptyState();
+  const dest = createInMemoryRepository(referenceData, destState, noopHooks);
+  dest.setSpeciesPersonalField("bulbasaur", "xxl", true); // stamps a real, current updatedAt
+
+  await dest.importPersonalData({
+    exportedAt: new Date().toISOString(),
+    schemaVersion: 1,
+    speciesPersonal: {
+      bulbasaur: { speciesSlug: "bulbasaur", registered: false, xxl: false, xxs: true, purified: false, updatedAt: "2000-01-01T00:00:00.000Z" },
+    },
+    formPersonal: {},
+    appSettings: {},
+  });
+
+  // The incoming row is older, so the local (newer) row wins entirely.
+  assert.equal(dest.getSpeciesWithForms("bulbasaur").personal.xxl, true);
+  assert.equal(dest.getSpeciesWithForms("bulbasaur").personal.xxs, false);
+});
+
+test("import overwrites the local row when the imported one is newer", async () => {
+  const destState = emptyState();
+  const dest = createInMemoryRepository(referenceData, destState, noopHooks);
+  destState.speciesPersonal.bulbasaur = { speciesSlug: "bulbasaur", registered: true, xxl: true, xxs: false, purified: false, updatedAt: "2000-01-01T00:00:00.000Z" };
+
+  await dest.importPersonalData({
+    exportedAt: new Date().toISOString(),
+    schemaVersion: 1,
+    speciesPersonal: {
+      bulbasaur: { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: true, purified: false, updatedAt: new Date().toISOString() },
+    },
+    formPersonal: {},
+    appSettings: {},
+  });
+
+  // The incoming row is newer, so it replaces the local one entirely (not
+  // merged field-by-field — xxl reverts to false along with xxs flipping true).
+  assert.equal(dest.getSpeciesWithForms("bulbasaur").personal.xxl, false);
+  assert.equal(dest.getSpeciesWithForms("bulbasaur").personal.xxs, true);
 });
 
 test("import never overwrites reference_data_version from another device's export", async () => {

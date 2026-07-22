@@ -41,6 +41,9 @@ test("runPersonalMigrations replays only pending migrations for a device stamped
   db.exec(`
     CREATE TABLE schema_version (version INTEGER NOT NULL);
     CREATE TABLE species_personal (species_slug TEXT PRIMARY KEY, registered INTEGER NOT NULL DEFAULT 0, xxl INTEGER NOT NULL DEFAULT 0, xxs INTEGER NOT NULL DEFAULT 0, purified INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE form_personal (form_slug TEXT PRIMARY KEY, caught INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE form_background_personal (form_slug TEXT NOT NULL, achievement_field TEXT NOT NULL, background_slug TEXT NOT NULL, PRIMARY KEY (form_slug, achievement_field, background_slug));
+    CREATE TABLE mega_personal (mega_variant_slug TEXT PRIMARY KEY, evolved INTEGER NOT NULL DEFAULT 0, shiny_evolved INTEGER NOT NULL DEFAULT 0);
   `);
   db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(1);
 

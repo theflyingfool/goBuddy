@@ -26,7 +26,7 @@ import { EXCLUDE_REGIONAL_SETTING_KEY, type ImportResult, type Repository } from
 
 const referenceData = referenceDataJson as unknown as ReferenceData;
 
-const FORM_PERSONAL_COLUMNS = [...FORM_PERSONAL_BOOLEAN_FIELDS.map((f) => FORM_PERSONAL_FIELD_COLUMNS[f]), "best_shiny", "best_non_shiny", "best_lucky"];
+const FORM_PERSONAL_COLUMNS = [...FORM_PERSONAL_BOOLEAN_FIELDS.map((f) => FORM_PERSONAL_FIELD_COLUMNS[f]), "best_shiny", "best_non_shiny", "best_lucky", "updated_at"];
 
 function upsertFormPersonalSql(): string {
   const columns = ["form_slug", ...FORM_PERSONAL_COLUMNS];
@@ -38,7 +38,7 @@ function upsertFormPersonalSql(): string {
 function formPersonalValues(fp: FormPersonal): unknown[] {
   const values: unknown[] = [fp.formSlug];
   for (const field of FORM_PERSONAL_BOOLEAN_FIELDS) values.push(fp[field] ? 1 : 0);
-  values.push(fp.bestShiny, fp.bestNonShiny, fp.bestLucky);
+  values.push(fp.bestShiny, fp.bestNonShiny, fp.bestLucky, fp.updatedAt);
   return values;
 }
 
@@ -51,12 +51,19 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
       xxl: !!row.xxl,
       xxs: !!row.xxs,
       purified: !!row.purified,
+      updatedAt: row.updated_at,
     };
   }
 
   const formPersonal: Record<string, FormPersonal> = {};
   for (const row of (await db.query("SELECT * FROM form_personal")).values ?? []) {
-    const fp = { formSlug: row.form_slug, bestShiny: row.best_shiny ?? null, bestNonShiny: row.best_non_shiny ?? null, bestLucky: row.best_lucky ?? null } as FormPersonal;
+    const fp = {
+      formSlug: row.form_slug,
+      bestShiny: row.best_shiny ?? null,
+      bestNonShiny: row.best_non_shiny ?? null,
+      bestLucky: row.best_lucky ?? null,
+      updatedAt: row.updated_at,
+    } as FormPersonal;
     for (const field of FORM_PERSONAL_BOOLEAN_FIELDS) {
       fp[field] = !!row[FORM_PERSONAL_FIELD_COLUMNS[field]];
     }
@@ -74,6 +81,7 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
       megaVariantSlug: row.mega_variant_slug,
       evolved: !!row.evolved,
       shinyEvolved: !!row.shiny_evolved,
+      updatedAt: row.updated_at,
     };
   }
 
@@ -83,6 +91,7 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
       formSlug: row.form_slug,
       achievementField: row.achievement_field,
       backgroundSlug: row.background_slug,
+      updatedAt: row.updated_at,
     });
   }
 
@@ -139,9 +148,9 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       const inBulk = bulkDepth > 0;
       enqueueWrite(async () => {
         await db.run(
-          `INSERT INTO species_personal (species_slug, registered, xxl, xxs, purified) VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(species_slug) DO UPDATE SET registered = excluded.registered, xxl = excluded.xxl, xxs = excluded.xxs, purified = excluded.purified`,
-          [speciesSlug, personal.registered ? 1 : 0, personal.xxl ? 1 : 0, personal.xxs ? 1 : 0, personal.purified ? 1 : 0],
+          `INSERT INTO species_personal (species_slug, registered, xxl, xxs, purified, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(species_slug) DO UPDATE SET registered = excluded.registered, xxl = excluded.xxl, xxs = excluded.xxs, purified = excluded.purified, updated_at = excluded.updated_at`,
+          [speciesSlug, personal.registered ? 1 : 0, personal.xxl ? 1 : 0, personal.xxs ? 1 : 0, personal.purified ? 1 : 0, personal.updatedAt],
           !inBulk,
         );
         if (!inBulk) await persistDb();
@@ -169,25 +178,26 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       const inBulk = bulkDepth > 0;
       enqueueWrite(async () => {
         await db.run(
-          `INSERT INTO mega_personal (mega_variant_slug, evolved, shiny_evolved) VALUES (?, ?, ?)
-           ON CONFLICT(mega_variant_slug) DO UPDATE SET evolved = excluded.evolved, shiny_evolved = excluded.shiny_evolved`,
-          [megaVariantSlug, personal.evolved ? 1 : 0, personal.shinyEvolved ? 1 : 0],
+          `INSERT INTO mega_personal (mega_variant_slug, evolved, shiny_evolved, updated_at) VALUES (?, ?, ?, ?)
+           ON CONFLICT(mega_variant_slug) DO UPDATE SET evolved = excluded.evolved, shiny_evolved = excluded.shiny_evolved, updated_at = excluded.updated_at`,
+          [megaVariantSlug, personal.evolved ? 1 : 0, personal.shinyEvolved ? 1 : 0, personal.updatedAt],
           !inBulk,
         );
         if (!inBulk) await persistDb();
       });
     },
     // Only ever called from within importPersonalData's runBulk wrapper below
-    // (bulkDepth > 0), so this always skips its own transaction/persist —
-    // the surrounding bulk owns both, same convention as every other hook
-    // here.
-    onPersonalDataCleared() {
+    // (bulkDepth > 0) — form_background_personal has no per-row setter yet,
+    // only import can add to it, always as a brand-new row (composite PK, no
+    // update-in-place case, so plain INSERT OR IGNORE is enough).
+    onFormBackgroundPersonalAdded(row) {
       const inBulk = bulkDepth > 0;
       enqueueWrite(async () => {
-        await db.run("DELETE FROM species_personal", [], !inBulk);
-        await db.run("DELETE FROM form_personal", [], !inBulk);
-        await db.run("DELETE FROM mega_personal", [], !inBulk);
-        await db.run("DELETE FROM form_background_personal", [], !inBulk);
+        await db.run(
+          "INSERT OR IGNORE INTO form_background_personal (form_slug, achievement_field, background_slug, updated_at) VALUES (?, ?, ?, ?)",
+          [row.formSlug, row.achievementField, row.backgroundSlug, row.updatedAt],
+          !inBulk,
+        );
         if (!inBulk) await persistDb();
       });
     },
@@ -226,12 +236,12 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       await writeQueue;
       return getCompletionStatsSql(db, scope, lenses, state.appSettings[EXCLUDE_REGIONAL_SETTING_KEY] === "1");
     },
-    // Overrides the in-memory-store default to (a) run the whole clear +
-    // re-populate as one SQL transaction via runBulk, so a failure partway
-    // through can't leave the DB cleared but not re-populated, and (b) wait
-    // for the writes it just queued to actually land in SQLite + IndexedDB —
-    // callers that reload the page right after importing need the real
-    // backing store updated first, not just the in-memory cache.
+    // Overrides the in-memory-store default to (a) run the whole merge as
+    // one SQL transaction via runBulk, so a failure partway through can't
+    // leave some rows merged and others not, and (b) wait for the writes it
+    // just queued to actually land in SQLite + IndexedDB — callers that
+    // reload the page right after importing need the real backing store
+    // updated first, not just the in-memory cache.
     async importPersonalData(data) {
       let result: ImportResult | undefined;
       await runBulk(async () => {

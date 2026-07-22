@@ -135,13 +135,14 @@ insertAll(
 
 insertAll(
   "species_personal",
-  ["species_slug", "registered", "xxl", "xxs", "purified"],
+  ["species_slug", "registered", "xxl", "xxs", "purified", "updated_at"],
   speciesPersonal.map((sp) => ({
     species_slug: sp.speciesSlug,
     registered: b(sp.registered),
     xxl: b(sp.xxl),
     xxs: b(sp.xxs),
     purified: b(sp.purified),
+    updated_at: sp.updatedAt,
   })),
 );
 
@@ -149,7 +150,7 @@ const formPersonalBooleanColumns = FORM_PERSONAL_BOOLEAN_FIELDS.map((field) => F
 
 insertAll(
   "form_personal",
-  ["form_slug", ...formPersonalBooleanColumns, "best_shiny", "best_non_shiny", "best_lucky"],
+  ["form_slug", ...formPersonalBooleanColumns, "best_shiny", "best_non_shiny", "best_lucky", "updated_at"],
   formPersonal.map((fp) => {
     const row: Record<string, unknown> = { form_slug: fp.formSlug };
     for (const field of FORM_PERSONAL_BOOLEAN_FIELDS) {
@@ -158,27 +159,30 @@ insertAll(
     row.best_shiny = fp.bestShiny;
     row.best_non_shiny = fp.bestNonShiny;
     row.best_lucky = fp.bestLucky;
+    row.updated_at = fp.updatedAt;
     return row;
   }),
 );
 
 insertAll(
   "form_background_personal",
-  ["form_slug", "achievement_field", "background_slug"],
+  ["form_slug", "achievement_field", "background_slug", "updated_at"],
   formBackgroundPersonal.map((fb) => ({
     form_slug: fb.formSlug,
     achievement_field: FORM_PERSONAL_FIELD_COLUMNS[fb.achievementField],
     background_slug: fb.backgroundSlug,
+    updated_at: fb.updatedAt,
   })),
 );
 
 insertAll(
   "mega_personal",
-  ["mega_variant_slug", "evolved", "shiny_evolved"],
+  ["mega_variant_slug", "evolved", "shiny_evolved", "updated_at"],
   megaPersonal.map((mp) => ({
     mega_variant_slug: mp.megaVariantSlug,
     evolved: b(mp.evolved),
     shiny_evolved: b(mp.shinyEvolved),
+    updated_at: mp.updatedAt,
   })),
 );
 

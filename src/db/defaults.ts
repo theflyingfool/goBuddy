@@ -14,12 +14,17 @@ export const DEFAULT_APP_SETTINGS: Record<string, string> = {
   exclude_regional_form_complete: "0",
 };
 
+// Sentinel for a row that's never actually been written — always sorts
+// older than any real updatedAt, so an incoming import row always wins a
+// merge against a not-yet-existing local row (see importPersonalData).
+export const NEVER_UPDATED = "1970-01-01T00:00:00.000Z";
+
 export function emptySpeciesPersonal(speciesSlug: string): SpeciesPersonal {
-  return { speciesSlug, registered: false, xxl: false, xxs: false, purified: false };
+  return { speciesSlug, registered: false, xxl: false, xxs: false, purified: false, updatedAt: NEVER_UPDATED };
 }
 
 export function emptyMegaPersonal(megaVariantSlug: string): MegaPersonal {
-  return { megaVariantSlug, evolved: false, shinyEvolved: false };
+  return { megaVariantSlug, evolved: false, shinyEvolved: false, updatedAt: NEVER_UPDATED };
 }
 
 export function emptyFormPersonal(formSlug: string, overrides: Partial<Omit<FormPersonal, "formSlug">> = {}): FormPersonal {
@@ -53,6 +58,7 @@ export function emptyFormPersonal(formSlug: string, overrides: Partial<Omit<Form
     bestShiny: null,
     bestNonShiny: null,
     bestLucky: null,
+    updatedAt: NEVER_UPDATED,
     ...overrides,
   };
 }

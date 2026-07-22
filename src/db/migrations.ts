@@ -45,6 +45,28 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    // Adds updated_at to every personal collection table, needed for
+    // merge-on-import (see importPersonalData in in-memory-store.ts) to
+    // decide which side of a conflicting row is newer. The fixed epoch
+    // default means every pre-existing row reads as "older than anything a
+    // real import could carry" — an incoming row with a real timestamp
+    // always wins against one that predates this migration, which is the
+    // conservative direction to default (an import can only add/refresh
+    // data this way, never appear to erase something newer by comparison).
+    version: 3,
+    up: async (db) => {
+      // All four have existed since v1 on any real device — the existence
+      // check is defensive (matches the IF NOT EXISTS style used elsewhere
+      // in this file) rather than a scenario expected to actually happen;
+      // SQLite has no ALTER TABLE ... ADD COLUMN IF NOT EXISTS of its own.
+      for (const table of ["species_personal", "form_personal", "form_background_personal", "mega_personal"]) {
+        if (await tableExists(db, table)) {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'`, false);
+        }
+      }
+    },
+  },
 ];
 
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {

@@ -6,6 +6,7 @@
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
+import { NEVER_UPDATED } from "../db/defaults";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormBackgroundPersonal, type FormPersonal, type MegaPersonal, type SpeciesPersonal } from "../db/types";
 import type { PersonalDataExport } from "./repository";
 
@@ -49,6 +50,9 @@ export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promis
           xxl: !!row.xxl,
           xxs: !!row.xxs,
           purified: !!row.purified,
+          // A DB stuck at a pre-migration-3 shape (the exact case this
+          // rescue path exists for) may not have this column at all.
+          updatedAt: row.updated_at ?? NEVER_UPDATED,
         };
       }
     }
@@ -60,7 +64,13 @@ export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promis
   try {
     if (await tableExists(db, "form_personal")) {
       for (const row of (await db.query("SELECT * FROM form_personal")).values ?? []) {
-        const fp = { formSlug: row.form_slug, bestShiny: row.best_shiny ?? null, bestNonShiny: row.best_non_shiny ?? null, bestLucky: row.best_lucky ?? null } as FormPersonal;
+        const fp = {
+          formSlug: row.form_slug,
+          bestShiny: row.best_shiny ?? null,
+          bestNonShiny: row.best_non_shiny ?? null,
+          bestLucky: row.best_lucky ?? null,
+          updatedAt: row.updated_at ?? NEVER_UPDATED,
+        } as FormPersonal;
         for (const field of FORM_PERSONAL_BOOLEAN_FIELDS) {
           fp[field] = !!row[FORM_PERSONAL_FIELD_COLUMNS[field]];
         }
@@ -90,6 +100,7 @@ export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promis
           megaVariantSlug: row.mega_variant_slug,
           evolved: !!row.evolved,
           shinyEvolved: !!row.shiny_evolved,
+          updatedAt: row.updated_at ?? NEVER_UPDATED,
         };
       }
     }
@@ -105,6 +116,7 @@ export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promis
           formSlug: row.form_slug,
           achievementField: row.achievement_field,
           backgroundSlug: row.background_slug,
+          updatedAt: row.updated_at ?? NEVER_UPDATED,
         });
       }
     }

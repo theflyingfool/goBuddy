@@ -1,6 +1,6 @@
 import type { Form, FormPersonal, SpeciesPersonal } from "../../db/types";
 
-type FormField = keyof Omit<FormPersonal, "formSlug" | "bestShiny" | "bestNonShiny" | "bestLucky">;
+type FormField = keyof Omit<FormPersonal, "formSlug" | "bestShiny" | "bestNonShiny" | "bestLucky" | "updatedAt">;
 
 // Gigantamax form rows carry dynamaxAvailable: true (Gigantamax is
 // fundamentally a Dynamax variant — scripts/ingest/build-reference.ts), but
@@ -79,7 +79,7 @@ export const FORM_FIELD_GROUPS: { title: string; fields: { field: FormField; lab
   },
 ];
 
-type SpeciesField = keyof Omit<SpeciesPersonal, "speciesSlug">;
+type SpeciesField = keyof Omit<SpeciesPersonal, "speciesSlug" | "updatedAt">;
 
 export const SPECIES_FIELDS: { field: SpeciesField; label: string }[] = [
   { field: "registered", label: "Registered" },

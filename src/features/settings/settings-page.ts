@@ -170,7 +170,7 @@ export function renderSettingsPage(container: HTMLElement, repo: Repository) {
         if (!proceed) return;
       }
       const proceed = window.confirm(
-        `Import "${file.name}" (exported ${new Date(data.exportedAt).toLocaleString()})? This REPLACES all of your current species/form/mega data with what's in this file — anything caught locally that isn't in the file will be gone. Settings/preferences aren't affected.`,
+        `Import "${file.name}" (exported ${new Date(data.exportedAt).toLocaleString()})? This MERGES with your current species/form/mega data — anything caught locally that isn't in the file stays as-is, and for anything tracked on both sides, whichever was updated more recently wins. Settings/preferences aren't affected.`,
       );
       if (!proceed) return;
 

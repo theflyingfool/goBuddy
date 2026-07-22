@@ -226,11 +226,13 @@ export interface Repository {
   /** Snapshot of all personal data (not reference data) for manual cross-device transfer. */
   exportPersonalData(): PersonalDataExport;
   /**
-   * Writes every entry in the export through the same paths setSpeciesPersonalField/etc. use —
-   * overwrites matching entries, leaves anything not present in the file untouched. Resolves only
-   * once the write-through to the real backing store has actually completed — callers that reload
-   * the page right after importing (as Settings does) need that guarantee, not just that the
-   * in-memory cache was updated.
+   * Merges the export into the current collection, row by row: a row present
+   * only locally is left alone, a row present only in the import is added,
+   * and a row present on both sides keeps whichever one's `updatedAt` is
+   * newer (the whole row, not merged field-by-field). Resolves only once the
+   * write-through to the real backing store has actually completed — callers
+   * that reload the page right after importing (as Settings does) need that
+   * guarantee, not just that the in-memory cache was updated.
    *
    * Rows whose slug doesn't resolve against the currently-loaded reference
    * data (e.g. an export from an older/newer reference.json) are skipped

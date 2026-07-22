@@ -49,8 +49,8 @@ export interface InMemoryStoreHooks {
   onFormPersonalChanged(formSlug: string, personal: FormPersonal): void;
   onAppSettingChanged(key: string, value: string): void;
   onMegaPersonalChanged(megaVariantSlug: string, personal: MegaPersonal): void;
-  /** Fires once, before an import applies any rows — the write-through backend wipes species_personal/form_personal/mega_personal/form_background_personal so import is a real restore (replace), not a merge. App settings/preferences are untouched. */
-  onPersonalDataCleared(): void;
+  /** Fires once per newly-added link — form_background_personal has no per-row setter yet (see repository.ts), only import can add to it, and only ever as a brand-new row (composite PK, no update-in-place case). */
+  onFormBackgroundPersonalAdded(row: FormBackgroundPersonal): void;
 }
 
 export function createInMemoryRepository(
@@ -208,7 +208,7 @@ export function createInMemoryRepository(
     if (!speciesSlug) return;
     const currentSpecies = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
     if (currentSpecies.registered) return;
-    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true };
+    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true, updatedAt: new Date().toISOString() };
     state.speciesPersonal[speciesSlug] = updatedSpecies;
     hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
@@ -220,7 +220,7 @@ export function createInMemoryRepository(
   // than duplicating it and risking drift from the single-edit behavior.
   function applyFormPersonalField(formSlug: string, field: keyof Omit<FormPersonal, "formSlug">, value: boolean): void {
     const current = state.formPersonal[formSlug] ?? emptyFormPersonal(formSlug);
-    const updated = mergeFormPersonalCascade(current, field, value);
+    const updated = { ...mergeFormPersonalCascade(current, field, value), updatedAt: new Date().toISOString() };
     state.formPersonal[formSlug] = updated;
     hooks.onFormPersonalChanged(formSlug, updated);
     cascadeSpeciesRegisteredForForm(formSlug, updated);
@@ -232,7 +232,7 @@ export function createInMemoryRepository(
   function applySpeciesPersonalField(speciesSlug: string, field: keyof Omit<SpeciesPersonal, "speciesSlug">, value: boolean): void {
     const current = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
     const impliesRegistered = value && (field === "xxl" || field === "xxs" || field === "purified");
-    const updated: SpeciesPersonal = { ...current, [field]: value, ...(impliesRegistered ? { registered: true } : {}) };
+    const updated: SpeciesPersonal = { ...current, [field]: value, ...(impliesRegistered ? { registered: true } : {}), updatedAt: new Date().toISOString() };
     state.speciesPersonal[speciesSlug] = updated;
     hooks.onSpeciesPersonalChanged(speciesSlug, updated);
   }
@@ -245,7 +245,7 @@ export function createInMemoryRepository(
   // at all.
   function applyMegaPersonalField(megaVariantSlug: string, field: keyof Omit<MegaPersonal, "megaVariantSlug">, value: boolean): void {
     const current = state.megaPersonal[megaVariantSlug] ?? emptyMegaPersonal(megaVariantSlug);
-    const updated: MegaPersonal = { ...current, [field]: value };
+    const updated: MegaPersonal = { ...current, [field]: value, updatedAt: new Date().toISOString() };
     if (value && field === "shinyEvolved") updated.evolved = true;
     state.megaPersonal[megaVariantSlug] = updated;
     hooks.onMegaPersonalChanged(megaVariantSlug, updated);
@@ -255,7 +255,7 @@ export function createInMemoryRepository(
     if (!speciesSlug) return;
     const currentSpecies = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
     if (currentSpecies.registered) return;
-    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true };
+    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true, updatedAt: new Date().toISOString() };
     state.speciesPersonal[speciesSlug] = updatedSpecies;
     hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
@@ -393,17 +393,14 @@ export function createInMemoryRepository(
     },
 
     async importPersonalData(data: PersonalDataExport): Promise<ImportResult> {
-      // Import is a restore, not a merge: wipe the current collection first
-      // so a row that exists locally but isn't in the imported file actually
-      // goes away, instead of silently surviving underneath the imported
-      // data. App settings/preferences are a separate table and untouched
-      // here (see the appSettings loop below).
-      state.speciesPersonal = {};
-      state.formPersonal = {};
-      state.megaPersonal = {};
-      state.formBackgroundPersonal = [];
-      hooks.onPersonalDataCleared();
-
+      // Merge, not restore: a local row that isn't in the imported file is
+      // left alone (this device may have caught/tracked things the other
+      // export doesn't know about); a row present on both sides keeps
+      // whichever one's updatedAt is newer, whole-row (not field by field —
+      // a shiny flag set on device A and a lucky flag set on device B for
+      // the same form can't both survive a merge of two single rows; the
+      // more-recently-touched device's row wins entirely). App settings are
+      // untouched here (see the appSettings loop below) — same as before.
       let skippedSpeciesSlugs = 0;
       let skippedFormSlugs = 0;
       for (const [slug, personal] of Object.entries(data.speciesPersonal)) {
@@ -415,6 +412,8 @@ export function createInMemoryRepository(
           skippedSpeciesSlugs++;
           continue;
         }
+        const local = state.speciesPersonal[slug];
+        if (local && local.updatedAt >= personal.updatedAt) continue;
         state.speciesPersonal[slug] = personal;
         hooks.onSpeciesPersonalChanged(slug, personal);
       }
@@ -423,6 +422,8 @@ export function createInMemoryRepository(
           skippedFormSlugs++;
           continue;
         }
+        const local = state.formPersonal[slug];
+        if (local && local.updatedAt >= personal.updatedAt) continue;
         state.formPersonal[slug] = personal;
         hooks.onFormPersonalChanged(slug, personal);
       }
@@ -433,8 +434,22 @@ export function createInMemoryRepository(
       // present" just means the exporting device had never used mega yet.
       for (const [slug, personal] of Object.entries(data.megaPersonal ?? {})) {
         if (!speciesSlugByMegaVariantSlug.has(slug)) continue;
+        const local = state.megaPersonal[slug];
+        if (local && local.updatedAt >= personal.updatedAt) continue;
         state.megaPersonal[slug] = personal;
         hooks.onMegaPersonalChanged(slug, personal);
+      }
+      // No per-row "value" to merge here (composite PK — a link either
+      // exists or it doesn't), so this is a straight union: add whichever
+      // incoming links aren't already present, skip the rest.
+      for (const row of data.formBackgroundPersonal ?? []) {
+        if (!speciesSlugByFormSlug.has(row.formSlug)) continue;
+        const alreadyPresent = state.formBackgroundPersonal.some(
+          (b) => b.formSlug === row.formSlug && b.achievementField === row.achievementField && b.backgroundSlug === row.backgroundSlug,
+        );
+        if (alreadyPresent) continue;
+        state.formBackgroundPersonal.push(row);
+        hooks.onFormBackgroundPersonalAdded(row);
       }
       for (const [key, value] of Object.entries(data.appSettings)) {
         // reference_data_version is reference-sync bookkeeping (a content

@@ -232,7 +232,8 @@ CREATE TABLE IF NOT EXISTS species_personal (
   registered INTEGER NOT NULL DEFAULT 0 CHECK (registered IN (0, 1)),
   xxl INTEGER NOT NULL DEFAULT 0 CHECK (xxl IN (0, 1)),
   xxs INTEGER NOT NULL DEFAULT 0 CHECK (xxs IN (0, 1)),
-  purified INTEGER NOT NULL DEFAULT 0 CHECK (purified IN (0, 1))
+  purified INTEGER NOT NULL DEFAULT 0 CHECK (purified IN (0, 1)),
+  updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'
 );
 
 CREATE TABLE IF NOT EXISTS form_personal (
@@ -270,7 +271,9 @@ CREATE TABLE IF NOT EXISTS form_personal (
 
   best_shiny TEXT,
   best_non_shiny TEXT,
-  best_lucky TEXT
+  best_lucky TEXT,
+
+  updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'
 );
 
 -- A background can be linked to any specific tracked variant of a form
@@ -282,13 +285,15 @@ CREATE TABLE IF NOT EXISTS form_background_personal (
   form_slug TEXT NOT NULL REFERENCES form(slug),
   achievement_field TEXT NOT NULL,
   background_slug TEXT NOT NULL REFERENCES backgrounds(slug),
+  updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z',
   PRIMARY KEY (form_slug, achievement_field, background_slug)
 );
 
 CREATE TABLE IF NOT EXISTS mega_personal (
   mega_variant_slug TEXT PRIMARY KEY REFERENCES mega_variant(slug),
   evolved INTEGER NOT NULL DEFAULT 0 CHECK (evolved IN (0, 1)),
-  shiny_evolved INTEGER NOT NULL DEFAULT 0 CHECK (shiny_evolved IN (0, 1))
+  shiny_evolved INTEGER NOT NULL DEFAULT 0 CHECK (shiny_evolved IN (0, 1)),
+  updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'
 );
 
 -- Landing zone for personal rows reference-sync.ts finds orphaned (their
@@ -307,4 +312,4 @@ CREATE TABLE IF NOT EXISTS personal_data_quarantine (
 );
 `;
 
-export const CURRENT_PERSONAL_SCHEMA_VERSION = 2;
+export const CURRENT_PERSONAL_SCHEMA_VERSION = 3;
