@@ -20,7 +20,19 @@ export function getDrizzleDb(): Promise<SqliteRemoteDatabase> {
         }
         const result = await conn.query(sqlText, params);
         const rows = (result.values ?? []) as Record<string, unknown>[];
-        return { rows: method === "values" ? rows.map((r) => Object.values(r)) : rows };
+        // drizzle-orm's sqlite-proxy driver decodes every non-"run" method
+        // ("all", "get", "values") the same way: SQLiteSession's
+        // mapResultRow() reads each column positionally (`row[columnIndex]`)
+        // — see node_modules/drizzle-orm/utils.js — so `rows` must always be
+        // arrays of column values in SELECT order, never keyed objects.
+        // Only special-casing "values" here (as an earlier version of this
+        // file did) left "all"/"get" handing back conn.query()'s raw
+        // { column: value } objects, which silently decoded to
+        // undefined/Invalid Date for every field once real .select() calls
+        // started running through this path — caught by Task 6's
+        // migration-runner verification, not by anything that exercised
+        // .select() at the time this file was written.
+        return { rows: rows.map((r) => Object.values(r)) };
       });
     })();
   }
