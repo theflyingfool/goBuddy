@@ -1,179 +1,210 @@
-// Real parameterized SQL for the completion-stats feature (CLAUDE.md
-// Feature 1) — one query shape per lens kind, parameterized by scope
-// (region / species / global), rather than hand-rolled queries per region or
-// per achievement column. The only implementation of completion stats —
-// src/data/in-memory-store.ts deliberately has no JS equivalent.
+// Drizzle-backed implementation of the completion-stats feature (CLAUDE.md
+// Feature 1) — one query per lens kind, parameterized by scope. Rewritten
+// from hand-written parameterized SQL (see git history) onto Drizzle's
+// query builder against src/db/schema/reference.ts + schema/personal.ts.
+// src/data/in-memory-store.ts deliberately has no JS equivalent of this
+// feature — this is the only implementation.
 
+import { and, eq, exists, isNull, ne, notExists, notLike, or, sql } from "drizzle-orm";
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
+import { getDrizzleDb } from "../db/drizzle-client";
+import { form, megaVariant, species } from "../db/schema/reference";
+import { formPersonal, megaPersonal, speciesPersonal } from "../db/schema/personal";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormPersonalBooleanField } from "../db/types";
 import type { CompletionLens, CompletionLensResult, CompletionMissingSpecies, CompletionScope } from "./repository";
 
-interface ScopeClause {
-  where: string;
-  params: unknown[];
-}
+type DrizzleDb = ReturnType<typeof getDrizzleDb>;
 
-function scopeClause(scope: CompletionScope): ScopeClause {
+function scopeCondition(scope: CompletionScope) {
   switch (scope.kind) {
     case "region":
-      return { where: "s.region_slug = ?", params: [scope.regionSlug] };
+      return eq(species.regionSlug, scope.regionSlug);
     case "species":
-      return { where: "s.slug = ?", params: [scope.speciesSlug] };
+      return eq(species.slug, scope.speciesSlug);
     case "global":
-      return { where: "1 = 1", params: [] };
+      return sql`1 = 1`;
   }
 }
 
-interface SpeciesRow {
-  slug: string;
-  name: string;
-  dex_number: number;
-}
-
-async function selectMissingSpecies(db: SQLiteDBConnection, sql: string, params: unknown[]): Promise<CompletionMissingSpecies[]> {
-  const rows = ((await db.query(sql, params)).values ?? []) as SpeciesRow[];
-  return rows.map((r) => ({ slug: r.slug, name: r.name, dexNumber: r.dex_number }));
-}
-
-async function countSpecies(db: SQLiteDBConnection, where: string, params: unknown[]): Promise<number> {
-  const rows = (await db.query(`SELECT COUNT(*) as c FROM species s WHERE ${where}`, params)).values ?? [];
-  return (rows[0] as { c: number } | undefined)?.c ?? 0;
-}
-
-async function registeredLens(db: SQLiteDBConnection, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
-  const { where, params } = scopeClause(scope);
-  const total = await countSpecies(db, where, params);
-  const missingSpecies = await selectMissingSpecies(
-    db,
-    `SELECT s.slug, s.name, s.dex_number FROM species s
-     LEFT JOIN species_personal sp ON sp.species_slug = s.slug
-     WHERE ${where} AND (sp.registered IS NULL OR sp.registered = 0)`,
-    params,
-  );
-  return { total, complete: total - missingSpecies.length, missingSpecies };
-}
-
 // Mirrors field-groups.ts's isGigantamaxForm — can't call that JS predicate
-// from SQL, so this LIKE pattern re-encodes the same "formName is always
+// from a query builder, so this re-encodes the same "formName is always
 // 'Gigantamax' or 'Gigantamax {style}'" rule. Keep the two in sync if that
 // ingestion convention ever changes.
-const NOT_GIGANTAMAX_SQL = "f.form_name != 'Gigantamax' AND f.form_name NOT LIKE 'Gigantamax %'";
+function notGigantamax(formNameColumn: typeof form.formName) {
+  return and(ne(formNameColumn, "Gigantamax"), notLike(formNameColumn, "Gigantamax %"));
+}
 
-async function formCompleteLens(db: SQLiteDBConnection, scope: CompletionScope, excludeRegional: boolean): Promise<Omit<CompletionLensResult, "lens">> {
-  const { where, params } = scopeClause(scope);
-  const total = await countSpecies(db, where, params);
-  // Gigantamax always excluded (own gigantamaxCompleteLens instead, same
-  // reasoning as costumeComplete carving out costumes); regional-exclusive
-  // exclusion is a per-install Settings choice (D2 — some players can
-  // actually reach regionals via an alt/travel, others can't).
-  const missingSpecies = await selectMissingSpecies(
-    db,
-    `SELECT s.slug, s.name, s.dex_number FROM species s
-     WHERE ${where} AND EXISTS (
-       SELECT 1 FROM form f LEFT JOIN form_personal fp ON fp.form_slug = f.slug
-       WHERE f.species_slug = s.slug AND f.costume_name IS NULL AND ${NOT_GIGANTAMAX_SQL}
-       ${excludeRegional ? "AND f.regional_exclusive = 0" : ""}
-       AND (fp.caught IS NULL OR fp.caught = 0)
-     )`,
-    params,
-  );
+async function countSpecies(db: DrizzleDb, scopeCond: ReturnType<typeof scopeCondition>): Promise<number> {
+  const rows = await db.select({ c: sql<number>`count(*)` }).from(species).where(scopeCond);
+  return rows[0]?.c ?? 0;
+}
+
+function toMissing(rows: { slug: string; name: string; dexNumber: number }[]): CompletionMissingSpecies[] {
+  return rows.map((r) => ({ slug: r.slug, name: r.name, dexNumber: r.dexNumber }));
+}
+
+async function registeredLens(db: DrizzleDb, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
+  const scopeCond = scopeCondition(scope);
+  const total = await countSpecies(db, scopeCond);
+  const missingRows = await db
+    .select({ slug: species.slug, name: species.name, dexNumber: species.dexNumber })
+    .from(species)
+    .leftJoin(speciesPersonal, eq(speciesPersonal.speciesSlug, species.slug))
+    .where(and(scopeCond, or(isNull(speciesPersonal.registered), eq(speciesPersonal.registered, false))));
+  const missingSpecies = toMissing(missingRows);
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
-async function gigantamaxCompleteLens(db: SQLiteDBConnection, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
-  // Same "only count species that actually have one" denominator as
-  // costumeCompleteLens/megaCompleteLens.
-  const { where, params } = scopeClause(scope);
-  const totalRows = (
-    await db.query(`SELECT COUNT(DISTINCT s.slug) as c FROM species s JOIN form f ON f.species_slug = s.slug WHERE ${where} AND NOT (${NOT_GIGANTAMAX_SQL})`, params)
-  ).values ?? [];
-  const total = (totalRows[0] as { c: number } | undefined)?.c ?? 0;
-  const missingSpecies = await selectMissingSpecies(
-    db,
-    `SELECT DISTINCT s.slug, s.name, s.dex_number FROM species s
-     JOIN form f2 ON f2.species_slug = s.slug
-     WHERE ${where} AND NOT (f2.form_name != 'Gigantamax' AND f2.form_name NOT LIKE 'Gigantamax %')
-     AND EXISTS (
-       SELECT 1 FROM form f LEFT JOIN form_personal fp ON fp.form_slug = f.slug
-       WHERE f.species_slug = s.slug AND NOT (${NOT_GIGANTAMAX_SQL}) AND (fp.caught IS NULL OR fp.caught = 0)
-     )`,
-    params,
-  );
+async function formCompleteLens(db: DrizzleDb, scope: CompletionScope, excludeRegional: boolean): Promise<Omit<CompletionLensResult, "lens">> {
+  const scopeCond = scopeCondition(scope);
+  const total = await countSpecies(db, scopeCond);
+  const innerConditions = [eq(form.speciesSlug, species.slug), isNull(form.costumeName), notGigantamax(form.formName)];
+  if (excludeRegional) innerConditions.push(eq(form.regionalExclusive, false));
+  innerConditions.push(or(isNull(formPersonal.caught), eq(formPersonal.caught, false))!);
+
+  const missingRows = await db
+    .select({ slug: species.slug, name: species.name, dexNumber: species.dexNumber })
+    .from(species)
+    .where(
+      and(
+        scopeCond,
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(form)
+            .leftJoin(formPersonal, eq(formPersonal.formSlug, form.slug))
+            .where(and(...innerConditions)),
+        ),
+      ),
+    );
+  const missingSpecies = toMissing(missingRows);
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
-async function costumeCompleteLens(db: SQLiteDBConnection, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
-  const { where, params } = scopeClause(scope);
-  // Denominator is species that actually have a costume — most species never
-  // got one, and counting them as trivially "complete" would make this stat
-  // meaningless (inflated by species with nothing to catch at all).
-  const totalRows = (await db.query(`SELECT COUNT(DISTINCT s.slug) as c FROM species s JOIN form f ON f.species_slug = s.slug WHERE ${where} AND f.costume_name IS NOT NULL`, params)).values ?? [];
-  const total = (totalRows[0] as { c: number } | undefined)?.c ?? 0;
-  const missingSpecies = await selectMissingSpecies(
-    db,
-    `SELECT DISTINCT s.slug, s.name, s.dex_number FROM species s
-     JOIN form f2 ON f2.species_slug = s.slug
-     WHERE ${where} AND f2.costume_name IS NOT NULL
-     AND EXISTS (
-       SELECT 1 FROM form f LEFT JOIN form_personal fp ON fp.form_slug = f.slug
-       WHERE f.species_slug = s.slug AND f.costume_name IS NOT NULL AND (fp.caught IS NULL OR fp.caught = 0)
-     )`,
-    params,
-  );
+async function gigantamaxCompleteLens(db: DrizzleDb, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
+  const scopeCond = scopeCondition(scope);
+  const totalRows = await db
+    .select({ c: sql<number>`count(distinct ${species.slug})` })
+    .from(species)
+    .innerJoin(form, eq(form.speciesSlug, species.slug))
+    .where(and(scopeCond, sql`not (${notGigantamax(form.formName)})`));
+  const total = totalRows[0]?.c ?? 0;
+
+  const missingRows = await db
+    .selectDistinct({ slug: species.slug, name: species.name, dexNumber: species.dexNumber })
+    .from(species)
+    .innerJoin(form, eq(form.speciesSlug, species.slug))
+    .where(
+      and(
+        scopeCond,
+        sql`not (${notGigantamax(form.formName)})`,
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(form)
+            .leftJoin(formPersonal, eq(formPersonal.formSlug, form.slug))
+            .where(and(eq(form.speciesSlug, species.slug), sql`not (${notGigantamax(form.formName)})`, or(isNull(formPersonal.caught), eq(formPersonal.caught, false)))),
+        ),
+      ),
+    );
+  const missingSpecies = toMissing(missingRows);
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
-async function megaCompleteLens(db: SQLiteDBConnection, scope: CompletionScope, shiny: boolean): Promise<Omit<CompletionLensResult, "lens">> {
-  // Same "only count species that actually have one" denominator as
-  // costumeCompleteLens. "Complete" means every mega_variant row for that
-  // species (both X and Y for Charizard) has the field true, not just one.
-  const column = shiny ? "shiny_evolved" : "evolved";
-  const { where, params } = scopeClause(scope);
-  const totalRows = (await db.query(`SELECT COUNT(DISTINCT s.slug) as c FROM species s JOIN mega_variant mv ON mv.species_slug = s.slug WHERE ${where}`, params)).values ?? [];
-  const total = (totalRows[0] as { c: number } | undefined)?.c ?? 0;
-  const missingSpecies = await selectMissingSpecies(
-    db,
-    `SELECT DISTINCT s.slug, s.name, s.dex_number FROM species s
-     JOIN mega_variant mv2 ON mv2.species_slug = s.slug
-     WHERE ${where}
-     AND EXISTS (
-       SELECT 1 FROM mega_variant mv LEFT JOIN mega_personal mp ON mp.mega_variant_slug = mv.slug
-       WHERE mv.species_slug = s.slug AND (mp.${column} IS NULL OR mp.${column} = 0)
-     )`,
-    params,
-  );
+async function costumeCompleteLens(db: DrizzleDb, scope: CompletionScope): Promise<Omit<CompletionLensResult, "lens">> {
+  const scopeCond = scopeCondition(scope);
+  const totalRows = await db
+    .select({ c: sql<number>`count(distinct ${species.slug})` })
+    .from(species)
+    .innerJoin(form, eq(form.speciesSlug, species.slug))
+    .where(and(scopeCond, sql`${form.costumeName} is not null`));
+  const total = totalRows[0]?.c ?? 0;
+
+  const missingRows = await db
+    .selectDistinct({ slug: species.slug, name: species.name, dexNumber: species.dexNumber })
+    .from(species)
+    .innerJoin(form, eq(form.speciesSlug, species.slug))
+    .where(
+      and(
+        scopeCond,
+        sql`${form.costumeName} is not null`,
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(form)
+            .leftJoin(formPersonal, eq(formPersonal.formSlug, form.slug))
+            .where(and(eq(form.speciesSlug, species.slug), sql`${form.costumeName} is not null`, or(isNull(formPersonal.caught), eq(formPersonal.caught, false)))),
+        ),
+      ),
+    );
+  const missingSpecies = toMissing(missingRows);
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
-async function achievementLens(db: SQLiteDBConnection, scope: CompletionScope, field: FormPersonalBooleanField): Promise<Omit<CompletionLensResult, "lens">> {
-  // Column name is interpolated (SQLite params can't bind identifiers) — safe
-  // only because it's resolved through the fixed camelCase->snake_case map,
-  // never taken directly from a caller-supplied string.
+async function megaCompleteLens(db: DrizzleDb, scope: CompletionScope, shiny: boolean): Promise<Omit<CompletionLensResult, "lens">> {
+  const column = shiny ? megaPersonal.shinyEvolved : megaPersonal.evolved;
+  const scopeCond = scopeCondition(scope);
+  const totalRows = await db
+    .select({ c: sql<number>`count(distinct ${species.slug})` })
+    .from(species)
+    .innerJoin(megaVariant, eq(megaVariant.speciesSlug, species.slug))
+    .where(scopeCond);
+  const total = totalRows[0]?.c ?? 0;
+
+  const missingRows = await db
+    .selectDistinct({ slug: species.slug, name: species.name, dexNumber: species.dexNumber })
+    .from(species)
+    .innerJoin(megaVariant, eq(megaVariant.speciesSlug, species.slug))
+    .where(
+      and(
+        scopeCond,
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(megaVariant)
+            .leftJoin(megaPersonal, eq(megaPersonal.megaVariantSlug, megaVariant.slug))
+            .where(and(eq(megaVariant.speciesSlug, species.slug), or(isNull(column), eq(column, false)))),
+        ),
+      ),
+    );
+  const missingSpecies = toMissing(missingRows);
+  return { total, complete: total - missingSpecies.length, missingSpecies };
+}
+
+async function achievementLens(db: DrizzleDb, scope: CompletionScope, field: FormPersonalBooleanField): Promise<Omit<CompletionLensResult, "lens">> {
   if (!FORM_PERSONAL_BOOLEAN_FIELDS.includes(field)) throw new Error(`Unknown achievement field: ${field}`);
-  const column = FORM_PERSONAL_FIELD_COLUMNS[field];
+  const column = formPersonal[field as keyof typeof formPersonal] as typeof formPersonal.caught;
+  void FORM_PERSONAL_FIELD_COLUMNS; // column resolved via the typed table object directly, not a snake_case string
 
-  const { where, params } = scopeClause(scope);
-  const total = await countSpecies(db, where, params);
-  const missingSpecies = await selectMissingSpecies(
-    db,
-    `SELECT s.slug, s.name, s.dex_number FROM species s
-     WHERE ${where} AND NOT EXISTS (
-       SELECT 1 FROM form f JOIN form_personal fp ON fp.form_slug = f.slug
-       WHERE f.species_slug = s.slug AND fp.${column} = 1
-     )`,
-    params,
-  );
+  const scopeCond = scopeCondition(scope);
+  const total = await countSpecies(db, scopeCond);
+  const missingRows = await db
+    .select({ slug: species.slug, name: species.name, dexNumber: species.dexNumber })
+    .from(species)
+    .where(
+      and(
+        scopeCond,
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(form)
+            .innerJoin(formPersonal, eq(formPersonal.formSlug, form.slug))
+            .where(and(eq(form.speciesSlug, species.slug), eq(column, true))),
+        ),
+      ),
+    );
+  const missingSpecies = toMissing(missingRows);
   return { total, complete: total - missingSpecies.length, missingSpecies };
 }
 
 export async function getCompletionStatsSql(
-  db: SQLiteDBConnection,
+  conn: SQLiteDBConnection,
   scope: CompletionScope,
   lenses: CompletionLens[],
   excludeRegionalFromFormComplete: boolean,
 ): Promise<CompletionLensResult[]> {
+  const db = getDrizzleDb(conn);
   const results: CompletionLensResult[] = [];
-  // Sequenced (not Promise.all) — these all share one SQLite connection.
   for (const lens of lenses) {
     const partial =
       lens.kind === "registered"
