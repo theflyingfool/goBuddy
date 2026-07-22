@@ -156,4 +156,21 @@ CREATE TABLE IF NOT EXISTS community_day_event_move (
   move_slug TEXT NOT NULL REFERENCES move(slug),
   PRIMARY KEY (community_day_number, species_slug, move_slug)
 );
+
+-- Build-time catalog of reference data the V2 sources can't currently
+-- reproduce (e.g. a species neither source lists yet, or a flag like
+-- Gigantamax they disagree on) — identical for every install, so this is
+-- NOT the same thing as personal_data_quarantine (src/db/schema.ts), which
+-- catches one user's own rows orphaned by a slug change. This is a
+-- maintainer-facing gap log, ships with the app; future settings-screen
+-- export/send-to-developer work should read from personal_data_quarantine
+-- (per-user data loss), not this table (identical for everyone, no export
+-- needed).
+CREATE TABLE IF NOT EXISTS reference_ingestion_gap (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  gap_type TEXT NOT NULL,
+  identifier TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  detected_at TEXT NOT NULL
+);
 `;

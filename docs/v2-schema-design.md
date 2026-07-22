@@ -247,6 +247,58 @@ CREATE TABLE IF NOT EXISTS community_day_event_move (
 );
 ```
 
+### Reference ingestion gap log
+
+Build-time catalog of reference data the V2 sources can't currently
+reproduce (a species neither source lists, a flag they disagree on).
+Identical for every install — this is **not** the same thing as
+`personal_data_quarantine` (`src/db/schema.ts`), which catches one user's
+own rows orphaned by a slug change at sync time. This table is a
+maintainer-facing gap log; any future settings-screen "export and send to
+the developer" feature belongs on `personal_data_quarantine` instead, since
+that's the per-user data worth exporting — this table is the same on every
+install and needs no export.
+
+```sql
+CREATE TABLE IF NOT EXISTS reference_ingestion_gap (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  gap_type TEXT NOT NULL,
+  identifier TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  detected_at TEXT NOT NULL
+);
+```
+
+Populated by `v2-build-extended.ts` today: 18 rows currently (17
+`gigantamax_mismatch` + 1 `missing_species` — Basculegion #902), matching
+[findings §11](v2-data-source-findings.md#11-gigantamax-discrepancy--full-diff)
+exactly.
+
+### Slug generation — enum tokens, not display names
+
+The comparison between the real `reference.json` and the V2 candidate
+surfaced actual misspellings baked into today's production slugs
+(`revaroom`/`farigaraf` instead of the correct `revavroom`/`farigiraf`) —
+proof the old name-derived slug scheme (`slugify(names.English)`) isn't
+typo-proof, since a CSV/PokeAPI-sourced display name can carry a human
+error straight into a slug meant to be permanent.
+
+`v2-build-reference.ts` now builds every species/form slug from
+`pokemon-go-api`'s own enum identifiers (`id`, `formId`) instead —
+`REVAVROOM`/`FARIGIRAF`/`NIDORAN_FEMALE`/`NIDORAN_MALE`, sourced straight
+from the game's own data (game_master), not free text. This also fully
+retires the old Nidoran gender-symbol slug workaround (no unicode symbol
+ever reaches the enum id). Mega-variant and costume-form tokens were
+already enum-derived (`assetForms[].form`/`.costume`, `_MEGA_X`/`_PRIMAL`
+suffixes) and needed no change.
+
+Measured via `v2-compare-reference.ts`'s new slug-scheme-migration section:
+30/1024 species slugs and ~560/2705 form slugs differ from today's
+production values. A real cutover would need every one of those covered by
+`src/db/slug-renames.ts`, or the affected personal rows land in
+`personal_data_quarantine` at sync — this is the concrete size of that
+future migration, not yet acted on.
+
 ---
 
 ## 3. Tier 2 — cache in the pipeline, don't table yet

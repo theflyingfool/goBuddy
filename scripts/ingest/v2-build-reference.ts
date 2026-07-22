@@ -30,15 +30,16 @@ const GEN_TO_REGION: Record<number, string> = {
 };
 
 // Nidoran♀/♂ (dex 29/32) are pokemon-go-api's only species named with a raw
-// gender symbol instead of text — slugify() strips ♀/♂ as non-alphanumeric,
-// which collapses both to the same "nidoran" slug. They are NOT a gender
-// split of one species (that's a real, separate case — e.g. Meowstic,
-// Indeedee — modeled via Species.hasMale/hasFemale on a single species):
-// Nidoran♀ and Nidoran♂ have distinct dex numbers and completely separate
-// evolution lines (Nidorina/Nidoqueen vs. Nidorino/Nidorking), same as the
-// current schema/reference.json already treats them (two Species rows,
-// "Nidoran (F)"/"Nidoran (M)"). This just matches that existing display
-// convention so the slug comes out the same.
+// gender symbol instead of text. They are NOT a gender split of one species
+// (that's a real, separate case — e.g. Meowstic, Indeedee — modeled via
+// Species.hasMale/hasFemale on a single species): Nidoran♀ and Nidoran♂ have
+// distinct dex numbers and completely separate evolution lines (Nidorina/
+// Nidoqueen vs. Nidorino/Nidorking), same as the current schema/
+// reference.json already treats them (two Species rows, "Nidoran (F)"/
+// "Nidoran (M)"). This is purely a *display*-name cleanup now — slugs are no
+// longer derived from names.English at all (see slugFor() below), so this
+// no longer needs to dodge a slug collision, just match the existing UI
+// convention for the "name" field.
 const GENDER_SYMBOL_SUFFIX: Record<string, string> = { "♀": "(F)", "♂": "(M)" };
 
 function cleanSpeciesDisplayName(name: string): string {
@@ -46,6 +47,26 @@ function cleanSpeciesDisplayName(name: string): string {
     if (name.includes(symbol)) return `${name.replace(symbol, "").trim()} ${suffix}`;
   }
   return name;
+}
+
+// Slugs are built from pokemon-go-api's `id`/`formId` enum tokens, never
+// from names.English. Those enum tokens come straight off the game's own
+// data (game_master), so they can't carry the kind of human-typo the old
+// PokeAPI/CSV pipeline's name-derived slugs did — confirmed against the
+// real reference.json, which has "revaroom"/"farigaraf" (misspelled) where
+// pokemon-go-api's id is correctly "REVAVROOM"/"FARIGIRAF". A real cutover
+// would still need a slug-rename mapping (src/db/slug-renames.ts) for every
+// slug that changes under this scheme, not just the misspelled ones.
+function slugFor(id: string): string {
+  return slugify(id);
+}
+
+// Region-form formIds are `${speciesId}_${TOKEN}` (e.g. RATTATA_ALOLA under
+// species id RATTATA) — the TOKEN half is itself a stable enum value, so it
+// makes a typo-proof form-slug token the same way species slugs use `id`.
+function formTokenFromFormId(formId: string, speciesId: string): string {
+  const prefix = `${speciesId}_`;
+  return formId.startsWith(prefix) ? formId.slice(prefix.length) : formId;
 }
 
 interface AssetPair {
@@ -169,7 +190,7 @@ async function main() {
   // unconditionally is correct.
   const slugByDex = new Map<number, string>();
   for (const entry of pokedex) {
-    slugByDex.set(entry.dexNr, slugify(cleanSpeciesDisplayName(entry.names.English)));
+    slugByDex.set(entry.dexNr, slugFor(entry.id));
   }
   function familySlugFor(dexNr: number): string {
     let current = dexNr;
@@ -188,7 +209,7 @@ async function main() {
     // top-level entry is its own species; regionForms are handled below,
     // per-species, from entry.regionForms.
     const displayName = cleanSpeciesDisplayName(entry.names.English);
-    const slug = slugify(displayName);
+    const slug = slugFor(entry.id);
     const gender = genderById.get(entry.dexNr) ?? { hasMale: true, hasFemale: true };
     const rarity = deriveRarity(entry.pokemonClass);
     const canMegaEvolve = Object.keys(entry.megaEvolutions ?? {}).length > 0;
@@ -256,13 +277,14 @@ async function main() {
     // Region forms (e.g. Alolan Meowth) — own Form rows under the parent
     // species, not separate Species rows, matching the current schema.
     for (const region of Object.values(entry.regionForms ?? {})) {
-      const regionLabel = region.names.English.replace(entry.names.English, "").trim() || region.formId;
+      const regionDisplayLabel = region.names.English.replace(entry.names.English, "").trim() || region.formId;
+      const regionToken = formTokenFromFormId(region.formId, entry.id);
       for (const g of gendersFor(gender.hasMale, gender.hasFemale)) {
-        const fSlug = formSlug(slug, regionLabel, g);
+        const fSlug = formSlug(slug, regionToken, g);
         forms.push({
           slug: fSlug,
           speciesSlug: slug,
-          formName: regionLabel,
+          formName: regionDisplayLabel,
           costumeName: null,
           gender: g,
           evolves: true,
@@ -321,7 +343,7 @@ async function main() {
     typesByFormSlug.set(baseSlug, types);
   }
   for (const entry of pokedex) {
-    const slug = slugify(cleanSpeciesDisplayName(entry.names.English));
+    const slug = slugFor(entry.id);
     recordTypes(entry, slug);
     for (const region of Object.values(entry.regionForms ?? {})) {
       recordTypes(region, slug); // types keyed by species slug, applied per-form below

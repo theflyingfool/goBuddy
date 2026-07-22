@@ -85,6 +85,63 @@ function main() {
   const candidateDex = new Set(candidate.species.map((s) => s.dexNumber));
   console.log(`  real-only dex numbers: ${[...realDex].filter((d) => !candidateDex.has(d)).join(", ") || "(none)"}`);
   console.log(`  candidate-only dex numbers: ${[...candidateDex].filter((d) => !realDex.has(d)).join(", ") || "(none)"}`);
+
+  // Slug-scheme migration size: the new pipeline slugs species/forms/megas
+  // off pokemon-go-api's enum ids instead of names.English (see v2-slug-scheme
+  // note in v2-build-reference.ts) — every slug that differs here is a row
+  // a real cutover would need src/db/slug-renames.ts to cover, or personal
+  // data for it lands in personal_data_quarantine. Matched by dex number
+  // (species) / speciesSlug+formName+gender (forms, matched via dex) rather
+  // than by slug, since the slug itself is exactly what's under test.
+  console.log("\n=== Slug-scheme migration size (old name-derived slug -> new id-derived slug) ===");
+  const realSlugByDex = new Map(real.species.map((s) => [s.dexNumber, s.slug]));
+  let speciesSlugChanges = 0;
+  const speciesSlugExamples: string[] = [];
+  for (const s of candidate.species) {
+    const realSlug = realSlugByDex.get(s.dexNumber);
+    if (realSlug && realSlug !== s.slug) {
+      speciesSlugChanges++;
+      if (speciesSlugExamples.length < 10) speciesSlugExamples.push(`${realSlug} -> ${s.slug}`);
+    }
+  }
+  console.log(`  species slugs changed: ${speciesSlugChanges}/${candidate.species.length}${speciesSlugExamples.length ? ` (e.g. ${speciesSlugExamples.join("; ")})` : ""}`);
+
+  const realFormBySpeciesFormGender = new Map(
+    real.forms.map((f) => [`${realSlugByDex.get(real.species.find((s) => s.slug === f.speciesSlug)?.dexNumber ?? -1) ?? f.speciesSlug}::${f.formName}::${f.gender}`, f.slug]),
+  );
+  let formSlugChanges = 0;
+  let formSlugUnmatched = 0;
+  const formSlugExamples: string[] = [];
+  const candidateDexBySlug = new Map(candidate.species.map((s) => [s.slug, s.dexNumber]));
+  for (const f of candidate.forms) {
+    const dex = candidateDexBySlug.get(f.speciesSlug);
+    const realSpeciesSlug = dex !== undefined ? realSlugByDex.get(dex) : undefined;
+    const key = `${realSpeciesSlug ?? f.speciesSlug}::${f.formName}::${f.gender}`;
+    const realSlug = realFormBySpeciesFormGender.get(key);
+    if (!realSlug) {
+      formSlugUnmatched++;
+      continue;
+    }
+    if (realSlug !== f.slug) {
+      formSlugChanges++;
+      if (formSlugExamples.length < 10) formSlugExamples.push(`${realSlug} -> ${f.slug}`);
+    }
+  }
+  console.log(`  form slugs changed: ${formSlugChanges}/${candidate.forms.length} (unmatched by species+formName+gender: ${formSlugUnmatched})${formSlugExamples.length ? ` (e.g. ${formSlugExamples.join("; ")})` : ""}`);
+
+  const realMegaBySpeciesVariant = new Map(real.megaVariants.map((m) => [`${m.speciesSlug}::${m.variant}`, m.slug]));
+  let megaSlugChanges = 0;
+  const megaSlugExamples: string[] = [];
+  for (const m of candidate.megaVariants) {
+    const dex = candidateDexBySlug.get(m.speciesSlug);
+    const realSpeciesSlug = dex !== undefined ? realSlugByDex.get(dex) : undefined;
+    const realSlug = realMegaBySpeciesVariant.get(`${realSpeciesSlug ?? m.speciesSlug}::${m.variant}`);
+    if (realSlug && realSlug !== m.slug) {
+      megaSlugChanges++;
+      if (megaSlugExamples.length < 10) megaSlugExamples.push(`${realSlug} -> ${m.slug}`);
+    }
+  }
+  console.log(`  mega variant slugs changed: ${megaSlugChanges}/${candidate.megaVariants.length}${megaSlugExamples.length ? ` (e.g. ${megaSlugExamples.join("; ")})` : ""}`);
 }
 
 main();

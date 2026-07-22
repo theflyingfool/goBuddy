@@ -22,6 +22,7 @@ import { V2_EXTENDED_SCHEMA_SQL } from "./v2-schema";
 import type { ReferenceData } from "../../src/db/reference-data";
 
 const CANDIDATE_PATH = resolve(process.cwd(), "data-authoring/v2-explore/reference-v2-candidate.json");
+const REAL_PATH = resolve(process.cwd(), "src/data/reference.json");
 const DB_PATH = resolve(process.cwd(), "data-authoring/v2-explore/v2-extended.sqlite");
 
 function loadPogoapi<T>(name: string): T {
@@ -374,6 +375,47 @@ function buildRaidsAndEvents(db: DatabaseSync, moveSlugByName: Map<string, strin
   console.log(`  community_day_event_move: ${insertAll(db, "community_day_event_move", ["community_day_number", "species_slug", "move_slug"], eventMoveRows)}/${eventMoveRows.length}`);
 }
 
+// Catalogs reference data the V2 sources can't currently reproduce, against
+// the real, live src/data/reference.json — not against the candidate's own
+// idea of completeness. Read by nobody today; a build-time record for the
+// maintainer to investigate before any real cutover, not a per-user thing
+// (see the reference_ingestion_gap comment in v2-schema.ts for why this is
+// deliberately not personal_data_quarantine).
+function buildIngestionGaps(db: DatabaseSync): void {
+  const real: ReferenceData = JSON.parse(readFileSync(REAL_PATH, "utf-8"));
+  const candidate: ReferenceData = JSON.parse(readFileSync(CANDIDATE_PATH, "utf-8"));
+  const detectedAt = new Date().toISOString();
+  const rows: Record<string, unknown>[] = [];
+
+  const candidateDex = new Set(candidate.species.map((s) => s.dexNumber));
+  for (const s of real.species) {
+    if (!candidateDex.has(s.dexNumber)) {
+      rows.push({
+        gap_type: "missing_species",
+        identifier: String(s.dexNumber),
+        detail: `${s.name} (#${s.dexNumber}, slug ${s.slug}) is in the real reference data but not reproducible from the V2 sources yet.`,
+        detected_at: detectedAt,
+      });
+    }
+  }
+
+  const candidateGmaxByDex = new Map(candidate.species.map((s) => [s.dexNumber, s.canGigantamax]));
+  for (const s of real.species) {
+    const candidateValue = candidateGmaxByDex.get(s.dexNumber);
+    if (s.canGigantamax && candidateValue === false) {
+      rows.push({
+        gap_type: "gigantamax_mismatch",
+        identifier: String(s.dexNumber),
+        detail: `${s.name} (#${s.dexNumber}, slug ${s.slug}) can Gigantamax in the real reference data, but pokemon-go-api's hasGigantamaxEvolution flag says no.`,
+        detected_at: detectedAt,
+      });
+    }
+  }
+
+  const inserted = insertAll(db, "reference_ingestion_gap", ["gap_type", "identifier", "detail", "detected_at"], rows);
+  console.log(`  reference_ingestion_gap: ${inserted}/${rows.length}`);
+}
+
 async function main() {
   if (!existsSync(CANDIDATE_PATH)) {
     console.error(`Missing ${CANDIDATE_PATH} — run "npm run ingest:v2:build" first.`);
@@ -427,6 +469,7 @@ async function main() {
   const moveSlugByName = buildMoves(db);
   buildFormMoves(db, moveSlugByName);
   buildRaidsAndEvents(db, moveSlugByName);
+  buildIngestionGaps(db);
 
   db.exec("COMMIT;");
   db.close();
