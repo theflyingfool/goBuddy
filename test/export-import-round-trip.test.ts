@@ -61,7 +61,18 @@ const referenceData: ReferenceData = {
 };
 
 function emptyState(): PersonalState {
-  return { speciesPersonal: {}, formPersonal: {}, appSettings: {}, megaPersonal: {}, formBackgroundPersonal: [] };
+  return {
+    speciesPersonal: {},
+    formPersonal: {},
+    appSettings: {},
+    megaPersonal: {},
+    formBackgroundPersonal: [],
+    medalProgress: {},
+    pokemonInstances: [],
+    tags: [],
+    pokemonInstanceTags: [],
+    playerProgress: undefined,
+  };
 }
 
 const noopHooks = {
@@ -70,6 +81,9 @@ const noopHooks = {
   onAppSettingChanged() {},
   onMegaPersonalChanged() {},
   onFormBackgroundPersonalAdded() {},
+  onMedalProgressChanged() {},
+  onPlayerProgressChanged() {},
+  onPokemonInstanceStatusChanged() {},
 };
 
 test("export/import round-trips species, form, and app-setting personal data", async () => {

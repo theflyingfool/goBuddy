@@ -1,4 +1,4 @@
-import type { FormPersonal, MegaPersonal, SpeciesPersonal } from "./types";
+import type { FormPersonal, MedalProgressPersonal, MegaPersonal, SpeciesPersonal } from "./types";
 
 // Real, sensible defaults for a brand-new install — not demo data (see
 // personal-demo-seed.ts for that). sqlite-repository.ts seeds app_settings
@@ -25,6 +25,10 @@ export function emptySpeciesPersonal(speciesSlug: string): SpeciesPersonal {
 
 export function emptyMegaPersonal(megaVariantSlug: string): MegaPersonal {
   return { megaVariantSlug, evolved: false, shinyEvolved: false, updatedAt: NEVER_UPDATED };
+}
+
+export function emptyMedalProgress(medalSlug: string, profileId: number): MedalProgressPersonal {
+  return { medalSlug, profileId, currentRank: 0, currentCount: 0, updatedAt: NEVER_UPDATED };
 }
 
 export function emptyFormPersonal(formSlug: string, overrides: Partial<Omit<FormPersonal, "formSlug">> = {}): FormPersonal {

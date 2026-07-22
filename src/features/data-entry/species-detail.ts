@@ -69,6 +69,12 @@ const missingOnlyBySpecies = new Map<string, boolean>();
 // Same per-species/rerender-survives-toggle pattern as the maps above.
 const shinyViewBySpecies = new Map<string, boolean>();
 
+// Same per-species/rerender-survives-toggle pattern as shinyViewBySpecies —
+// which of the two top-level panels (achievement tracking vs. reference
+// info) is showing. Added alongside the new Info panel below; the Tracking
+// panel is every bit of this page's existing content, untouched.
+const infoViewBySpecies = new Map<string, boolean>();
+
 export function renderSpeciesDetail(container: HTMLElement, repo: Repository, speciesSlug: string, onBack: () => void) {
   clear(container);
 
@@ -133,6 +139,51 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
   const header = el("div", { class: "detail-header" }, [identityBox, infoBox]);
 
   const rerender = () => renderSpeciesDetail(container, repo, speciesSlug, onBack);
+
+  // Tracking/Info split — Tracking is every bit of this page's existing
+  // achievement-toggle content (untouched below); Info is new. CP calculator
+  // and Pokédex flavor text are deliberately NOT here yet: neither base
+  // stats nor flavor text exist anywhere in the ingested reference data
+  // (confirmed while scoping this — see docs/vue-migration-plan.md), and
+  // fabricating either would be inventing real Pokémon GO facts rather than
+  // showing real data. Type matchups ARE real (type_effectiveness), so those
+  // are here now.
+  const infoView = infoViewBySpecies.get(speciesSlug) ?? false;
+  const representativeForm = forms[0]?.form;
+  const matchups = representativeForm ? repo.getTypeMatchups(representativeForm.slug) : [];
+  const weakTo = matchups.filter((m) => m.multiplier > 1).sort((a, b) => b.multiplier - a.multiplier);
+  const resists = matchups.filter((m) => m.multiplier < 1).sort((a, b) => a.multiplier - b.multiplier);
+
+  const trackingTab = el("button", { type: "button", class: `species-view-tab${infoView ? "" : " active"}` }, ["Tracking"]);
+  const infoTab = el("button", { type: "button", class: `species-view-tab${infoView ? " active" : ""}` }, ["Info"]);
+  trackingTab.addEventListener("click", () => {
+    infoViewBySpecies.set(speciesSlug, false);
+    rerender();
+  });
+  infoTab.addEventListener("click", () => {
+    infoViewBySpecies.set(speciesSlug, true);
+    rerender();
+  });
+  const viewSegmented = el("div", { class: "species-view-segmented" }, [trackingTab, infoTab]);
+
+  const infoPanel = el("div", { class: "species-info-panel" }, [
+    el("fieldset", {}, [
+      el("legend", {}, ["Type matchups"]),
+      el("div", { class: "matchup-grid" }, [
+        ...weakTo.map((m) => el("span", { class: "matchup-chip matchup-weak" }, [`Weak: ${m.attackingType.name} ×${m.multiplier}`])),
+        ...resists.map((m) => el("span", { class: "matchup-chip matchup-resist" }, [`Resists: ${m.attackingType.name} ×${m.multiplier}`])),
+        ...(weakTo.length === 0 && resists.length === 0 ? [el("span", { class: "gap-note" }, ["No type data for this form."])] : []),
+      ]),
+    ]),
+    el("fieldset", {}, [
+      el("legend", {}, ["Pokédex entry"]),
+      el("p", { class: "gap-note" }, ["Not available yet — flavor text isn't in the current reference data."]),
+    ]),
+    el("fieldset", {}, [
+      el("legend", {}, ["CP calculator"]),
+      el("p", { class: "gap-note" }, ["Not available yet — base stats aren't in the current reference data (see docs/vue-migration-plan.md)."]),
+    ]),
+  ]);
 
   // Registered can flip false->true as a side effect of any form/Mega toggle
   // below — it's the species' very first personal-field write, and that
@@ -399,7 +450,12 @@ export function renderSpeciesDetail(container: HTMLElement, repo: Repository, sp
     if (panel) formGrid.append(panel);
   }
 
-  container.append(header, speciesFieldset);
-  if (megaFieldset) container.append(megaFieldset);
-  container.append(formToolbar, formGrid);
+  container.append(header, viewSegmented);
+  if (infoView) {
+    container.append(infoPanel);
+  } else {
+    container.append(speciesFieldset);
+    if (megaFieldset) container.append(megaFieldset);
+    container.append(formToolbar, formGrid);
+  }
 }

@@ -8,7 +8,10 @@ export type Route =
   | { name: "settings" }
   | { name: "help" }
   | { name: "achievements" }
-  | { name: "xp-assistant" };
+  | { name: "xp-assistant" }
+  | { name: "trainer" }
+  | { name: "collection" }
+  | { name: "log-catch" };
 
 export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, "") || "/data-entry";
@@ -32,6 +35,12 @@ export function parseRoute(hash: string): Route {
       return { name: "achievements" };
     case "/xp-assistant":
       return { name: "xp-assistant" };
+    case "/trainer":
+      return { name: "trainer" };
+    case "/collection":
+      return { name: "collection" };
+    case "/log-catch":
+      return { name: "log-catch" };
     case "/data-entry":
     default:
       return { name: "data-entry-grid" };

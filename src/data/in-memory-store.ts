@@ -11,23 +11,46 @@
 // repository.
 
 import { resolveFormFieldCascade } from "../db/cascades";
-import { emptyFormPersonal, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";
+import { emptyFormPersonal, emptyMedalProgress, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
-import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
-import { FORM_PERSONAL_BOOLEAN_FIELDS, type Form, type FormBackgroundPersonal, type FormPersonal, type FormPersonalBooleanField, type MegaPersonal, type MegaVariant, type PokemonType, type Region, type Species, type SpeciesPersonal } from "../db/types";
+import { CURRENT_PERSONAL_SCHEMA_VERSION, DEFAULT_PROFILE_ID } from "../db/schema";
+import {
+  FORM_PERSONAL_BOOLEAN_FIELDS,
+  type Form,
+  type FormBackgroundPersonal,
+  type FormPersonal,
+  type FormPersonalBooleanField,
+  type MedalProgressPersonal,
+  type MegaPersonal,
+  type MegaVariant,
+  type PlayerProgressPersonal,
+  type PokemonInstance,
+  type PokemonInstanceStatus,
+  type PokemonInstanceTag,
+  type PokemonType,
+  type Region,
+  type Species,
+  type SpeciesPersonal,
+  type Tag,
+} from "../db/types";
 import {
   fuzzyMatches,
   MAX_GRID_INDICATORS,
   parseSearchQuery,
   type GridFilterField,
   type ImportResult,
+  type MedalProgress,
   type PersonalDataExport,
+  type PokemonInstanceFilter,
+  type PokemonInstanceWithSpecies,
   type Repository,
   type SearchKeyword,
+  type SpecimenStateCounts,
   type SpeciesFilter,
   type SpeciesMegaVariant,
   type SpeciesSummary,
   type SpeciesWithForms,
+  type TagCount,
 } from "./repository";
 
 const INDICATOR_SETTING_KEY = "grid_indicators";
@@ -42,6 +65,11 @@ export interface PersonalState {
   megaPersonal: Record<string, MegaPersonal>;
   /** Read/exported for completeness — no UI writes this yet (see repository.ts). */
   formBackgroundPersonal: FormBackgroundPersonal[];
+  medalProgress: Record<string, MedalProgressPersonal>;
+  pokemonInstances: PokemonInstance[];
+  tags: Tag[];
+  pokemonInstanceTags: PokemonInstanceTag[];
+  playerProgress: PlayerProgressPersonal | undefined;
 }
 
 export interface InMemoryStoreHooks {
@@ -51,13 +79,17 @@ export interface InMemoryStoreHooks {
   onMegaPersonalChanged(megaVariantSlug: string, personal: MegaPersonal): void;
   /** Fires once per newly-added link — form_background_personal has no per-row setter yet (see repository.ts), only import can add to it, and only ever as a brand-new row (composite PK, no update-in-place case). */
   onFormBackgroundPersonalAdded(row: FormBackgroundPersonal): void;
+  onMedalProgressChanged(medalSlug: string, progress: MedalProgressPersonal): void;
+  onPlayerProgressChanged(progress: PlayerProgressPersonal): void;
+  /** Existing-row status update only — creation (which needs a real AUTOINCREMENT id) is implemented directly in sqlite-repository.ts, not through this shared hook. */
+  onPokemonInstanceStatusChanged(instance: PokemonInstance): void;
 }
 
 export function createInMemoryRepository(
   referenceData: ReferenceData,
   state: PersonalState,
   hooks: InMemoryStoreHooks,
-): Omit<Repository, "getCompletionStats"> {
+): Omit<Repository, "getCompletionStats" | "createPokemonInstances" | "createTag"> {
   const speciesBySlug = new Map<string, Species>(referenceData.species.map((s) => [s.slug, s]));
   const speciesByDexOrder = [...referenceData.species].sort((a, b) => a.dexNumber - b.dexNumber);
   const formsBySpecies = new Map<string, Form[]>();
@@ -85,6 +117,24 @@ export function createInMemoryRepository(
     list.push(mv);
     megaVariantsBySpecies.set(mv.speciesSlug, list);
     speciesSlugByMegaVariantSlug.set(mv.slug, mv.speciesSlug);
+  }
+
+  const medalSlugs = new Set(referenceData.medals.map((m) => m.slug));
+  const medalTiersByMedalSlug = new Map<string, typeof referenceData.medalTiers>();
+  for (const tier of referenceData.medalTiers) {
+    const list = medalTiersByMedalSlug.get(tier.medalSlug) ?? [];
+    list.push(tier);
+    medalTiersByMedalSlug.set(tier.medalSlug, list);
+  }
+
+  function formWithSpeciesForInstance(instance: PokemonInstance): PokemonInstanceWithSpecies | undefined {
+    const form = formsBySpecies.get(speciesSlugByFormSlug.get(instance.formSlug) ?? "")?.find((f) => f.slug === instance.formSlug);
+    const speciesSlug = speciesSlugByFormSlug.get(instance.formSlug);
+    const species = speciesSlug ? speciesBySlug.get(speciesSlug) : undefined;
+    if (!form || !species) return undefined;
+    const tagIds = new Set(state.pokemonInstanceTags.filter((t) => t.pokemonInstanceId === instance.id).map((t) => t.tagId));
+    const tags = state.tags.filter((t) => tagIds.has(t.id));
+    return { instance, form, species, tags };
   }
 
   function matchesSearchKeyword(species: Species, keyword: SearchKeyword): boolean {
@@ -260,6 +310,52 @@ export function createInMemoryRepository(
     hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
 
+  function applyMedalProgress(medalSlug: string, currentRank: number, currentCount: number): void {
+    const updated: MedalProgressPersonal = { medalSlug, profileId: DEFAULT_PROFILE_ID, currentRank, currentCount, updatedAt: new Date().toISOString() };
+    state.medalProgress[medalSlug] = updated;
+    hooks.onMedalProgressChanged(medalSlug, updated);
+  }
+
+  function applyPlayerProgress(currentLevel: number | null, totalXp: number | null): void {
+    const updated: PlayerProgressPersonal = { profileId: DEFAULT_PROFILE_ID, currentLevel, totalXp, updatedAt: new Date().toISOString() };
+    state.playerProgress = updated;
+    hooks.onPlayerProgressChanged(updated);
+  }
+
+  function applyPokemonInstanceStatus(id: number, status: PokemonInstanceStatus): void {
+    const index = state.pokemonInstances.findIndex((i) => i.id === id);
+    if (index === -1) return;
+    const updated: PokemonInstance = { ...state.pokemonInstances[index], status, updatedAt: new Date().toISOString() };
+    state.pokemonInstances[index] = updated;
+    hooks.onPokemonInstanceStatusChanged(updated);
+  }
+
+  function sortInstances(rows: PokemonInstanceWithSpecies[], sort: PokemonInstanceFilter["sort"]): PokemonInstanceWithSpecies[] {
+    const sorted = [...rows];
+    switch (sort) {
+      case "cpDesc":
+        return sorted.sort((a, b) => (b.instance.cp ?? -1) - (a.instance.cp ?? -1));
+      case "ivDesc":
+        return sorted.sort((a, b) => (b.instance.ivPercent ?? -1) - (a.instance.ivPercent ?? -1));
+      case "nameAsc":
+        return sorted.sort((a, b) => a.species.name.localeCompare(b.species.name));
+      case "recent":
+      default:
+        return sorted.sort((a, b) => (b.instance.caughtAt ?? b.instance.recordedAt).localeCompare(a.instance.caughtAt ?? a.instance.recordedAt));
+    }
+  }
+
+  function filteredInstances(filter: PokemonInstanceFilter = {}): PokemonInstanceWithSpecies[] {
+    let rows = state.pokemonInstances.map(formWithSpeciesForInstance).filter((r): r is PokemonInstanceWithSpecies => r !== undefined);
+    if (filter.status && filter.status !== "all") rows = rows.filter((r) => r.instance.status === filter.status);
+    if (filter.tagId !== undefined) rows = rows.filter((r) => r.tags.some((t) => t.id === filter.tagId));
+    if (filter.search) {
+      const q = filter.search.trim();
+      if (q) rows = rows.filter((r) => fuzzyMatches(r.species.name, q) || fuzzyMatches(r.instance.nickname ?? "", q));
+    }
+    return sortInstances(rows, filter.sort);
+  }
+
   return {
     listRegions(): Region[] {
       return referenceData.regions;
@@ -271,6 +367,22 @@ export function createInMemoryRepository(
 
     getFormTypes(formSlug: string): PokemonType[] {
       return formTypesByFormSlug.get(formSlug) ?? [];
+    },
+
+    getTypeMatchups(formSlug: string): { attackingType: PokemonType; multiplier: number }[] {
+      const defendingTypes = formTypesByFormSlug.get(formSlug) ?? [];
+      if (defendingTypes.length === 0) return [];
+      return referenceData.types.map((attackingType) => {
+        // Dual typing multiplies (e.g. quadruple damage when both types are
+        // weak to the same attacker) — real game mechanic, not a guess.
+        const multiplier = defendingTypes.reduce((product, defendingType) => {
+          const eff = referenceData.typeEffectiveness.find(
+            (t) => t.attackingTypeSlug === attackingType.slug && t.defendingTypeSlug === defendingType.slug,
+          );
+          return product * (eff?.multiplier ?? 1);
+        }, 1);
+        return { attackingType, multiplier };
+      });
     },
 
     getSpeciesWithForms(speciesSlug: string): SpeciesWithForms {
@@ -365,6 +477,71 @@ export function createInMemoryRepository(
 
     setAppSetting,
 
+    listPokemonInstances(filter?: PokemonInstanceFilter): PokemonInstanceWithSpecies[] {
+      const rows = filteredInstances(filter);
+      const offset = filter?.offset ?? 0;
+      const limit = filter?.limit;
+      return limit === undefined ? rows.slice(offset) : rows.slice(offset, offset + limit);
+    },
+
+    countPokemonInstances(filter?: PokemonInstanceFilter): number {
+      return filteredInstances(filter).length;
+    },
+
+    getPokemonInstance(id: number): PokemonInstanceWithSpecies | undefined {
+      const instance = state.pokemonInstances.find((i) => i.id === id);
+      return instance ? formWithSpeciesForInstance(instance) : undefined;
+    },
+
+    async setPokemonInstanceStatus(id: number, status: PokemonInstanceStatus) {
+      applyPokemonInstanceStatus(id, status);
+    },
+
+    listTags(): Tag[] {
+      return state.tags;
+    },
+
+    getPlayerProgress(): PlayerProgressPersonal | undefined {
+      return state.playerProgress;
+    },
+
+    setPlayerProgress(currentLevel: number | null, totalXp: number | null) {
+      applyPlayerProgress(currentLevel, totalXp);
+    },
+
+    listMedalProgress(): MedalProgress[] {
+      return referenceData.medals.map((medal) => ({
+        medal,
+        tiers: medalTiersByMedalSlug.get(medal.slug) ?? [],
+        progress: state.medalProgress[medal.slug] ?? emptyMedalProgress(medal.slug, DEFAULT_PROFILE_ID),
+      }));
+    },
+
+    setMedalProgress(medalSlug: string, currentRank: number, currentCount: number) {
+      if (!medalSlugs.has(medalSlug)) return;
+      applyMedalProgress(medalSlug, currentRank, currentCount);
+    },
+
+    getSpecimenStateCounts(): SpecimenStateCounts {
+      const counts: SpecimenStateCounts = { shiny: 0, lucky: 0, shadow: 0, purified: 0 };
+      for (const instance of state.pokemonInstances) {
+        if (instance.shiny) counts.shiny++;
+        if (instance.lucky) counts.lucky++;
+        if (instance.shadow) counts.shadow++;
+        if (instance.purified) counts.purified++;
+      }
+      return counts;
+    },
+
+    getTopTagCounts(limit = 10): TagCount[] {
+      const counts = new Map<number, number>();
+      for (const link of state.pokemonInstanceTags) counts.set(link.tagId, (counts.get(link.tagId) ?? 0) + 1);
+      return state.tags
+        .map((tag) => ({ tag, count: counts.get(tag.id) ?? 0 }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, limit);
+    },
+
     getIndicatorSelection(): FormPersonalBooleanField[] {
       const raw = state.appSettings[INDICATOR_SETTING_KEY];
       if (!raw) return [];
@@ -389,6 +566,10 @@ export function createInMemoryRepository(
         appSettings: { ...state.appSettings },
         megaPersonal: { ...state.megaPersonal },
         formBackgroundPersonal: [...state.formBackgroundPersonal],
+        medalProgress: { ...state.medalProgress },
+        pokemonInstances: [...state.pokemonInstances],
+        tags: [...state.tags],
+        playerProgress: state.playerProgress,
       };
     },
 
@@ -442,6 +623,24 @@ export function createInMemoryRepository(
       // No per-row "value" to merge here (composite PK — a link either
       // exists or it doesn't), so this is a straight union: add whichever
       // incoming links aren't already present, skip the rest.
+      for (const [slug, progress] of Object.entries(data.medalProgress ?? {})) {
+        if (!medalSlugs.has(slug)) continue;
+        const local = state.medalProgress[slug];
+        if (local && local.updatedAt >= progress.updatedAt) continue;
+        state.medalProgress[slug] = progress;
+        hooks.onMedalProgressChanged(slug, progress);
+      }
+      if (data.playerProgress && (!state.playerProgress || state.playerProgress.updatedAt < data.playerProgress.updatedAt)) {
+        state.playerProgress = data.playerProgress;
+        hooks.onPlayerProgressChanged(data.playerProgress);
+      }
+      // pokemonInstances/tags are exported for completeness (a rescue export
+      // or backup shouldn't silently drop them) but NOT merge-imported here:
+      // unlike every other personal table, pokemon_instance.id/tag.id are
+      // local AUTOINCREMENT integers with no cross-device meaning, so two
+      // different devices' row #12 are unrelated individuals — a real design
+      // gap (see docs/vue-migration-plan.md), not something to paper over
+      // with a wrong-but-quiet id-based merge.
       for (const row of data.formBackgroundPersonal ?? []) {
         if (!speciesSlugByFormSlug.has(row.formSlug)) continue;
         const alreadyPresent = state.formBackgroundPersonal.some(

@@ -2,7 +2,25 @@
 // capacitor-community/sqlite) will satisfy this same shape later — the UI
 // layer shouldn't need to change when that swap happens.
 
-import type { Form, FormBackgroundPersonal, FormPersonal, FormPersonalBooleanField, MegaPersonal, MegaVariant, PokemonType, Region, Species, SpeciesPersonal } from "../db/types";
+import type {
+  Form,
+  FormBackgroundPersonal,
+  FormPersonal,
+  FormPersonalBooleanField,
+  Medal,
+  MedalProgressPersonal,
+  MedalTier,
+  MegaPersonal,
+  MegaVariant,
+  PlayerProgressPersonal,
+  PokemonInstance,
+  PokemonInstanceStatus,
+  PokemonType,
+  Region,
+  Species,
+  SpeciesPersonal,
+  Tag,
+} from "../db/types";
 
 export interface SpeciesWithForms {
   species: Species;
@@ -170,6 +188,12 @@ export interface PersonalDataExport {
   megaPersonal?: Record<string, MegaPersonal>;
   /** No single natural slug key (composite PK: form + achievement field + background) — a flat array, same as the DB row shape. Same backward-compat note as megaPersonal. */
   formBackgroundPersonal?: FormBackgroundPersonal[];
+  /** Keyed by medal slug. Optional only for reading older export files that predate this field. */
+  medalProgress?: Record<string, MedalProgressPersonal>;
+  /** Every logged specimen — flat array, same reasoning as formBackgroundPersonal (no single natural key better than the row's own id). */
+  pokemonInstances?: PokemonInstance[];
+  tags?: Tag[];
+  playerProgress?: PlayerProgressPersonal;
 }
 
 export interface Repository {
@@ -178,6 +202,8 @@ export interface Repository {
   getSpeciesWithForms(speciesSlug: string): SpeciesWithForms;
   /** Types for one form, in reference-data order (primary first). Species-detail uses its first form as the species' representative typing. */
   getFormTypes(formSlug: string): PokemonType[];
+  /** Every attacking type's multiplier against this form's typing(s) combined (product across dual types) — real data (type_effectiveness), not a placeholder. */
+  getTypeMatchups(formSlug: string): { attackingType: PokemonType; multiplier: number }[];
 
   /** Grid data: one summary per species, optionally filtered by region and/or a name/dex substring search. */
   listSpeciesSummaries(filter?: SpeciesFilter): SpeciesSummary[];
@@ -240,11 +266,89 @@ export interface Repository {
    * instead of it happening invisibly.
    */
   importPersonalData(data: PersonalDataExport): Promise<ImportResult>;
+
+  // ---- Collection / Log a catch (pokemon_instance) ----
+  listPokemonInstances(filter?: PokemonInstanceFilter): PokemonInstanceWithSpecies[];
+  countPokemonInstances(filter?: PokemonInstanceFilter): number;
+  getPokemonInstance(id: number): PokemonInstanceWithSpecies | undefined;
+  /** Quick-log bulk insert: writes `batch.count` identical rows in one go (see NewPokemonInstanceBatch). Returns the created rows. */
+  createPokemonInstances(batch: NewPokemonInstanceBatch): Promise<PokemonInstance[]>;
+  setPokemonInstanceStatus(id: number, status: PokemonInstanceStatus): Promise<void>;
+
+  listTags(): Tag[];
+  createTag(name: string): Promise<Tag>;
+
+  // ---- Trainer/Profile page ----
+  getPlayerProgress(): PlayerProgressPersonal | undefined;
+  setPlayerProgress(currentLevel: number | null, totalXp: number | null): void;
+  listMedalProgress(): MedalProgress[];
+  setMedalProgress(medalSlug: string, currentRank: number, currentCount: number): void;
+
+  // ---- New Stats charts (specimens-by-state, top-tags) ----
+  getSpecimenStateCounts(): SpecimenStateCounts;
+  getTopTagCounts(limit?: number): TagCount[];
 }
 
 export interface ImportResult {
   skippedSpeciesSlugs: number;
   skippedFormSlugs: number;
+}
+
+// ---- Collection (pokemon_instance) ----
+
+export interface PokemonInstanceWithSpecies {
+  instance: PokemonInstance;
+  form: Form;
+  species: Species;
+  tags: Tag[];
+}
+
+export type PokemonInstanceSort = "recent" | "cpDesc" | "ivDesc" | "nameAsc";
+
+export interface PokemonInstanceFilter {
+  search?: string;
+  status?: PokemonInstanceStatus | "all";
+  tagId?: number;
+  sort?: PokemonInstanceSort;
+  limit?: number;
+  offset?: number;
+}
+
+// Quick-log input: everything but formSlug/count is shared across the whole
+// batch (see docs/vue-migration-plan.md's Log-a-catch milestone) — bulk
+// logging N identical low-value catches fast is the whole point of Quick
+// mode, not a one-row-at-a-time form.
+export interface NewPokemonInstanceBatch {
+  formSlug: string;
+  count: number;
+  shiny?: boolean;
+  lucky?: boolean;
+  shadow?: boolean;
+  purified?: boolean;
+  cp?: number | null;
+  ivPercent?: number | null;
+  nickname?: string | null;
+  caughtAt?: string | null;
+  backgroundSlug?: string | null;
+  tagIds?: number[];
+}
+
+export interface SpecimenStateCounts {
+  shiny: number;
+  lucky: number;
+  shadow: number;
+  purified: number;
+}
+
+export interface TagCount {
+  tag: Tag;
+  count: number;
+}
+
+export interface MedalProgress {
+  medal: Medal;
+  tiers: MedalTier[];
+  progress: MedalProgressPersonal;
 }
 
 export const MAX_GRID_INDICATORS = 4;

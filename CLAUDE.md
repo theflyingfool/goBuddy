@@ -41,6 +41,9 @@ Project documentation:
 Architecture:
 → docs/architecture.md
 
+Vue migration (in progress):
+→ docs/vue-migration-plan.md
+
 Database & Schema:
 → docs/data-model.md
 

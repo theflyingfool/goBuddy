@@ -10,9 +10,13 @@ import { renderSpeciesDetail } from "./features/data-entry/species-detail";
 import { renderSpeciesGrid, renderFilterSheetContent, countActiveFilters, type GridState, type GridCallbacks } from "./features/data-entry/species-grid";
 import { renderBulkFormEditPage } from "./features/data-entry/bulk-form-edit";
 import { renderCoverageReportPage } from "./features/coverage-report/coverage-report-page";
-import { renderSettingsPage } from "./features/settings/settings-page";
+import SettingsPage from "./features/settings/SettingsPage.vue";
+import TrainerPage from "./features/trainer/TrainerPage.vue";
+import CollectionPage from "./features/collection/CollectionPage.vue";
+import LogCatchPage from "./features/log-catch/LogCatchPage.vue";
+import StatsPage from "./features/stats/StatsPage.vue";
+import { mountVueRoute, unmountCurrentVueRoute } from "./app-shell/mount-vue";
 import { renderHelpPage } from "./features/help/help-page";
-import { renderStatsPage } from "./features/stats/stats-page";
 import { renderAchievementsPage, renderSearchToolsPage, renderXpAssistantPage } from "./features/stubs";
 import { createOverlayPanel, bindEscapeToClose } from "./ui/overlay-panel";
 import { el } from "./ui/dom";
@@ -80,6 +84,11 @@ function bootstrap(repo: Repository) {
 
   function render() {
     const route = parseRoute(location.hash);
+
+    // Every route render tears down a previous Vue mount first (see
+    // mount-vue.ts) — vanilla render functions just clear(container) and
+    // rebuild, which doesn't tell a mounted Vue app instance to unmount.
+    unmountCurrentVueRoute();
 
     renderSidebar(sidebarEl, route.name, () => {});
     renderTabBar(tabBarEl, route.name, () => morePanel.close(), () => morePanel.open());
@@ -173,7 +182,7 @@ function bootstrap(repo: Repository) {
           renderBulkFormEditPage(contentEl, repo);
           break;
         case "stats":
-          renderStatsPage(contentEl, repo);
+          mountVueRoute(contentEl, StatsPage, { repo });
           break;
         case "search-tools":
           renderSearchToolsPage(contentEl);
@@ -182,7 +191,16 @@ function bootstrap(repo: Repository) {
           renderCoverageReportPage(contentEl);
           break;
         case "settings":
-          renderSettingsPage(contentEl, repo);
+          mountVueRoute(contentEl, SettingsPage, { repo });
+          break;
+        case "trainer":
+          mountVueRoute(contentEl, TrainerPage, { repo });
+          break;
+        case "collection":
+          mountVueRoute(contentEl, CollectionPage, { repo });
+          break;
+        case "log-catch":
+          mountVueRoute(contentEl, LogCatchPage, { repo });
           break;
         case "help":
           renderHelpPage(contentEl);

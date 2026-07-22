@@ -404,6 +404,19 @@ CREATE TABLE IF NOT EXISTS player_progress_personal (
   updated_at TEXT NOT NULL
 );
 
+-- Per-profile progress against the medal/medal_tier reference data (schema
+-- version 5) -- current_rank/current_count are the user's own progress, not
+-- reference data, so this stays a separate table rather than a column on
+-- medal itself (same split as player_progress_personal above).
+CREATE TABLE IF NOT EXISTS medal_progress_personal (
+  medal_slug TEXT NOT NULL REFERENCES medal(slug),
+  profile_id INTEGER NOT NULL DEFAULT 1 REFERENCES profile(id),
+  current_rank INTEGER NOT NULL DEFAULT 0,
+  current_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (medal_slug, profile_id)
+);
+
 -- Landing zone for personal rows reference-sync.ts finds orphaned (their
 -- slug no longer exists in a freshly-synced reference.json, and wasn't
 -- covered by a src/db/slug-renames.ts entry) — holds the row's full data as
@@ -420,7 +433,7 @@ CREATE TABLE IF NOT EXISTS personal_data_quarantine (
 );
 `;
 
-export const CURRENT_PERSONAL_SCHEMA_VERSION = 4;
+export const CURRENT_PERSONAL_SCHEMA_VERSION = 5;
 
 // id=1 is the implicit single profile every table's profile_id column
 // defaults to today — every fresh install and every migrated existing

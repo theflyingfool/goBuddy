@@ -420,6 +420,18 @@ export interface PlayerProgressPersonal {
   updatedAt: string;
 }
 
+// Tracks progress against the `medal`/`medal_tier` reference data (see
+// schema.ts) — the reference tables model what medals exist and their tier
+// targets; this is the per-profile "how far along am I" counterpart, one row
+// per medal per profile.
+export interface MedalProgressPersonal {
+  medalSlug: string;
+  profileId: number;
+  currentRank: number;
+  currentCount: number;
+  updatedAt: string;
+}
+
 export const SPECIES_PERSONAL_BOOLEAN_FIELDS = [
   "registered",
   "xxl",

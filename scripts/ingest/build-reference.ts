@@ -129,26 +129,34 @@ function buildMoves(): { moves: Move[]; slugByName: Map<string, string> } {
 
   const moves: Move[] = [];
   const slugByName = new Map<string, string>();
-  for (const m of fast) {
-    const slug = slugify(`${m.name}-fast`);
-    const pvp = pvpFast.get(m.move_id);
-    slugByName.set(m.name, slug);
+  const usedSlugs = new Set<string>();
+
+  // pogoapi.net's fast/charged move lists carry multiple move_ids under the
+  // same display name — Pokémon GO keeps legacy/pre-buff versions of a move
+  // as distinct records (e.g. Aeroblast/Sacred Fire each have 3 historical
+  // power values), and some names are genuinely two different moves (Aura
+  // Wheel is Electric or Dark depending on Morpeko's form). A plain
+  // name-derived slug collides across these and previously produced
+  // duplicate `move.slug` primary keys; later collisions get move_id
+  // appended so every record is kept, not silently dropped.
+  function addMove(m: MoveRecord, category: "fast" | "charged", pvp: PvpMoveRecord | undefined) {
+    const baseSlug = slugify(`${m.name}-${category}`);
+    const slug = usedSlugs.has(baseSlug) ? `${baseSlug}-${m.move_id}` : baseSlug;
+    usedSlugs.add(slug);
+    // form_move/community_day_event_move only ever have a move *name* to key
+    // off, not a move_id, so they resolve to whichever record was seen first
+    // per name — this doesn't change from before the fix.
+    if (!slugByName.has(m.name)) slugByName.set(m.name, slug);
     moves.push({
-      slug, name: m.name, category: "fast", typeSlug: slugify(m.type),
+      slug, name: m.name, category, typeSlug: slugify(m.type),
       power: m.power, energyDelta: m.energy_delta, durationMs: m.duration,
       pvpPower: pvp?.power ?? null, pvpEnergyDelta: pvp?.energy_delta ?? null, pvpTurns: pvp?.turn_duration ?? null,
     });
   }
-  for (const m of charged) {
-    const slug = slugify(`${m.name}-charged`);
-    const pvp = pvpCharged.get(m.move_id);
-    slugByName.set(m.name, slug);
-    moves.push({
-      slug, name: m.name, category: "charged", typeSlug: slugify(m.type),
-      power: m.power, energyDelta: m.energy_delta, durationMs: m.duration,
-      pvpPower: pvp?.power ?? null, pvpEnergyDelta: pvp?.energy_delta ?? null, pvpTurns: pvp?.turn_duration ?? null,
-    });
-  }
+
+  for (const m of fast) addMove(m, "fast", pvpFast.get(m.move_id));
+  for (const m of charged) addMove(m, "charged", pvpCharged.get(m.move_id));
+
   return { moves, slugByName };
 }
 
@@ -211,7 +219,13 @@ function buildFormMoves(forms: Form[], species: Species[], moveSlugByName: Map<s
 // familySlugFor.
 function buildSpeciesEvolutions(pokedex: PokedexEntry[], species: Species[]): SpeciesEvolution[] {
   const slugByDex = new Map(species.map((s) => [s.dexNumber, s.slug]));
-  const evolutions: SpeciesEvolution[] = [];
+  // Keyed by "from|to" — species_evolution's PK is species-level (this
+  // table's deliberate Tier-1 granularity, see docs/v2-schema-design.md), so
+  // a base entry and a regional form of the same species agreeing on the
+  // same evolution edge (e.g. Rattata -> Raticate declared once on the base
+  // entry, once on the Alolan regionForm) must collapse to one row, not
+  // produce a duplicate PK.
+  const byKey = new Map<string, SpeciesEvolution>();
   for (const entry of pokedex) {
     const fromSlug = slugByDex.get(entry.dexNr);
     if (!fromSlug) continue;
@@ -221,11 +235,39 @@ function buildSpeciesEvolutions(pokedex: PokedexEntry[], species: Species[]): Sp
         const target = pokedex.find((e) => e.id === evo.id);
         const toSlug = target ? slugByDex.get(target.dexNr) : undefined;
         if (!toSlug) continue;
-        evolutions.push({ fromSpeciesSlug: fromSlug, toSpeciesSlug: toSlug, candyRequired: evo.candies ?? null, itemRequired: evo.item?.id ?? null });
+        const key = `${fromSlug}|${toSlug}`;
+        const candidate: SpeciesEvolution = { fromSpeciesSlug: fromSlug, toSpeciesSlug: toSlug, candyRequired: evo.candies ?? null, itemRequired: evo.item?.id ?? null };
+        const existing = byKey.get(key);
+        if (!existing) {
+          byKey.set(key, candidate);
+          continue;
+        }
+        if (existing.candyRequired === candidate.candyRequired && existing.itemRequired === candidate.itemRequired) continue;
+        // Prefer whichever record is more complete (has an item where the
+        // other is missing one) when the candy cost otherwise agrees — this
+        // is filling a gap in one source record, not choosing between two
+        // real different costs.
+        if (existing.itemRequired === null && candidate.itemRequired !== null && existing.candyRequired === candidate.candyRequired) {
+          byKey.set(key, candidate);
+          continue;
+        }
+        if (candidate.itemRequired === null && existing.itemRequired !== null && existing.candyRequired === candidate.candyRequired) {
+          continue;
+        }
+        // A handful of species (e.g. Sinistea/Polteageist's Phony vs
+        // Antique form, 50 vs 400 candy) have a real form-specific cost this
+        // species-level table can't represent as two rows under one PK.
+        // Rather than silently assert which one is "correct" (a real
+        // Pokémon GO mechanics claim, not an ingestion detail), keep the
+        // first-seen value and log the conflict so it's visible at build
+        // time and can be verified against a real source.
+        console.warn(
+          `[build-reference] species_evolution conflict ${fromSlug} -> ${toSlug}: keeping candy=${existing.candyRequired}/item=${existing.itemRequired}, discarding candy=${candidate.candyRequired}/item=${candidate.itemRequired} (species-level table can't hold both — verify before relying on either for a form-specific cost)`,
+        );
       }
     }
   }
-  return evolutions;
+  return [...byKey.values()];
 }
 
 function buildTypeEffectivenessAndWeather(): { typeEffectiveness: TypeEffectiveness[]; weatherBoosts: WeatherBoost[] } {
@@ -248,13 +290,33 @@ function buildPlayerProgression(): { playerLevels: PlayerLevel[]; playerLevelRew
   const xpReq = loadPogoapi<Record<string, number>>("player_xp_requirements");
   const playerLevels = Object.entries(xpReq).map(([level, xp]) => ({ level: Number(level), cumulativeXp: xp }));
 
+  const knownLevels = new Set(playerLevels.map((l) => l.level));
+
   interface LevelReward { level: number; items_received: { item: string; amount_received: number }[] }
   const rewards = loadPogoapi<LevelReward[]>("levelup_rewards");
   const playerLevelRewards: PlayerLevelReward[] = [];
+  const nextSortOrderByLevel = new Map<number, number>();
   for (const r of rewards) {
+    // pogoapi.net's levelup_rewards.json lists reward levels up to 70, but
+    // player_xp_requirements.json (playerLevels above) only covers 1-50 --
+    // player_level_reward.level is a real FK to player_level(level), and we
+    // don't have (and won't invent) the real cumulative-XP figures for
+    // levels 53-70 to seed those player_level rows ourselves. Skipping
+    // reward rows past level 50 for now rather than fabricating an XP curve
+    // -- revisit once a source actually publishes XP requirements that far.
+    if (!knownLevels.has(r.level)) continue;
+    // A handful of levels (10, 20, 25, 30, 35, 40, 43, 45, 47, 50) have TWO
+    // separate source records -- the normal level-up bundle plus a one-time
+    // `reward_retrospectively_given` bonus item added later (e.g. level 10's
+    // "Item bag upgrade"). Both are real, distinct rewards worth keeping;
+    // sortOrder needs one running counter per level across every record for
+    // that level, not per-record (per-record indices from .forEach here
+    // both started at 0 and collided on the (level, sort_order) primary key).
+    const nextSortOrder = nextSortOrderByLevel.get(r.level) ?? 0;
     r.items_received.forEach((item, i) => {
-      playerLevelRewards.push({ level: r.level, sortOrder: i, itemName: item.item, amount: item.amount_received });
+      playerLevelRewards.push({ level: r.level, sortOrder: nextSortOrder + i, itemName: item.item, amount: item.amount_received });
     });
+    nextSortOrderByLevel.set(r.level, nextSortOrder + r.items_received.length);
   }
 
   interface Badge { name: string; description: string; event_badge: boolean; rank?: number; targets?: number[] }
@@ -264,13 +326,26 @@ function buildPlayerProgression(): { playerLevels: PlayerLevel[]; playerLevelRew
   const seenMedalSlugs = new Set<string>();
   for (const badge of badges) {
     const slug = slugify(badge.name);
-    if (!seenMedalSlugs.has(slug)) {
+    const isFirstForSlug = !seenMedalSlugs.has(slug);
+    if (isFirstForSlug) {
       seenMedalSlugs.add(slug);
       medals.push({ slug, name: badge.name, description: badge.description, isEventMedal: badge.event_badge });
     }
     if (badge.targets) {
       badge.targets.forEach((target, i) => medalTiers.push({ medalSlug: slug, rank: i + 1, target }));
-    } else if (badge.rank !== undefined) {
+    } else if (badge.rank !== undefined && isFirstForSlug) {
+      // Event badges (event_badge: true) reuse a generic `name` (e.g. every
+      // "Pokémon GO Fest" city/year is its own badge record) with the real
+      // distinguishing info only in `description` — pogoapi.net gives no
+      // per-event identifier to key on. The `medals` table above already
+      // collapses these to one canonical medal per name; pushing a tier row
+      // for every one of the ~200 same-named event-badge records produced
+      // duplicate (medal_slug, rank) primary keys here, since they mostly
+      // share rank 2. Following the same first-seen collapse keeps this
+      // table consistent with `medals`, at the cost of not being able to
+      // tell individual event medals apart — a real, pre-existing data-model
+      // gap (not something this fix newly introduces) worth a product call
+      // on later if per-event medal tracking ever matters.
       medalTiers.push({ medalSlug: slug, rank: badge.rank, target: null });
     }
   }
@@ -373,16 +448,35 @@ function buildRaidsAndEvents(
   const communityDayBonuses: CommunityDayBonus[] = [];
   const communityDaySpecies: CommunityDaySpecies[] = [];
   const communityDayEventMoves: CommunityDayEventMove[] = [];
+  // Both tables are species-level (schema's Tier-1 granularity), but
+  // pogoapi.net's boosted_pokemon/event_moves lists name a region form
+  // separately from its base species (e.g. a Community Day listing both
+  // "Sandshrew" and "Alola:::Sandshrew" as boosted, or "Surf" as an event
+  // move on both "Slowbro" and "Galarian:::Slowbro") — resolveSpeciesName
+  // correctly resolves both to the same species slug, so without a dedup
+  // guard the same (day, species[, move]) row gets pushed twice with
+  // identical values (not a real conflict like species_evolution's
+  // form-specific candy costs — there's nothing here to disagree on).
+  const seenCommunityDaySpecies = new Set<string>();
+  const seenCommunityDayEventMoves = new Set<string>();
   for (const cd of communityDayRecords) {
     for (const bonus of cd.bonuses) communityDayBonuses.push({ communityDayNumber: cd.community_day_number, bonus });
     for (const rawName of cd.boosted_pokemon) {
       const slug = resolveSpeciesName(rawName);
-      if (slug) communityDaySpecies.push({ communityDayNumber: cd.community_day_number, speciesSlug: slug });
+      if (!slug) continue;
+      const key = `${cd.community_day_number}|${slug}`;
+      if (seenCommunityDaySpecies.has(key)) continue;
+      seenCommunityDaySpecies.add(key);
+      communityDaySpecies.push({ communityDayNumber: cd.community_day_number, speciesSlug: slug });
     }
     for (const em of cd.event_moves) {
       const speciesSlug = resolveSpeciesName(em.pokemon);
       const moveSlug = moveSlugByName.get(em.move);
-      if (speciesSlug && moveSlug) communityDayEventMoves.push({ communityDayNumber: cd.community_day_number, speciesSlug, moveSlug });
+      if (!speciesSlug || !moveSlug) continue;
+      const key = `${cd.community_day_number}|${speciesSlug}|${moveSlug}`;
+      if (seenCommunityDayEventMoves.has(key)) continue;
+      seenCommunityDayEventMoves.add(key);
+      communityDayEventMoves.push({ communityDayNumber: cd.community_day_number, speciesSlug, moveSlug });
     }
   }
 

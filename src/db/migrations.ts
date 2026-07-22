@@ -95,7 +95,18 @@ const MIGRATIONS: Migration[] = [
 
       for (const table of ["species_personal", "form_personal", "form_background_personal", "mega_personal"]) {
         if (await tableExists(db, table)) {
-          await db.execute(`ALTER TABLE ${table} ADD COLUMN profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID} REFERENCES profile(id)`, false);
+          // No REFERENCES clause here on purpose: SQLite's ALTER TABLE ADD
+          // COLUMN rejects a column that combines a foreign key reference
+          // with a non-NULL default value ("Cannot add a REFERENCES column
+          // with non-NULL default value") -- only bites real on-device
+          // upgrades (fresh installs use PERSONAL_SCHEMA_SQL's plain CREATE
+          // TABLE instead, where the combination is fine, which is why this
+          // didn't show up there). The relationship is still fully declared
+          // in schema.ts for fresh installs; SQLite doesn't retroactively
+          // validate pre-existing rows against a column added afterward
+          // regardless, so dropping the inline REFERENCES here changes
+          // nothing about actual behavior.
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID}`, false);
         }
       }
 
@@ -154,6 +165,22 @@ const MIGRATIONS: Migration[] = [
           current_level INTEGER REFERENCES player_level(level),
           total_xp INTEGER,
           updated_at TEXT NOT NULL
+        )`,
+        false,
+      );
+    },
+  },
+  {
+    version: 5,
+    up: async (db) => {
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS medal_progress_personal (
+          medal_slug TEXT NOT NULL REFERENCES medal(slug),
+          profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID} REFERENCES profile(id),
+          current_rank INTEGER NOT NULL DEFAULT 0,
+          current_count INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (medal_slug, profile_id)
         )`,
         false,
       );

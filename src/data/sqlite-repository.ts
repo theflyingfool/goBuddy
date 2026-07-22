@@ -15,14 +15,27 @@
 
 import type { ReferenceData } from "../db/reference-data";
 import { DEFAULT_APP_SETTINGS } from "../db/defaults";
-import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS, type FormBackgroundPersonal, type FormPersonal, type MegaPersonal, type SpeciesPersonal } from "../db/types";
+import { DEFAULT_PROFILE_ID } from "../db/schema";
+import {
+  FORM_PERSONAL_BOOLEAN_FIELDS,
+  FORM_PERSONAL_FIELD_COLUMNS,
+  type FormBackgroundPersonal,
+  type FormPersonal,
+  type MedalProgressPersonal,
+  type MegaPersonal,
+  type PlayerProgressPersonal,
+  type PokemonInstance,
+  type PokemonInstanceTag,
+  type SpeciesPersonal,
+  type Tag,
+} from "../db/types";
 import { getDb, persistDb } from "../db/sqlite-client";
 import { runPersonalMigrations } from "../db/migrations";
 import { syncReferenceData } from "../db/reference-sync";
 import { getCompletionStatsSql } from "./completion-stats-sql";
 import referenceDataJson from "./reference.json";
 import { createInMemoryRepository, type PersonalState } from "./in-memory-store";
-import { EXCLUDE_REGIONAL_SETTING_KEY, type ImportResult, type Repository } from "./repository";
+import { EXCLUDE_REGIONAL_SETTING_KEY, type ImportResult, type NewPokemonInstanceBatch, type Repository } from "./repository";
 
 const referenceData = referenceDataJson as unknown as ReferenceData;
 
@@ -95,7 +108,73 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     });
   }
 
-  return { speciesPersonal, formPersonal, appSettings, megaPersonal, formBackgroundPersonal };
+  const medalProgress: Record<string, MedalProgressPersonal> = {};
+  for (const row of (await db.query("SELECT * FROM medal_progress_personal")).values ?? []) {
+    medalProgress[row.medal_slug] = {
+      medalSlug: row.medal_slug,
+      profileId: row.profile_id,
+      currentRank: row.current_rank,
+      currentCount: row.current_count,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  const pokemonInstances: PokemonInstance[] = [];
+  for (const row of (await db.query("SELECT * FROM pokemon_instance")).values ?? []) {
+    pokemonInstances.push({
+      id: row.id,
+      formSlug: row.form_slug,
+      profileId: row.profile_id,
+      status: row.status,
+      recordedAt: row.recorded_at,
+      caughtAt: row.caught_at ?? null,
+      updatedAt: row.updated_at,
+      cp: row.cp ?? null,
+      ivPercent: row.iv_percent ?? null,
+      shiny: !!row.shiny,
+      lucky: !!row.lucky,
+      shadow: !!row.shadow,
+      purified: !!row.purified,
+      heartsEarned: row.hearts_earned ?? null,
+      currentMegaLevel: row.current_mega_level ?? null,
+      nickname: row.nickname ?? null,
+      backgroundSlug: row.background_slug ?? null,
+    });
+  }
+
+  const tags: Tag[] = [];
+  for (const row of (await db.query("SELECT * FROM tag")).values ?? []) {
+    tags.push({ id: row.id, profileId: row.profile_id, name: row.name });
+  }
+
+  const pokemonInstanceTags: PokemonInstanceTag[] = [];
+  for (const row of (await db.query("SELECT * FROM pokemon_instance_tag")).values ?? []) {
+    pokemonInstanceTags.push({ pokemonInstanceId: row.pokemon_instance_id, tagId: row.tag_id });
+  }
+
+  let playerProgress: PlayerProgressPersonal | undefined;
+  const playerProgressRow = (await db.query("SELECT * FROM player_progress_personal")).values?.[0];
+  if (playerProgressRow) {
+    playerProgress = {
+      profileId: playerProgressRow.profile_id,
+      currentLevel: playerProgressRow.current_level ?? null,
+      totalXp: playerProgressRow.total_xp ?? null,
+      updatedAt: playerProgressRow.updated_at,
+    };
+  }
+
+  return {
+    speciesPersonal,
+    formPersonal,
+    appSettings,
+    megaPersonal,
+    formBackgroundPersonal,
+    medalProgress,
+    pokemonInstances,
+    tags,
+    pokemonInstanceTags,
+    playerProgress,
+  };
 }
 
 export async function createSqliteRepository(onWriteFailure?: (message: string, retry: () => Promise<void>) => void): Promise<Repository> {
@@ -201,6 +280,37 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
         if (!inBulk) await persistDb();
       });
     },
+    onMedalProgressChanged(medalSlug, progress) {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run(
+          `INSERT INTO medal_progress_personal (medal_slug, profile_id, current_rank, current_count, updated_at) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(medal_slug, profile_id) DO UPDATE SET current_rank = excluded.current_rank, current_count = excluded.current_count, updated_at = excluded.updated_at`,
+          [medalSlug, progress.profileId, progress.currentRank, progress.currentCount, progress.updatedAt],
+          !inBulk,
+        );
+        if (!inBulk) await persistDb();
+      });
+    },
+    onPlayerProgressChanged(progress) {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run(
+          `INSERT INTO player_progress_personal (profile_id, current_level, total_xp, updated_at) VALUES (?, ?, ?, ?)
+           ON CONFLICT(profile_id) DO UPDATE SET current_level = excluded.current_level, total_xp = excluded.total_xp, updated_at = excluded.updated_at`,
+          [progress.profileId, progress.currentLevel, progress.totalXp, progress.updatedAt],
+          !inBulk,
+        );
+        if (!inBulk) await persistDb();
+      });
+    },
+    onPokemonInstanceStatusChanged(instance) {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run("UPDATE pokemon_instance SET status = ?, updated_at = ? WHERE id = ?", [instance.status, instance.updatedAt, instance.id], !inBulk);
+        if (!inBulk) await persistDb();
+      });
+    },
   });
 
   // Runs a batched in-memory apply (which fires N onXChanged hooks
@@ -257,6 +367,93 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
     },
     async bulkSetSpeciesPersonalField(speciesSlugs, field, value) {
       await runBulk(() => repo.bulkSetSpeciesPersonalField(speciesSlugs, field, value));
+    },
+    // Not part of createInMemoryRepository's shared object (see its Omit<>) —
+    // both need a real AUTOINCREMENT id back from SQLite before the
+    // in-memory cache can be updated, which the shared hook-fires-after
+    // in-memory-mutation pattern the rest of this file uses can't provide.
+    // last_insert_rowid() is the portable way to get it back across all
+    // three SQLite bindings this app runs on (native Capacitor, jeep-sqlite
+    // web, node:sqlite in tests) — plugin-specific `run()` result shapes
+    // aren't consistent enough to rely on directly.
+    async createPokemonInstances(batch: NewPokemonInstanceBatch): Promise<PokemonInstance[]> {
+      const now = new Date().toISOString();
+      const created: PokemonInstance[] = [];
+      const tagLinks: PokemonInstanceTag[] = [];
+      enqueueWrite(async () => {
+        await db.beginTransaction();
+        for (let i = 0; i < batch.count; i++) {
+          await db.run(
+            `INSERT INTO pokemon_instance (form_slug, profile_id, status, recorded_at, caught_at, updated_at, cp, iv_percent, shiny, lucky, shadow, purified, nickname, background_slug)
+             VALUES (?, ?, 'kept', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              batch.formSlug,
+              DEFAULT_PROFILE_ID,
+              now,
+              batch.caughtAt ?? null,
+              now,
+              batch.cp ?? null,
+              batch.ivPercent ?? null,
+              batch.shiny ? 1 : 0,
+              batch.lucky ? 1 : 0,
+              batch.shadow ? 1 : 0,
+              batch.purified ? 1 : 0,
+              batch.nickname ?? null,
+              batch.backgroundSlug ?? null,
+            ],
+            false,
+          );
+          const idRow = (await db.query("SELECT last_insert_rowid() AS id")).values?.[0] as { id: number } | undefined;
+          const id = idRow!.id;
+          created.push({
+            id,
+            formSlug: batch.formSlug,
+            profileId: DEFAULT_PROFILE_ID,
+            status: "kept",
+            recordedAt: now,
+            caughtAt: batch.caughtAt ?? null,
+            updatedAt: now,
+            cp: batch.cp ?? null,
+            ivPercent: batch.ivPercent ?? null,
+            shiny: !!batch.shiny,
+            lucky: !!batch.lucky,
+            shadow: !!batch.shadow,
+            purified: !!batch.purified,
+            heartsEarned: null,
+            currentMegaLevel: null,
+            nickname: batch.nickname ?? null,
+            backgroundSlug: batch.backgroundSlug ?? null,
+          });
+          for (const tagId of batch.tagIds ?? []) {
+            await db.run("INSERT OR IGNORE INTO pokemon_instance_tag (pokemon_instance_id, tag_id) VALUES (?, ?)", [id, tagId], false);
+            tagLinks.push({ pokemonInstanceId: id, tagId });
+          }
+        }
+        await db.commitTransaction();
+        await persistDb();
+      });
+      await writeQueue;
+      // Only mutate the in-memory cache after the transaction above has
+      // actually committed — if it throws, writeQueue's own catch handler
+      // surfaces the failure and this line is never reached, so the cache
+      // never shows rows the real DB doesn't have.
+      state.pokemonInstances.push(...created);
+      state.pokemonInstanceTags.push(...tagLinks);
+      return created;
+    },
+    async createTag(name: string): Promise<Tag> {
+      const existing = state.tags.find((t) => t.name === name);
+      if (existing) return existing;
+      let created: Tag | undefined;
+      enqueueWrite(async () => {
+        await db.run("INSERT INTO tag (profile_id, name) VALUES (?, ?)", [DEFAULT_PROFILE_ID, name], true);
+        const idRow = (await db.query("SELECT last_insert_rowid() AS id")).values?.[0] as { id: number } | undefined;
+        created = { id: idRow!.id, profileId: DEFAULT_PROFILE_ID, name };
+        await persistDb();
+      });
+      await writeQueue;
+      state.tags.push(created!);
+      return created!;
     },
   };
 }
