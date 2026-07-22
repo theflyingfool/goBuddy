@@ -1,263 +1,131 @@
-// Personal-schema migration runner. Schema changes only ever touch personal
-// tables (reference tables are wholesale-replaced, never migrated — see
-// reference-sync.ts) so a version bump here should never need to run
-// alongside a reference-data change.
+// Personal-schema migration runner. Now a thin wrapper around
+// drizzle-orm/sqlite-proxy's migrate(), with a one-time bootstrap for
+// devices that shipped before this change (already at hand-rolled
+// personal-schema v6 — see schema.ts's old CURRENT_PERSONAL_SCHEMA_VERSION
+// and the removed MIGRATIONS array, preserved in git history).
 //
-// On a brand-new database, `PERSONAL_SCHEMA_SQL` creates every personal
-// table already at CURRENT_PERSONAL_SCHEMA_VERSION — there is nothing to
-// "migrate" from. MIGRATIONS only matters for a device that already has an
-// older `schema_version` row than the version bundled in the app update.
+// Bootstrap: a v6 device has a `schema_version` table (version = 6) but no
+// `__drizzle_migrations` table yet. On first boot under this code, seed
+// `__drizzle_migrations` with a row matching migration 0000's own
+// timestamp *before* calling migrate() — this tells Drizzle "this device is
+// already caught up through 0000", so 0000's CREATE TABLE statements are
+// never replayed against tables that already exist. migration 0000
+// deliberately encodes the schema v6 devices actually have on disk (TEXT
+// timestamps) — not the final INTEGER-timestamp shape — precisely so this
+// bootstrap step can be this simple: migration 0001 (not skipped here) then
+// does the real TEXT->INTEGER conversion via a table-rebuild, applied
+// through the normal migrate() path below, identically for fresh installs
+// (a no-op over empty tables) and upgrading v6 devices (the real
+// conversion). See src/db/migrations/0000_baseline.sql's header comment and
+// this plan's Architecture note for the full reasoning — an earlier draft
+// of this file tried to convert timestamp values in place via UPDATE
+// without rebuilding the table, which does not work: SQLite column
+// affinity is fixed at CREATE TABLE time, so a value written into a
+// TEXT-affinity column is always re-stored as text regardless of what type
+// was bound, silently corrupting every timestamp the first time Drizzle's
+// timestamp_ms mode tried to read it back as a Date.
 //
-// To add a migration: bump CURRENT_PERSONAL_SCHEMA_VERSION in schema.ts and
-// append a `{ version, up }` entry here. `up` receives the open connection
-// and should leave the DB at exactly that version's shape — the runner
-// updates `schema_version` itself after each step succeeds. The runner wraps
-// each migration's `up` + its `schema_version` bump in one transaction, so
-// `up`'s own statements should pass `transaction: false` to db.run/db.execute
-// (see reference-sync.ts for the same pattern) rather than opening their own.
+// The old `schema_version` table is left in place afterward — unread,
+// harmless.
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
-import { CURRENT_PERSONAL_SCHEMA_VERSION, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME, PERSONAL_SCHEMA_SQL } from "./schema";
+import { migrate } from "drizzle-orm/sqlite-proxy/migrator";
+import { getDrizzleDb } from "./drizzle-client";
+import journal from "./migrations/meta/_journal.json" with { type: "json" };
 
-interface Migration {
-  version: number;
-  up: (db: SQLiteDBConnection) => Promise<void>;
-}
+const MIGRATIONS_TABLE = "__drizzle_migrations";
 
-const MIGRATIONS: Migration[] = [
-  {
-    // Adds personal_data_quarantine (see schema.ts) for devices that synced
-    // reference data under v1, before reference-sync.ts's orphan quarantine
-    // existed. IF NOT EXISTS makes this safe even if a v1 device somehow
-    // already has the table (it doesn't, but matches the defensive style of
-    // the rest of the schema).
-    version: 2,
-    up: async (db) => {
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS personal_data_quarantine (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          source_table TEXT NOT NULL,
-          slug TEXT NOT NULL,
-          payload_json TEXT NOT NULL,
-          quarantined_at TEXT NOT NULL
-        )`,
-        false,
-      );
-    },
-  },
-  {
-    // Adds updated_at to every personal collection table, needed for
-    // merge-on-import (see importPersonalData in in-memory-store.ts) to
-    // decide which side of a conflicting row is newer. The fixed epoch
-    // default means every pre-existing row reads as "older than anything a
-    // real import could carry" — an incoming row with a real timestamp
-    // always wins against one that predates this migration, which is the
-    // conservative direction to default (an import can only add/refresh
-    // data this way, never appear to erase something newer by comparison).
-    version: 3,
-    up: async (db) => {
-      // All four have existed since v1 on any real device — the existence
-      // check is defensive (matches the IF NOT EXISTS style used elsewhere
-      // in this file) rather than a scenario expected to actually happen;
-      // SQLite has no ALTER TABLE ... ADD COLUMN IF NOT EXISTS of its own.
-      for (const table of ["species_personal", "form_personal", "form_background_personal", "mega_personal"]) {
-        if (await tableExists(db, table)) {
-          await db.execute(`ALTER TABLE ${table} ADD COLUMN updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'`, false);
-        }
-      }
-    },
-  },
-  {
-    // Adds the profile table (plus the seeded id=1 default row every
-    // existing table's profile_id column defaults to), a profile_id column
-    // on every pre-existing personal table, and the new pokemon_instance/
-    // tag/pokemon_instance_tag/pokemon_instance_max_move/
-    // player_progress_personal tables. See schema.ts's comments on `profile`
-    // and `pokemon_instance` for what's deliberately NOT done here yet
-    // (profile_id isn't part of any PRIMARY KEY — real multi-profile support
-    // is a later, separate change, not implied by this migration).
-    version: 4,
-    up: async (db) => {
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS profile (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT NOT NULL,
-          friend_code TEXT,
-          created_at TEXT NOT NULL
-        )`,
-        false,
-      );
-      await db.run(
-        "INSERT OR IGNORE INTO profile (id, username, friend_code, created_at) VALUES (?, ?, NULL, ?)",
-        [DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME, new Date().toISOString()],
-        false,
-      );
-
-      for (const table of ["species_personal", "form_personal", "form_background_personal", "mega_personal"]) {
-        if (await tableExists(db, table)) {
-          // No REFERENCES clause here on purpose: SQLite's ALTER TABLE ADD
-          // COLUMN rejects a column that combines a foreign key reference
-          // with a non-NULL default value ("Cannot add a REFERENCES column
-          // with non-NULL default value") -- only bites real on-device
-          // upgrades (fresh installs use PERSONAL_SCHEMA_SQL's plain CREATE
-          // TABLE instead, where the combination is fine, which is why this
-          // didn't show up there). The relationship is still fully declared
-          // in schema.ts for fresh installs; SQLite doesn't retroactively
-          // validate pre-existing rows against a column added afterward
-          // regardless, so dropping the inline REFERENCES here changes
-          // nothing about actual behavior.
-          await db.execute(`ALTER TABLE ${table} ADD COLUMN profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID}`, false);
-        }
-      }
-
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS pokemon_instance (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          form_slug TEXT NOT NULL REFERENCES form(slug),
-          profile_id INTEGER NOT NULL REFERENCES profile(id),
-          status TEXT NOT NULL DEFAULT 'kept' CHECK (status IN ('kept', 'traded', 'released', 'evolved')),
-          recorded_at TEXT NOT NULL,
-          caught_at TEXT,
-          updated_at TEXT NOT NULL,
-          cp INTEGER,
-          iv_percent REAL,
-          shiny INTEGER NOT NULL DEFAULT 0 CHECK (shiny IN (0, 1)),
-          lucky INTEGER NOT NULL DEFAULT 0 CHECK (lucky IN (0, 1)),
-          shadow INTEGER NOT NULL DEFAULT 0 CHECK (shadow IN (0, 1)),
-          purified INTEGER NOT NULL DEFAULT 0 CHECK (purified IN (0, 1)),
-          hearts_earned INTEGER,
-          current_mega_level INTEGER,
-          nickname TEXT,
-          background_slug TEXT REFERENCES backgrounds(slug)
-        )`,
-        false,
-      );
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS tag (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          profile_id INTEGER NOT NULL REFERENCES profile(id),
-          name TEXT NOT NULL,
-          UNIQUE (profile_id, name)
-        )`,
-        false,
-      );
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS pokemon_instance_tag (
-          pokemon_instance_id INTEGER NOT NULL REFERENCES pokemon_instance(id),
-          tag_id INTEGER NOT NULL REFERENCES tag(id),
-          PRIMARY KEY (pokemon_instance_id, tag_id)
-        )`,
-        false,
-      );
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS pokemon_instance_max_move (
-          pokemon_instance_id INTEGER NOT NULL REFERENCES pokemon_instance(id),
-          move_slot TEXT NOT NULL,
-          level INTEGER,
-          updated_at TEXT NOT NULL,
-          PRIMARY KEY (pokemon_instance_id, move_slot)
-        )`,
-        false,
-      );
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS player_progress_personal (
-          profile_id INTEGER PRIMARY KEY REFERENCES profile(id),
-          current_level INTEGER REFERENCES player_level(level),
-          total_xp INTEGER,
-          updated_at TEXT NOT NULL
-        )`,
-        false,
-      );
-    },
-  },
-  {
-    version: 5,
-    up: async (db) => {
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS medal_progress_personal (
-          medal_slug TEXT NOT NULL REFERENCES medal(slug),
-          profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID} REFERENCES profile(id),
-          current_rank INTEGER NOT NULL DEFAULT 0,
-          current_count INTEGER NOT NULL DEFAULT 0,
-          updated_at TEXT NOT NULL,
-          PRIMARY KEY (medal_slug, profile_id)
-        )`,
-        false,
-      );
-    },
-  },
-  {
-    version: 6,
-    up: async (db) => {
-      await db.execute(
-        `CREATE TABLE IF NOT EXISTS player_progress_log (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID} REFERENCES profile(id),
-          recorded_at TEXT NOT NULL,
-          current_level INTEGER,
-          total_xp INTEGER
-        )`,
-        false,
-      );
-    },
-  },
-];
+// migration 0000's own timestamp, read from the journal drizzle-kit
+// generated (Task 4) rather than hand-copied — a hand-copied constant is
+// exactly the kind of value that silently drifts from the real migration
+// files. Its hash isn't read from the journal (drizzle-kit doesn't store
+// per-file hashes there; it computes them from file content at runtime) —
+// the bootstrap row's hash only needs to be distinct from the row Drizzle's
+// own migrator writes once it applies migration 0000's *content* normally,
+// so a fixed literal is enough here.
+const BASELINE_ENTRY = journal.entries.find((e: { idx: number }) => e.idx === 0)!;
+const BASELINE_MIGRATION_MILLIS: number = BASELINE_ENTRY.when;
+const BASELINE_MIGRATION_HASH = "v6-bootstrap-baseline";
+const BUNDLED_LATEST_MIGRATION_MILLIS: number = Math.max(...journal.entries.map((e: { when: number }) => e.when));
 
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {
   const result = await db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
   return (result.values?.length ?? 0) > 0;
 }
 
-async function getStoredVersion(db: SQLiteDBConnection): Promise<number | null> {
+async function getOldSchemaVersion(db: SQLiteDBConnection): Promise<number | null> {
+  if (!(await tableExists(db, "schema_version"))) return null;
   const result = await db.query("SELECT version FROM schema_version LIMIT 1");
   const row = result.values?.[0] as { version: number } | undefined;
   return row ? row.version : null;
 }
 
-export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<void> {
-  const hasSchemaVersionTable = await tableExists(db, "schema_version");
+async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection): Promise<void> {
+  const oldVersion = await getOldSchemaVersion(db);
+  if (oldVersion === null) return; // fresh install — nothing to bootstrap
+  if (await tableExists(db, MIGRATIONS_TABLE)) return; // already bootstrapped
 
-  if (!hasSchemaVersionTable) {
-    // Fresh database: create every personal table at the current version in
-    // one shot, no incremental migrations to replay. Every table's
-    // profile_id column defaults to DEFAULT_PROFILE_ID, so that row must
-    // exist before anything else gets written.
-    await db.execute(PERSONAL_SCHEMA_SQL);
-    await db.run("INSERT INTO profile (id, username, friend_code, created_at) VALUES (?, ?, NULL, ?)", [
-      DEFAULT_PROFILE_ID,
-      DEFAULT_PROFILE_USERNAME,
-      new Date().toISOString(),
-    ]);
-    await db.run("INSERT INTO schema_version (version) VALUES (?)", [CURRENT_PERSONAL_SCHEMA_VERSION]);
-    return;
-  }
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      hash TEXT NOT NULL,
+      created_at NUMERIC
+    )`,
+    false,
+  );
+  await db.run(`INSERT INTO ${MIGRATIONS_TABLE} (hash, created_at) VALUES (?, ?)`, [BASELINE_MIGRATION_HASH, BASELINE_MIGRATION_MILLIS], false);
+}
 
-  const storedVersion = (await getStoredVersion(db)) ?? 0;
-
-  // Downgrade guard: a stored version newer than this build knows about means
-  // either a stamping bug or the user installed an older APK over a newer
-  // one's data. The `pending` filter below would silently find nothing to
-  // run (nothing is > storedVersion), which would look like a clean boot
-  // while actually leaving tables/columns this build doesn't understand
-  // unaccounted for. Refuse to boot instead — src/main.ts's boot-failure
-  // rescue path still offers a raw personal-data export.
-  if (storedVersion > CURRENT_PERSONAL_SCHEMA_VERSION) {
+async function assertNotADowngrade(db: SQLiteDBConnection): Promise<void> {
+  if (!(await tableExists(db, MIGRATIONS_TABLE))) return; // fresh install, or bootstrap just ran with nothing later than baseline
+  const result = await db.query(`SELECT created_at FROM ${MIGRATIONS_TABLE} ORDER BY created_at DESC LIMIT 1`);
+  const row = result.values?.[0] as { created_at: number } | undefined;
+  if (!row) return;
+  if (row.created_at > BUNDLED_LATEST_MIGRATION_MILLIS) {
     throw new Error(
-      `Personal data is at schema version ${storedVersion}, newer than this app build (${CURRENT_PERSONAL_SCHEMA_VERSION}). Refusing to boot to avoid misreading it — update the app, or restore an older backup.`,
+      `Personal data is at a migration newer than this app build knows about. Refusing to boot to avoid misreading it — update the app, or restore an older backup.`,
     );
   }
+}
 
-  const pending = MIGRATIONS.filter((m) => m.version > storedVersion).sort((a, b) => a.version - b.version);
+export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<void> {
+  await bootstrapDrizzleTrackingForExistingDevice(db);
+  await assertNotADowngrade(db);
 
-  for (const migration of pending) {
-    await db.beginTransaction();
-    try {
-      await migration.up(db);
-      await db.run("UPDATE schema_version SET version = ?", [migration.version], false);
-      await db.commitTransaction();
-    } catch (err) {
-      await db.rollbackTransaction();
-      throw err;
-    }
+  // PRAGMA foreign_keys is a documented no-op when issued inside an active
+  // transaction (SQLite refuses to change enforcement mid-transaction) — the
+  // migrate() callback below wraps every pending migration's statements in
+  // one transaction, so migration 0001's own embedded `PRAGMA
+  // foreign_keys=OFF/ON` (see 0001_timestamps_to_epoch_ms.sql's header
+  // comment) has no effect there; it's correct SQL, just inert under this
+  // runner. FK enforcement must instead be toggled OFF here, before that
+  // transaction ever opens — every table 0001 rebuilds carries a REFERENCES
+  // clause into tables that don't exist yet on first boot (reference tables
+  // are created by syncReferenceData(), which runs AFTER this function
+  // returns), and SQLite validates a REFERENCES target's existence at
+  // INSERT time whenever enforcement is on, regardless of row count.
+  // Restored to ON only after migrate() fully completes, matching the app's
+  // normal enforced-FK operating state. Verified empirically: issuing this
+  // PRAGMA inside a transaction leaves `PRAGMA foreign_keys` reading back
+  // as still-enabled and a dangling-FK insert still fails — confirm this
+  // still holds for whatever SQLite build backs the connection under test
+  // before trusting this fix.
+  await db.run("PRAGMA foreign_keys = OFF", [], false);
+  try {
+    const drizzleDb = await getDrizzleDb();
+    await migrate(drizzleDb, async (queries) => {
+      await db.beginTransaction();
+      try {
+        for (const query of queries) {
+          await db.run(query, [], false);
+        }
+        await db.commitTransaction();
+      } catch (err) {
+        await db.rollbackTransaction();
+        throw err;
+      }
+    }, { migrationsFolder: "./src/db/migrations" });
+  } finally {
+    await db.run("PRAGMA foreign_keys = ON", [], false);
   }
 }
