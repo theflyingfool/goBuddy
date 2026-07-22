@@ -53,7 +53,7 @@ export async function withConcurrency<T>(items: T[], concurrency: number, worker
         await worker(items[index], index);
       } catch (err) {
         failures++;
-        console.warn(`  [v2-http-cache] item ${index} failed: ${(err as Error).message}`);
+        console.warn(`  [http-cache] item ${index} failed: ${(err as Error).message}`);
       }
       await sleep(20);
     }
@@ -62,6 +62,6 @@ export async function withConcurrency<T>(items: T[], concurrency: number, worker
   await Promise.all(Array.from({ length: concurrency }, () => runOne()));
 
   if (failures > 0) {
-    console.warn(`  [v2-http-cache] ${failures}/${items.length} item(s) failed — re-run to retry (already-downloaded files are skipped).`);
+    console.warn(`  [http-cache] ${failures}/${items.length} item(s) failed — re-run to retry (already-downloaded files are skipped).`);
   }
 }

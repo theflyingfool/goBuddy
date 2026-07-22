@@ -71,17 +71,14 @@ instead, linked from here.*
 |---|---|
 | `bump-version.ts` (`npm run version:bump`) | Bumps `package.json` semver + `android/app/build.gradle` `versionName`/`versionCode` together, per docs/release-checklist.md's release workflow. |
 | `build-dummy-db.ts` (`npm run build:dummy-db`) | Generates a real `dummy.sqlite` file at the repo root for inspecting the schema with an external SQLite tool. |
-| `ingest/build-reference.ts` (`npm run ingest:build`) | Orchestrator: merges the Forms CSV skeleton + cached PokeAPI data + partial-list CSV fallback, emits `src/data/reference.json` and `reference-gaps.json`. |
-| `ingest/fetch-pokeapi-data.ts` (`npm run ingest:fetch`) | Walks the national dex, caches PokeAPI responses to disk (resumable, rate-limited). |
-| `ingest/csv-authoring.ts` (`npm run ingest:csv:*`) | Manual-correction workflow: export current data to CSV, emit a blank template, or import a filled CSV back into `reference.json`. |
+| `ingest/build-reference.ts` (`npm run ingest:build`) | Orchestrator: builds species/forms/megas plus the Tier-1 tables (moves, evolutions, type effectiveness, player progression, PvP, raids, community days) from the `ingest:fetch` cache, emits `src/data/reference.json` and `reference-gaps.json`. Slugs are built from `pokemon-go-api`'s enum ids (`id`/`formId`), not display names — see [v2-schema-design.md](v2-schema-design.md)'s slug-generation section. |
+| `ingest/fetch-reference-data.ts` (`npm run ingest:fetch`) | Pulls every `pokemon-go-api` + pogoapi.net endpoint into a disk cache (`scripts/ingest/.cache-v2/`, resumable). |
+| `ingest/fetch-sprites.ts` (`npm run ingest:fetch-sprites`) | Downloads every sprite URL referenced by the cached `pokedex.json` (species, region forms, costumes, mega/Gigantamax). |
+| `ingest/http-cache.ts` | Generic fetch-and-cache helper shared by the two fetch scripts above. |
+| `ingest/csv-authoring.ts` (`npm run ingest:csv:*`) | Manual-correction workflow: export current data to CSV, emit a blank template, or import a filled CSV back into `reference.json` — independent of which ingestion source produced the data. |
 | `ingest/gap-detection.ts` | Stateless checks over the current `reference.json` for missing key fields — no external fetch. |
-| `ingest/parse-event-pokemon.ts` (`npm run ingest:events`) | Parses a committed Bulbapedia wikitext snapshot into costume `form` rows. |
-| `ingest/parse-forms-csv.ts` | Parses the root-level Forms CSV into the species/form skeleton + PoGo availability flags. |
-| `ingest/parse-gigantamax.ts` (`npm run ingest:gigantamax`) | Parses the Gigantamax-capable species list. |
-| `ingest/parse-types-csv.ts` | Parses a fallback types/gen CSV source (PokeAPI is primary). |
-| `ingest/pokeapi-client.ts` | Rate-limited, disk-cached PokeAPI fetch wrapper used by `fetch-pokeapi-data.ts`. |
-| `ingest/pokemon-facts.ts` | Small hand-maintained constants PokeAPI doesn't expose (e.g. the Ultra Beast list, `NO_STANDARD_FORM_NAMES`). |
-| `ingest/slug.ts` | Shared slug generator (`slugify(name/form/costume/gender)`) — see data-model.md's "Identity/slug rework" note for why this is a known fragility. |
+| `ingest/check-slug-stability.ts` (`npm run ingest:check-slugs`) | Diffs the working tree's `reference.json` slugs against the last commit; fails if one vanished without a `src/db/slug-renames.ts` entry. |
+| `ingest/slug.ts` | Shared slug generator (`slugify(name/form/costume/gender)`) — used to assemble the final form/mega slug string from already-typo-proof tokens. |
 
 For details on scripts and command execution, see
 - **[docs/commands.md](docs/commands.md)** — developer command reference for dev/build/test.

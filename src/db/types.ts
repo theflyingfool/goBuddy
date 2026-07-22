@@ -82,6 +82,140 @@ export interface MegaVariant {
   variant: MegaVariantKind;
 }
 
+export type MoveCategory = "fast" | "charged";
+
+export interface Move {
+  slug: string;
+  name: string;
+  category: MoveCategory;
+  typeSlug: string;
+  power: number | null;
+  energyDelta: number | null;
+  durationMs: number | null;
+  pvpPower: number | null;
+  pvpEnergyDelta: number | null;
+  pvpTurns: number | null;
+}
+
+export interface FormMove {
+  formSlug: string;
+  moveSlug: string;
+  isElite: boolean;
+}
+
+export interface SpeciesEvolution {
+  fromSpeciesSlug: string;
+  toSpeciesSlug: string;
+  candyRequired: number | null;
+  itemRequired: string | null;
+}
+
+export interface TypeEffectiveness {
+  attackingTypeSlug: string;
+  defendingTypeSlug: string;
+  multiplier: number;
+}
+
+export interface WeatherBoost {
+  weather: string;
+  typeSlug: string;
+}
+
+export interface PlayerLevel {
+  level: number;
+  cumulativeXp: number;
+}
+
+export interface PlayerLevelReward {
+  level: number;
+  sortOrder: number;
+  itemName: string;
+  amount: number;
+}
+
+// pogoapi.net's "badges" — named `medal` here, not `badge`, to avoid
+// colliding with the unrelated Gym Badge Tracker roadmap item (gym-visit
+// badges, a different in-game concept entirely).
+export interface Medal {
+  slug: string;
+  name: string;
+  description: string;
+  isEventMedal: boolean;
+}
+
+export interface MedalTier {
+  medalSlug: string;
+  rank: number;
+  target: number | null;
+}
+
+export interface FriendshipLevel {
+  level: number;
+  name: string;
+  pointsRequired: number;
+  xpReward: number;
+  attackBonus: number;
+  tradingDiscount: number;
+  raidBallBonus: number;
+}
+
+export type PvpTrack = "free" | "premium";
+
+export interface PvpRankReward {
+  leagueRank: number;
+  track: PvpTrack;
+  sortOrder: number;
+  rewardType: string;
+  itemName: string | null;
+  amount: number | null;
+}
+
+export interface PvpRankRequirement {
+  rank: number;
+  additionalBattlesRequired: number | null;
+  additionalBattleWinsRequired: number | null;
+}
+
+// "Current rotation" snapshot data, same wholesale-replace-on-sync model as
+// other reference tables — just refreshed more often in practice.
+export interface RaidBoss {
+  tier: string;
+  formSlug: string;
+  minCp: number;
+  maxCp: number;
+  minBoostedCp: number;
+  maxBoostedCp: number;
+  possibleShiny: boolean;
+}
+
+export interface RaidBossWeatherBoost {
+  tier: string;
+  formSlug: string;
+  weather: string;
+}
+
+export interface CommunityDay {
+  number: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface CommunityDayBonus {
+  communityDayNumber: number;
+  bonus: string;
+}
+
+export interface CommunityDaySpecies {
+  communityDayNumber: number;
+  speciesSlug: string;
+}
+
+export interface CommunityDayEventMove {
+  communityDayNumber: number;
+  speciesSlug: string;
+  moveSlug: string;
+}
+
 // ---- Personal tables (never touched by reference updates) ----
 
 export interface AppSetting {

@@ -8,7 +8,7 @@
 // (safe to re-run — already-downloaded files are skipped).
 
 import { resolve } from "node:path";
-import { CACHE_V2_ROOT, fetchToCache } from "./v2-http-cache";
+import { CACHE_V2_ROOT, fetchToCache } from "./http-cache";
 
 const POGOAPI_ENDPOINTS = [
   "alolan_pokemon", "api_hashes", "baby_pokemon", "badges", "charged_moves",

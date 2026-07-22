@@ -4,12 +4,12 @@
 // before committing/merging a reference-data change — see
 // docs/ingestion-runbook.md.
 //
-// Only form slugs have a rename mechanism at all (SLUG_RENAMES only covers
-// form_personal/form_background_personal — see slug-renames.ts). Species and
-// mega-variant slugs have no such registry, so any disappearance there is
-// always reported as a failure; teaching the app to carry those renames
-// forward is out of scope here (tracked as part of the V2 identity/slug
-// rework, docs/roadmap.md §3 V2 Watchlist).
+// Species and form slugs both have a rename mechanism (SLUG_RENAMES covers
+// species_personal/form_personal/form_background_personal — see
+// slug-renames.ts). Mega-variant slugs have no such registry — pokemon-go-api's
+// mega variant keys have been a stable 1:1 match with production so far
+// (0/57 changed at the V2 cutover), so any disappearance there is still
+// reported as a failure rather than silently accepted.
 //
 // Compares the working tree's src/data/reference.json against the last
 // *committed* version (`git show HEAD:...`), i.e. exactly the manual check
@@ -63,12 +63,15 @@ function main(): void {
 
   const before = slugsOf(committed);
   const after = slugsOf(loadWorkingTree());
+  const renamedSpeciesSlugs = new Set(SLUG_RENAMES.filter((r) => r.table === "species_personal").map((r) => r.from));
   const renamedFormSlugs = new Set(SLUG_RENAMES.filter((r) => r.table === "form_personal").map((r) => r.from));
 
   const problems: string[] = [];
 
   for (const slug of before.species) {
-    if (!after.species.has(slug)) problems.push(`species slug disappeared (no rename mechanism exists for species): "${slug}"`);
+    if (after.species.has(slug)) continue;
+    if (renamedSpeciesSlugs.has(slug)) continue;
+    problems.push(`species slug disappeared without a matching src/db/slug-renames.ts entry: "${slug}"`);
   }
   for (const slug of before.megaVariants) {
     if (!after.megaVariants.has(slug)) problems.push(`mega_variant slug disappeared (no rename mechanism exists for mega variants): "${slug}"`);
@@ -83,7 +86,7 @@ function main(): void {
     console.error(`Slug stability check failed — ${problems.length} slug(s) vanished unaccounted for:\n`);
     for (const p of problems) console.error(`  - ${p}`);
     console.error("\nIf this is intentional (e.g. a pre-release correction, or a real rename), either:");
-    console.error("  - add a src/db/slug-renames.ts entry (form slugs only), or");
+    console.error("  - add a src/db/slug-renames.ts entry (species/form slugs), or");
     console.error("  - confirm no real device has this slug's personal data yet, then ignore.");
     process.exitCode = 1;
     return;

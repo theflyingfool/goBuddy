@@ -16,6 +16,9 @@ const KIND_LABELS: Record<ReferenceGap["kind"], string> = {
   "inherited-availability": "Inherited (not per-form) availability",
   "possible-bogus-form": "Possibly bogus source-CSV row",
   "guessed-costume-name": "Guessed costume name",
+  "missing-species": "Missing from ingestion sources",
+  "gigantamax-mismatch": "Gigantamax flag mismatch",
+  "family-root-mismatch": "Evolution family root mismatch",
 };
 
 // This one fires for basically every non-base form (by design — the

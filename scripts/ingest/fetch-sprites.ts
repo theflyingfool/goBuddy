@@ -16,7 +16,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { resolve } from "node:path";
-import { CACHE_V2_ROOT, fetchToCache, withConcurrency } from "./v2-http-cache";
+import { CACHE_V2_ROOT, fetchToCache, withConcurrency } from "./http-cache";
 
 const POKEDEX_PATH = resolve(CACHE_V2_ROOT, "pgapi/pokedex.json");
 const SPRITES_DIR = resolve(CACHE_V2_ROOT, "sprites");

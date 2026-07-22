@@ -1,5 +1,18 @@
 # V2 Reference Schema — Design Sketch
 
+**Status: cutover complete.** `pokemon-go-api` + pogoapi.net are now the
+live ingestion pipeline (`scripts/ingest/fetch-reference-data.ts` →
+`build-reference.ts`) — the old PokeAPI/CSV/wikitext pipeline has been
+deleted. §1's original "extend existing tables via ALTER" sketch was
+rejected before any code was written (extending `species`/`form`/
+`mega_variant` would have coupled new work to the legacy ingestion code) —
+what actually shipped is §2's Tier 1 as clean new tables, merged directly
+into `REFERENCE_SCHEMA_SQL` (`src/db/schema.ts`) and wired into
+`reference-sync.ts`, not a separate schema file. §1 below is kept only as a
+record of the rejected approach. Sprite art regeneration from the new
+source (`fetch-sprites.ts` → a new `public/sprites/` mapping) is still
+outstanding — see [roadmap.md](roadmap.md).
+
 Draft, not final DDL. Follows Phase 0's sourcing decision
 ([v2-data-source-findings.md](v2-data-source-findings.md) §10): species/
 forms/costumes/mega from `pokemon-go-api`, everything else from pogoapi.net.
