@@ -29,8 +29,8 @@ A general-purpose stats engine (`src/data/completion-stats-sql.ts`) backing the 
 
 ## 4. Sprite Pipeline
 
-* **Matching**: Automated sprite matching script (`scripts/ingest/build-sprite-mapping.ts`) linking reference entries to extracted `PokeMiners/pogo_assets` icons.
-* **Manual Overrides**: Key-value lookup dictionary (`scripts/ingest/costume-lookup.json`) maps complex event filenames to human-readable names.
+* **Sourcing**: `scripts/ingest/fetch-sprites.ts` downloads every sprite `pokemon-go-api` links from its pokedex data (species, region forms, costumes, mega/Gigantamax, both regular and shiny).
+* **Promotion**: `scripts/ingest/build-sprites.ts` converts each cached original to WebP into `public/sprites/`, keyed by our own species/form/mega slugs — the only thing that writes to that folder.
 * **Skins**: Shiny artwork view toggle on species-detail pages.
 
 ## 5. Data Safety Net

@@ -9,10 +9,17 @@ does*, see [architecture.md](architecture.md)'s "Scripts" table — this doc is
 ## Order
 
 ```sh
-npm run ingest:fetch         # 1. pull/cache pokemon-go-api + pogoapi.net data (resumable)
-npm run ingest:fetch-sprites # 2. download sprite art referenced by that cache
-npm run ingest:build         # 3. build src/data/reference.json + reference-gaps.json from the cache
-npm run ingest:check-slugs   # 4. fail loudly if a slug vanished without a rename
+npm run ingest:all   # runs everything below in order, in one shot
+```
+
+Or step by step, when you only need part of the chain:
+
+```sh
+npm run ingest:fetch          # 1. pull/cache pokemon-go-api + pogoapi.net data (resumable)
+npm run ingest:fetch-sprites  # 2. download sprite art referenced by that cache (resumable)
+npm run ingest:build          # 3. build src/data/reference.json + reference-gaps.json + the sprite manifest
+npm run ingest:build-sprites  # 4. convert the cached sprites to WebP into public/sprites/
+npm run ingest:check-slugs    # 5. fail loudly if a slug vanished without a rename
 ```
 
 Then, only if you have manual corrections to apply (a new costume, a slug
@@ -27,12 +34,21 @@ npm run ingest:csv:import     # merge a filled-in CSV back into reference.json
 ## Why this order
 
 - `ingest:fetch` populates the disk cache (`scripts/ingest/.cache-v2/`) that
-  `ingest:build` reads from — running `ingest:build` first just reuses
-  whatever's already cached.
-- `ingest:fetch-sprites` walks that same cache for every sprite URL
-  (species, region forms, costumes, mega/Gigantamax) and downloads them —
-  independent of `ingest:build`, but both read the same `ingest:fetch`
-  cache.
+  everything else reads from — running any later step first just reuses
+  whatever's already cached (or errors if nothing's cached yet).
+- `ingest:fetch-sprites` walks that cache for every sprite URL (species,
+  region forms, costumes, mega/Gigantamax) and downloads the originals —
+  independent of `ingest:build`, but both read the `ingest:fetch` cache.
+  Already-downloaded files are skipped on re-run.
+- `ingest:build` must run before `ingest:build-sprites` — it's what writes
+  `sprite-manifest.json` (slug → source image URLs), which
+  `ingest:build-sprites` reads to know which cached file promotes to which
+  `public/sprites/` path.
+- `ingest:build-sprites` converts each cached PNG to WebP (smaller, natively
+  supported everywhere this app ships) into `public/sprites/` — the only
+  thing that should ever write there. It skips a `.webp` file that's already
+  present, so re-running after adding a handful of new sprites doesn't
+  re-encode the other ~7,000.
 - The CSV round-trip (`export` → hand-edit → `import`) is a separate,
   optional path for corrections that don't come from the automated sources
   at all — run it after `ingest:build`, not instead of it, since

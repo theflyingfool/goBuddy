@@ -46,48 +46,48 @@ import type {
   CommunityDayEventMove,
 } from "../../src/db/types";
 import type { ReferenceData, ReferenceGap } from "../../src/db/reference-data";
-import { execFileSync } from "node:child_process";
+const GAPS_OUT = resolve(process.cwd(), "src/data/reference-gaps.json");
+const SPRITE_MANIFEST_OUT = resolve(CACHE_V2_ROOT, "sprite-manifest.json");
 
-const REPO_ROOT = resolve(process.cwd());
-const GAPS_OUT = resolve(REPO_ROOT, "src/data/reference-gaps.json");
+// Basculegion (#902) isn't in pokemon-go-api's pokedex yet at all — confirmed
+// directly against the cache, not inferred from a diff (see
+// docs/v2-data-source-findings.md).
+const KNOWN_MISSING_SPECIES_DEX = new Set([902]);
 
-function loadCommittedReferenceData(): ReferenceData | null {
-  try {
-    const content = execFileSync("git", ["show", "HEAD:src/data/reference.json"], { cwd: REPO_ROOT, encoding: "utf-8", maxBuffer: 32 * 1024 * 1024 });
-    return JSON.parse(content) as ReferenceData;
-  } catch {
-    return null; // brand-new repo, nothing to compare against yet
-  }
-}
+// Species whose Gigantamax capability our source disagrees on: real GO data
+// (docs/v2-data-source-findings.md §11, cross-checked by hand) says these
+// 17 can Gigantamax, but pokemon-go-api's hasGigantamaxEvolution flag says
+// no. Hardcoded rather than diffed against a prior commit — a diff against
+// git HEAD would stop reporting this the moment it's ever committed once,
+// since HEAD would then already reflect the gap and there'd be nothing left
+// to diff (a real bug this replaced, caught by re-running the build a
+// second time after the first cutover commit).
+const KNOWN_GIGANTAMAX_MISMATCH_DEX = new Set([25, 52, 133, 809, 823, 826, 834, 839, 841, 842, 844, 851, 858, 869, 879, 884, 892]);
 
-// Comparative gaps: things the V2 sources can't (yet) reproduce from the
-// last committed reference.json. Unlike the other ReferenceGap kinds (which
-// are a pure function of the current data), these need something to compare
-// against — falls back to no gaps at all on a repo with no prior commit.
+// Comparative gaps: things the V2 sources can't (yet) reproduce, or get
+// wrong, against known facts about the real game — not a diff against
+// whatever's currently committed (see KNOWN_GIGANTAMAX_MISMATCH_DEX above
+// for why that approach doesn't stay correct across commits).
 function buildComparativeGaps(candidate: ReferenceData, previouslyMismatchedFamilyRootDex: Map<number, string>): ReferenceGap[] {
-  const previous = loadCommittedReferenceData();
-  if (!previous) return [];
-
   const gaps: ReferenceGap[] = [];
   const candidateDex = new Set(candidate.species.map((s) => s.dexNumber));
-  for (const s of previous.species) {
-    if (!candidateDex.has(s.dexNumber)) {
+  for (const dex of KNOWN_MISSING_SPECIES_DEX) {
+    if (!candidateDex.has(dex)) {
       gaps.push({
         kind: "missing-species",
-        speciesSlug: s.slug,
-        note: `${s.name} (#${s.dexNumber}, previously "${s.slug}") is not reproducible from the current V2 sources — see docs/v2-data-source-findings.md.`,
+        speciesSlug: `dex-${dex}`,
+        note: `Species #${dex} is not reproducible from the current V2 sources — see docs/v2-data-source-findings.md.`,
       });
     }
   }
 
-  const candidateGmaxByDex = new Map(candidate.species.map((s) => [s.dexNumber, s.canGigantamax]));
-  for (const s of previous.species) {
-    if (s.canGigantamax && candidateGmaxByDex.get(s.dexNumber) === false) {
-      const current = candidate.species.find((c) => c.dexNumber === s.dexNumber);
+  for (const dex of KNOWN_GIGANTAMAX_MISMATCH_DEX) {
+    const current = candidate.species.find((c) => c.dexNumber === dex);
+    if (current && !current.canGigantamax) {
       gaps.push({
         kind: "gigantamax-mismatch",
-        speciesSlug: current?.slug ?? s.slug,
-        note: `${s.name} (#${s.dexNumber}) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11.`,
+        speciesSlug: current.slug,
+        note: `${current.name} (#${dex}) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11.`,
       });
     }
   }
@@ -471,6 +471,9 @@ interface Evolution {
   candies?: number;
   item?: { id: string } | null;
 }
+interface MegaEvolutionEntry {
+  assets?: AssetPair;
+}
 interface PokedexEntry {
   id: string;
   formId: string;
@@ -483,10 +486,16 @@ interface PokedexEntry {
   assets?: AssetPair;
   assetForms?: AssetForm[];
   regionForms?: Record<string, PokedexEntry>;
-  megaEvolutions?: Record<string, unknown>;
+  megaEvolutions?: Record<string, MegaEvolutionEntry>;
   hasGigantamaxEvolution?: boolean;
   evolutions?: Evolution[];
 }
+
+// slug (species/form/mega) -> sprite source URLs, consumed by
+// build-sprites.ts to produce public/sprites/. Kept as a build artifact in
+// the ingestion cache (not committed) since it's fully regenerable from
+// the same cache build-reference.ts already reads.
+const spriteManifest: Record<string, AssetPair> = {};
 
 interface GenderRecord {
   pokemon_id: number;
@@ -659,13 +668,20 @@ async function main() {
       canMegaEvolve,
       canGigantamax,
     });
+    if (entry.assets) spriteManifest[slug] = entry.assets;
 
     const shinyAvailable = shinySpeciesIds.has(entry.dexNr);
     const shadowAvailable = shadowSpeciesIds.has(entry.dexNr);
 
-    // Standard form(s), one per gender.
+    // Standard form(s), one per gender. assetForms sometimes carries a
+    // gender-specific "no form, no costume" entry (e.g. Pikachu's female
+    // look) distinct from the species-level assets — prefer that per-gender
+    // art when present, falling back to the species-level icon otherwise.
     for (const g of gendersFor(gender.hasMale, gender.hasFemale)) {
       const fSlug = formSlug(slug, null, g);
+      const genderedArt = entry.assetForms?.find((af) => !af.form && !af.costume && (g === "female" ? af.isFemale : !af.isFemale));
+      const art = genderedArt ?? entry.assets;
+      if (art) spriteManifest[fSlug] = art;
       forms.push({
         slug: fSlug,
         speciesSlug: slug,
@@ -690,6 +706,7 @@ async function main() {
       const g: Gender = !gender.hasMale && !gender.hasFemale ? "unknown" : af.isFemale ? "female" : "male";
       const costumeName = af.costume;
       const fSlug = formSlug(slug, af.form, g, costumeName);
+      spriteManifest[fSlug] = af;
       forms.push({
         slug: fSlug,
         speciesSlug: slug,
@@ -719,6 +736,7 @@ async function main() {
         regionToken.charAt(0).toUpperCase() + regionToken.slice(1).toLowerCase();
       for (const g of gendersFor(gender.hasMale, gender.hasFemale)) {
         const fSlug = formSlug(slug, regionToken, g);
+        if (region.assets) spriteManifest[fSlug] = region.assets;
         forms.push({
           slug: fSlug,
           speciesSlug: slug,
@@ -740,8 +758,10 @@ async function main() {
     // Obsidian-sheet-driven step, just gated on pokemon-go-api's corrected
     // hasGigantamaxEvolution instead.
     if (canGigantamax) {
+      const gmaxArt = entry.assetForms?.find((af) => af.form === "GIGANTAMAX" && !af.costume);
       for (const g of gendersFor(gender.hasMale, gender.hasFemale)) {
         const fSlug = formSlug(slug, "Gigantamax", g);
+        if (gmaxArt) spriteManifest[fSlug] = gmaxArt;
         forms.push({
           slug: fSlug,
           speciesSlug: slug,
@@ -759,9 +779,11 @@ async function main() {
       skippedGigantamaxOnly++;
     }
 
-    for (const [megaFormId] of Object.entries(entry.megaEvolutions ?? {})) {
+    for (const [megaFormId, megaEntry] of Object.entries(entry.megaEvolutions ?? {})) {
       const variant = megaVariantKindFromId(megaFormId);
-      megaVariants.push({ slug: megaVariantSlug(slug, variant), speciesSlug: slug, variant });
+      const megaSlug = megaVariantSlug(slug, variant);
+      if (megaEntry.assets) spriteManifest[megaSlug] = megaEntry.assets;
+      megaVariants.push({ slug: megaSlug, speciesSlug: slug, variant });
     }
   }
 
@@ -867,10 +889,12 @@ async function main() {
   const staticGaps = detectStatelessGaps(species, forms, formTypes);
   const comparativeGaps = buildComparativeGaps(referenceData, FAMILY_ROOT_GAP_NOTES);
   writeFileSync(GAPS_OUT, JSON.stringify([...staticGaps, ...comparativeGaps], null, 2));
+  writeFileSync(SPRITE_MANIFEST_OUT, JSON.stringify(spriteManifest));
 
   console.log(`Wrote ${species.length} species, ${forms.length} forms (${skippedGigantamaxOnly} with Gigantamax, ${duplicateFormsDropped} duplicate slug(s) dropped), ${megaVariants.length} mega variants.`);
   console.log(`Tier 1: ${moves.length} moves, ${formMoves.length} form-move links, ${speciesEvolutions.length} evolutions, ${raidBosses.length} raid bosses, ${communityDays.length} community days.`);
   console.log(`Gaps: ${staticGaps.length} stateless + ${comparativeGaps.length} comparative -> ${GAPS_OUT}`);
+  console.log(`Sprite manifest: ${Object.keys(spriteManifest).length} slugs -> ${SPRITE_MANIFEST_OUT}`);
   console.log(`-> ${OUT_PATH}`);
 }
 

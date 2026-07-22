@@ -3998,93 +3998,93 @@
   },
   {
     "kind": "missing-species",
-    "speciesSlug": "basculegion",
-    "note": "Basculegion (#902, previously \"basculegion\") is not reproducible from the current V2 sources — see docs/v2-data-source-findings.md."
+    "speciesSlug": "dex-902",
+    "note": "Species #902 is not reproducible from the current V2 sources — see docs/v2-data-source-findings.md."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "pikachu",
-    "note": "Pikachu (#25) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Pikachu (#25) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "meowth",
-    "note": "Meowth (#52) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Meowth (#52) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "eevee",
-    "note": "Eevee (#133) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Eevee (#133) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "melmetal",
-    "note": "Melmetal (#809) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Melmetal (#809) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "corviknight",
-    "note": "Corviknight (#823) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Corviknight (#823) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "orbeetle",
-    "note": "Orbeetle (#826) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Orbeetle (#826) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "drednaw",
-    "note": "Drednaw (#834) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Drednaw (#834) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "coalossal",
-    "note": "Coalossal (#839) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Coalossal (#839) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "flapple",
-    "note": "Flapple (#841) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Flapple (#841) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "appletun",
-    "note": "Appletun (#842) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Appletun (#842) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "sandaconda",
-    "note": "Sandaconda (#844) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Sandaconda (#844) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "centiskorch",
-    "note": "Centiskorch (#851) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Centiskorch (#851) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "hatterene",
-    "note": "Hatterene (#858) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Hatterene (#858) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "alcremie",
-    "note": "Alcremie (#869) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Alcremie (#869) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "copperajah",
-    "note": "Copperajah (#879) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Copperajah (#879) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "duraludon",
-    "note": "Duraludon (#884) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Duraludon (#884) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "gigantamax-mismatch",
     "speciesSlug": "urshifu",
-    "note": "Urshifu (#892) can Gigantamax previously, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
+    "note": "Urshifu (#892) can Gigantamax in the real game, but pokemon-go-api's hasGigantamaxEvolution flag says no — see docs/v2-data-source-findings.md §11."
   },
   {
     "kind": "family-root-mismatch",
