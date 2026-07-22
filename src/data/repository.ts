@@ -12,6 +12,7 @@ import type {
   MedalTier,
   MegaPersonal,
   MegaVariant,
+  PlayerProgressLogEntry,
   PlayerProgressPersonal,
   PokemonInstance,
   PokemonInstanceStatus,
@@ -195,6 +196,8 @@ export interface PersonalDataExport {
   pokemonInstances?: PokemonInstance[];
   tags?: Tag[];
   playerProgress?: PlayerProgressPersonal;
+  /** Append-only (see PlayerProgressLogEntry) — import unions in whichever entries the local device doesn't already have (deduped by recordedAt, not id — id is a local AUTOINCREMENT with no cross-device meaning, same pitfall as pokemonInstances/tags above) rather than a newer-wins merge, since there's nothing to overwrite: every row is its own historical fact. */
+  playerProgressLog?: PlayerProgressLogEntry[];
 }
 
 export interface Repository {
@@ -293,6 +296,8 @@ export interface Repository {
   setProfile(username: string, friendCode: string | null): void;
   getPlayerProgress(): PlayerProgressPersonal | undefined;
   setPlayerProgress(currentLevel: number | null, totalXp: number | null): void;
+  /** Every past snapshot (see setPlayerProgress), oldest first — for an XP/level-over-time chart. */
+  listPlayerProgressLog(): PlayerProgressLogEntry[];
   listMedalProgress(): MedalProgress[];
   setMedalProgress(medalSlug: string, currentRank: number, currentCount: number): void;
 

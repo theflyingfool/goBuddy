@@ -7,8 +7,9 @@
   state, and top tags.
 -->
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import type { Repository } from "../../data/repository";
+import type { PlayerProgressLogEntry } from "../../db/types";
 import { renderStatsPage } from "./stats-page";
 
 const props = defineProps<{ repo: Repository }>();
@@ -28,6 +29,40 @@ onUnmounted(() => {
 // what's actually known (current level + total XP) rather than a guessed
 // progress bar toward the next level.
 const progress = props.repo.getPlayerProgress();
+const totalSpecimens = props.repo.countPokemonInstances();
+const medals = props.repo.listMedalProgress();
+const medalsStarted = medals.filter((m) => m.progress.currentCount > 0).length;
+// Sorted by rank first (highest tier earns top billing), then by count —
+// the "brag sheet" a trainer would actually want to see first.
+const topMedals = [...medals]
+  .filter((m) => m.progress.currentCount > 0)
+  .sort((a, b) => b.progress.currentRank - a.progress.currentRank || b.progress.currentCount - a.progress.currentCount)
+  .slice(0, 6);
+
+const progressLog = props.repo.listPlayerProgressLog();
+function hasXp(entry: PlayerProgressLogEntry): entry is PlayerProgressLogEntry & { totalXp: number } {
+  return entry.totalXp !== null;
+}
+const xpPoints = computed(() => progressLog.filter(hasXp));
+
+// Plain inline SVG line chart, no charting dependency — normalizes each
+// point's totalXp/recordedAt into a 0..CHART_W/CHART_H viewBox.
+const CHART_W = 300;
+const CHART_H = 80;
+const xpPath = computed(() => {
+  const points = xpPoints.value;
+  if (points.length < 2) return "";
+  const minXp = Math.min(...points.map((p) => p.totalXp));
+  const maxXp = Math.max(...points.map((p) => p.totalXp));
+  const span = Math.max(1, maxXp - minXp);
+  return points
+    .map((p, i) => {
+      const x = (i / (points.length - 1)) * CHART_W;
+      const y = CHART_H - ((p.totalXp - minXp) / span) * CHART_H;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+});
 
 const stateCounts = props.repo.getSpecimenStateCounts();
 const topTags = props.repo.getTopTagCounts();
@@ -36,10 +71,40 @@ const maxStateCount = Math.max(1, stateCounts.shiny, stateCounts.lucky, stateCou
 </script>
 
 <template>
+  <div class="stats-kpi-row" v-if="progress">
+    <div class="stats-kpi-card">
+      <div class="stats-kpi-label">Trainer level</div>
+      <div class="stats-kpi-value">{{ progress.currentLevel ?? "—" }}</div>
+    </div>
+    <div class="stats-kpi-card">
+      <div class="stats-kpi-label">Specimens logged</div>
+      <div class="stats-kpi-value">{{ totalSpecimens.toLocaleString() }}</div>
+    </div>
+    <div class="stats-kpi-card">
+      <div class="stats-kpi-label">Medals started</div>
+      <div class="stats-kpi-value">{{ medalsStarted }} / {{ medals.length }}</div>
+    </div>
+  </div>
+
   <div class="chart-card xp-card" v-if="progress && (progress.currentLevel !== null || progress.totalXp !== null)">
     <div class="xp-top">
       <span v-if="progress.currentLevel !== null">Trainer level {{ progress.currentLevel }}</span>
       <b class="tabular" v-if="progress.totalXp !== null">{{ progress.totalXp.toLocaleString() }} XP</b>
+    </div>
+    <svg v-if="xpPath" :viewBox="`0 0 ${CHART_W} ${CHART_H}`" preserveAspectRatio="none" class="xp-sparkline">
+      <path :d="xpPath" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" />
+    </svg>
+    <p class="gap-note" v-else>
+      Every time you update your level/XP on the Trainer page, it's logged with a timestamp — update it a few times and a chart of how fast you're gaining XP shows up here.
+    </p>
+  </div>
+
+  <div class="chart-card" v-if="topMedals.length">
+    <div class="ctitle">Top medals</div>
+    <div class="hbar-row" v-for="entry in topMedals" :key="entry.medal.slug">
+      <span>{{ entry.medal.name }}</span>
+      <div class="hbar-track"><div class="hbar-fill" :style="{ width: Math.min(100, (entry.progress.currentRank / Math.max(1, entry.tiers.length)) * 100) + '%' }"></div></div>
+      <span class="hbar-val">{{ entry.progress.currentCount }}</span>
     </div>
   </div>
 

@@ -420,6 +420,17 @@ export interface PlayerProgressPersonal {
   updatedAt: string;
 }
 
+// One immutable snapshot per setPlayerProgress call (schema version 6) — an
+// XP-over-time chart needs more than "current state", it needs "state at
+// each point it changed".
+export interface PlayerProgressLogEntry {
+  id: number;
+  profileId: number;
+  recordedAt: string;
+  currentLevel: number | null;
+  totalXp: number | null;
+}
+
 // Tracks progress against the `medal`/`medal_tier` reference data (see
 // schema.ts) — the reference tables model what medals exist and their tier
 // targets; this is the per-profile "how far along am I" counterpart, one row

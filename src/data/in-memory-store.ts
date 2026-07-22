@@ -23,6 +23,7 @@ import {
   type MedalProgressPersonal,
   type MegaPersonal,
   type MegaVariant,
+  type PlayerProgressLogEntry,
   type PlayerProgressPersonal,
   type PokemonInstance,
   type PokemonInstanceStatus,
@@ -71,6 +72,7 @@ export interface PersonalState {
   tags: Tag[];
   pokemonInstanceTags: PokemonInstanceTag[];
   playerProgress: PlayerProgressPersonal | undefined;
+  playerProgressLog: PlayerProgressLogEntry[];
   profile: Profile;
 }
 
@@ -83,6 +85,8 @@ export interface InMemoryStoreHooks {
   onFormBackgroundPersonalAdded(row: FormBackgroundPersonal): void;
   onMedalProgressChanged(medalSlug: string, progress: MedalProgressPersonal): void;
   onPlayerProgressChanged(progress: PlayerProgressPersonal): void;
+  /** Fires once per setPlayerProgress call, right after onPlayerProgressChanged — the log entry itself gets a real AUTOINCREMENT id from the real backend, same reasoning as onPokemonInstanceStatusChanged's comment below, but a plain hook is enough here since nothing needs that id back synchronously. */
+  onPlayerProgressLogAppended(entry: PlayerProgressLogEntry): void;
   /** Existing-row status update only — creation (which needs a real AUTOINCREMENT id) is implemented directly in sqlite-repository.ts, not through this shared hook. */
   onPokemonInstanceStatusChanged(instance: PokemonInstance): void;
   onProfileChanged(profile: Profile): void;
@@ -320,9 +324,18 @@ export function createInMemoryRepository(
   }
 
   function applyPlayerProgress(currentLevel: number | null, totalXp: number | null): void {
-    const updated: PlayerProgressPersonal = { profileId: DEFAULT_PROFILE_ID, currentLevel, totalXp, updatedAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const updated: PlayerProgressPersonal = { profileId: DEFAULT_PROFILE_ID, currentLevel, totalXp, updatedAt: now };
     state.playerProgress = updated;
     hooks.onPlayerProgressChanged(updated);
+
+    // id here is just a stable react key for the in-memory/test path — the
+    // real backend assigns its own AUTOINCREMENT id on insert (see
+    // sqlite-repository.ts's onPlayerProgressLogAppended), which is what
+    // actually lands in the DB. Nothing reads this value back afterward.
+    const logEntry: PlayerProgressLogEntry = { id: state.playerProgressLog.length + 1, profileId: DEFAULT_PROFILE_ID, recordedAt: now, currentLevel, totalXp };
+    state.playerProgressLog.push(logEntry);
+    hooks.onPlayerProgressLogAppended(logEntry);
   }
 
   function applyProfile(username: string, friendCode: string | null): void {
@@ -526,6 +539,12 @@ export function createInMemoryRepository(
       applyPlayerProgress(currentLevel, totalXp);
     },
 
+    listPlayerProgressLog(): PlayerProgressLogEntry[] {
+      // Already append-ordered (pushed in setPlayerProgress call order) —
+      // re-sort defensively in case an import interleaved older entries in.
+      return [...state.playerProgressLog].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
+    },
+
     listMedalProgress(): MedalProgress[] {
       return referenceData.medals.map((medal) => ({
         medal,
@@ -587,6 +606,7 @@ export function createInMemoryRepository(
         pokemonInstances: [...state.pokemonInstances],
         tags: [...state.tags],
         playerProgress: state.playerProgress,
+        playerProgressLog: [...state.playerProgressLog],
       };
     },
 
@@ -650,6 +670,15 @@ export function createInMemoryRepository(
       if (data.playerProgress && (!state.playerProgress || state.playerProgress.updatedAt < data.playerProgress.updatedAt)) {
         state.playerProgress = data.playerProgress;
         hooks.onPlayerProgressChanged(data.playerProgress);
+      }
+      // Union, not newer-wins — every log row is its own historical fact,
+      // there's nothing to overwrite. Deduped by recordedAt (see
+      // PersonalDataExport.playerProgressLog's doc comment for why not id).
+      const knownRecordedAts = new Set(state.playerProgressLog.map((e) => e.recordedAt));
+      for (const entry of data.playerProgressLog ?? []) {
+        if (knownRecordedAts.has(entry.recordedAt)) continue;
+        state.playerProgressLog.push(entry);
+        hooks.onPlayerProgressLogAppended(entry);
       }
       // pokemonInstances/tags are exported for completeness (a rescue export
       // or backup shouldn't silently drop them) but NOT merge-imported here:

@@ -186,6 +186,21 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 6,
+    up: async (db) => {
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS player_progress_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID} REFERENCES profile(id),
+          recorded_at TEXT NOT NULL,
+          current_level INTEGER,
+          total_xp INTEGER
+        )`,
+        false,
+      );
+    },
+  },
 ];
 
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {

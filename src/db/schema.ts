@@ -417,6 +417,22 @@ CREATE TABLE IF NOT EXISTS medal_progress_personal (
   PRIMARY KEY (medal_slug, profile_id)
 );
 
+-- Append-only history of player_progress_personal snapshots (schema version
+-- 6) -- one row per setPlayerProgress call, never updated/deleted, so a level/
+-- XP-over-time chart has something to plot. Deliberately separate from
+-- player_progress_personal itself (that table stays "current state only";
+-- this is the log), same reasoning as medal_progress_personal being split
+-- from medal. Autoincrement id (not composite PK on recorded_at) since two
+-- updates in the same millisecond are possible and both are real events
+-- worth keeping.
+CREATE TABLE IF NOT EXISTS player_progress_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  profile_id INTEGER NOT NULL DEFAULT 1 REFERENCES profile(id),
+  recorded_at TEXT NOT NULL,
+  current_level INTEGER,
+  total_xp INTEGER
+);
+
 -- Landing zone for personal rows reference-sync.ts finds orphaned (their
 -- slug no longer exists in a freshly-synced reference.json, and wasn't
 -- covered by a src/db/slug-renames.ts entry) — holds the row's full data as
@@ -433,7 +449,7 @@ CREATE TABLE IF NOT EXISTS personal_data_quarantine (
 );
 `;
 
-export const CURRENT_PERSONAL_SCHEMA_VERSION = 5;
+export const CURRENT_PERSONAL_SCHEMA_VERSION = 6;
 
 // id=1 is the implicit single profile every table's profile_id column
 // defaults to today — every fresh install and every migrated existing

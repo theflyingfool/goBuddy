@@ -72,6 +72,7 @@ function emptyState(): PersonalState {
     tags: [],
     pokemonInstanceTags: [],
     playerProgress: undefined,
+    playerProgressLog: [],
     profile: { id: 1, username: "Trainer", friendCode: null, createdAt: new Date().toISOString() },
   };
 }
@@ -84,6 +85,7 @@ const noopHooks = {
   onFormBackgroundPersonalAdded() {},
   onMedalProgressChanged() {},
   onPlayerProgressChanged() {},
+  onPlayerProgressLogAppended() {},
   onPokemonInstanceStatusChanged() {},
   onProfileChanged() {},
 };

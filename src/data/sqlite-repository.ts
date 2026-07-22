@@ -23,6 +23,7 @@ import {
   type FormPersonal,
   type MedalProgressPersonal,
   type MegaPersonal,
+  type PlayerProgressLogEntry,
   type PlayerProgressPersonal,
   type PokemonInstance,
   type PokemonInstanceTag,
@@ -164,6 +165,17 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     };
   }
 
+  const playerProgressLog: PlayerProgressLogEntry[] = [];
+  for (const row of (await db.query("SELECT * FROM player_progress_log ORDER BY recorded_at ASC")).values ?? []) {
+    playerProgressLog.push({
+      id: row.id,
+      profileId: row.profile_id,
+      recordedAt: row.recorded_at,
+      currentLevel: row.current_level ?? null,
+      totalXp: row.total_xp ?? null,
+    });
+  }
+
   // Always exactly one row (id=DEFAULT_PROFILE_ID), seeded by runPersonalMigrations.
   const profileRow = (await db.query("SELECT * FROM profile")).values![0];
   const profile: Profile = {
@@ -184,6 +196,7 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     tags,
     pokemonInstanceTags,
     playerProgress,
+    playerProgressLog,
     profile,
   };
 }
@@ -310,6 +323,17 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
           `INSERT INTO player_progress_personal (profile_id, current_level, total_xp, updated_at) VALUES (?, ?, ?, ?)
            ON CONFLICT(profile_id) DO UPDATE SET current_level = excluded.current_level, total_xp = excluded.total_xp, updated_at = excluded.updated_at`,
           [progress.profileId, progress.currentLevel, progress.totalXp, progress.updatedAt],
+          !inBulk,
+        );
+        if (!inBulk) await persistDb();
+      });
+    },
+    onPlayerProgressLogAppended(entry) {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run(
+          "INSERT INTO player_progress_log (profile_id, recorded_at, current_level, total_xp) VALUES (?, ?, ?, ?)",
+          [entry.profileId, entry.recordedAt, entry.currentLevel, entry.totalXp],
           !inBulk,
         );
         if (!inBulk) await persistDb();
