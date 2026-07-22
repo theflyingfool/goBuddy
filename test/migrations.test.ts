@@ -34,6 +34,15 @@ test("runPersonalMigrations on a brand-new database creates every personal table
     assert.ok(tableExists(db, table), `expected ${table} to exist on a fresh install`);
   }
   assert.ok(tableExists(db, "__drizzle_migrations"), "expected Drizzle's tracking table to exist");
+
+  // Drizzle-kit only generates schema DDL, never seed data — the default
+  // profile row (every other personal table's profile_id column either
+  // defaults to it or has a REFERENCES FK into it) has to come from app
+  // code (see seedDefaultProfileIfMissing in migrations.ts). Asserted
+  // directly here, not just indirectly via an FK failure elsewhere.
+  const profileRow = db.prepare("SELECT id, username FROM profile").get() as { id: number; username: string } | undefined;
+  assert.equal(profileRow?.id, 1, "expected the default profile row to be seeded on a fresh install");
+  assert.equal(profileRow?.username, "Trainer");
 });
 
 test("runPersonalMigrations is a no-op replay for a device already at the current migration", async () => {
