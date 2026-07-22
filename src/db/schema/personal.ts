@@ -46,7 +46,7 @@ export const speciesPersonal = sqliteTable(
     xxl: integer("xxl", { mode: "boolean" }).notNull().default(false),
     xxs: integer("xxs", { mode: "boolean" }).notNull().default(false),
     purified: integer("purified", { mode: "boolean" }).notNull().default(false),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`0`),
   },
   (table) => boolChecks("species_personal", { registered: table.registered, xxl: table.xxl, xxs: table.xxs, purified: table.purified }),
 );
@@ -91,7 +91,7 @@ export const formPersonal = sqliteTable(
     bestNonShiny: text("best_non_shiny"),
     bestLucky: text("best_lucky"),
 
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`0`),
   },
   (table) =>
     boolChecks("form_personal", {
@@ -130,7 +130,7 @@ export const formBackgroundPersonal = sqliteTable(
     profileId: integer("profile_id").notNull().default(1),
     achievementField: text("achievement_field").notNull(),
     backgroundSlug: text("background_slug").notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`0`),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.formSlug, table.achievementField, table.backgroundSlug] }),
@@ -144,7 +144,7 @@ export const megaPersonal = sqliteTable(
     profileId: integer("profile_id").notNull().default(1),
     evolved: integer("evolved", { mode: "boolean" }).notNull().default(false),
     shinyEvolved: integer("shiny_evolved", { mode: "boolean" }).notNull().default(false),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`0`),
   },
   (table) => boolChecks("mega_personal", { evolved: table.evolved, shinyEvolved: table.shinyEvolved }),
 );

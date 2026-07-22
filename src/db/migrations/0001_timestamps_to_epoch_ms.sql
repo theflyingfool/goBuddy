@@ -18,14 +18,21 @@
 -- regardless of row count — so with drizzle-kit's original bracketing this
 -- migration throws "no such table: main.form" (etc.) on every table after
 -- the first, on every fresh install and every real upgrade. Verified
--- empirically with the sqlite3 CLI before and after this fix.
+-- empirically with the sqlite3 CLI before and after this fix. NOTE: this
+-- file's own PRAGMA statements are inert once run through the app's real
+-- migration runner (src/db/migrations.ts wraps every pending migration's
+-- statements in one transaction, and PRAGMA foreign_keys is a documented
+-- no-op inside an active transaction) — the runner itself toggles this
+-- PRAGMA outside that transaction instead. These statements remain here,
+-- correct and self-documenting, for anyone applying this file standalone
+-- (e.g. via the sqlite3 CLI) outside that runner.
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_form_background_personal` (
 	`form_slug` text NOT NULL REFERENCES form(slug),
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
 	`achievement_field` text NOT NULL,
 	`background_slug` text NOT NULL REFERENCES backgrounds(slug),
-	`updated_at` integer NOT NULL,
+	`updated_at` integer DEFAULT 0 NOT NULL,
 	PRIMARY KEY(`form_slug`, `achievement_field`, `background_slug`)
 );
 --> statement-breakpoint
@@ -66,7 +73,7 @@ CREATE TABLE `__new_form_personal` (
 	`best_shiny` text,
 	`best_non_shiny` text,
 	`best_lucky` text,
-	`updated_at` integer NOT NULL,
+	`updated_at` integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "form_personal_caught_bool" CHECK("__new_form_personal"."caught" IN (0, 1)),
 	CONSTRAINT "form_personal_shiny_bool" CHECK("__new_form_personal"."shiny" IN (0, 1)),
 	CONSTRAINT "form_personal_floor_bool" CHECK("__new_form_personal"."floor" IN (0, 1)),
@@ -120,7 +127,7 @@ CREATE TABLE `__new_mega_personal` (
 	`profile_id` integer DEFAULT 1 NOT NULL REFERENCES profile(id),
 	`evolved` integer DEFAULT false NOT NULL,
 	`shiny_evolved` integer DEFAULT false NOT NULL,
-	`updated_at` integer NOT NULL,
+	`updated_at` integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "mega_personal_evolved_bool" CHECK("__new_mega_personal"."evolved" IN (0, 1)),
 	CONSTRAINT "mega_personal_shinyEvolved_bool" CHECK("__new_mega_personal"."shiny_evolved" IN (0, 1))
 );
@@ -241,7 +248,7 @@ CREATE TABLE `__new_species_personal` (
 	`xxl` integer DEFAULT false NOT NULL,
 	`xxs` integer DEFAULT false NOT NULL,
 	`purified` integer DEFAULT false NOT NULL,
-	`updated_at` integer NOT NULL,
+	`updated_at` integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "species_personal_registered_bool" CHECK("__new_species_personal"."registered" IN (0, 1)),
 	CONSTRAINT "species_personal_xxl_bool" CHECK("__new_species_personal"."xxl" IN (0, 1)),
 	CONSTRAINT "species_personal_xxs_bool" CHECK("__new_species_personal"."xxs" IN (0, 1)),
