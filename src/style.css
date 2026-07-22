@@ -553,6 +553,7 @@ input[type="checkbox"] {
   border-radius: 18px 18px 0 0;
   padding: 1rem 1rem 1.5rem;
   box-sizing: border-box;
+  /* eslint-disable-next-line css/no-invalid-properties -- color-mix() nested inside a var()-referenced custom property isn't resolved by this linter; valid CSS */
   box-shadow: var(--shadow-pop);
   transform: translateY(100%);
   transition: transform 0.2s ease;
@@ -702,6 +703,7 @@ input[type="checkbox"] {
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-tag);
+  /* eslint-disable-next-line css/no-invalid-properties -- color-mix() nested inside a var()-referenced custom property isn't resolved by this linter; valid CSS */
   box-shadow: var(--shadow-card);
   position: relative;
   width: 100%;
@@ -881,6 +883,7 @@ input[type="checkbox"] {
   display: block;
   border-radius: 50%;
   background: var(--surface-2);
+  /* eslint-disable-next-line css/no-invalid-properties -- color-mix() nested inside a var()-referenced custom property isn't resolved by this linter; valid CSS */
   box-shadow: var(--shadow-card);
 }
 
@@ -1000,6 +1003,7 @@ input[type="checkbox"] {
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-tag);
+  /* eslint-disable-next-line css/no-invalid-properties -- color-mix() nested inside a var()-referenced custom property isn't resolved by this linter; valid CSS */
   box-shadow: var(--shadow-card);
   position: relative;
   cursor: pointer;
@@ -1240,6 +1244,7 @@ input[type="checkbox"] {
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
+  /* eslint-disable-next-line css/no-invalid-properties -- color-mix() nested inside a var()-referenced custom property isn't resolved by this linter; valid CSS */
   box-shadow: var(--shadow-card);
 }
 
