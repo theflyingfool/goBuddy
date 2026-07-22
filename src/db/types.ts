@@ -350,8 +350,6 @@ export interface MegaPersonal {
   megaVariantSlug: string;
   evolved: boolean;
   shinyEvolved: boolean;
-  /** Species-wide Mega Level progress (like Buddy Level, not tied to a specific caught individual). Whether a species caps at level 3 or 4 is an unverified real-game fact, not modeled here — just the trainer's current progress. */
-  currentMegaLevel: number | null;
   /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
   updatedAt: string;
 }
@@ -386,6 +384,8 @@ export interface PokemonInstance {
   shadow: boolean;
   purified: boolean;
   heartsEarned: number | null;
+  /** Mega Level is per-individual, not species-wide — confirmed directly (two caught Charizard can sit at different Mega Levels), so this lives here rather than on MegaPersonal. Only meaningful once this individual has actually been Mega Evolved. */
+  currentMegaLevel: number | null;
   nickname: string | null;
   backgroundSlug: string | null;
 }
@@ -401,11 +401,13 @@ export interface PokemonInstanceTag {
   tagId: number;
 }
 
-// move_slot is a provisional identifier — see schema.ts's dynamax_personal
-// comment on why the exact Max Move mechanic isn't fully modeled yet.
-export interface DynamaxPersonal {
-  formSlug: string;
-  profileId: number;
+// Max Move levels are per-individual too (same correction as
+// PokemonInstance.currentMegaLevel), so this is keyed by pokemonInstanceId,
+// not a form/species slug. move_slot is a provisional identifier — see
+// schema.ts's pokemon_instance_max_move comment on why the exact Max Move
+// mechanic isn't fully modeled yet.
+export interface PokemonInstanceMaxMove {
+  pokemonInstanceId: number;
   moveSlot: string;
   level: number | null;
   updatedAt: string;

@@ -70,8 +70,8 @@ const MIGRATIONS: Migration[] = [
   {
     // Adds the profile table (plus the seeded id=1 default row every
     // existing table's profile_id column defaults to), a profile_id column
-    // on every pre-existing personal table, mega_personal.current_mega_level,
-    // and the new pokemon_instance/tag/pokemon_instance_tag/dynamax_personal/
+    // on every pre-existing personal table, and the new pokemon_instance/
+    // tag/pokemon_instance_tag/pokemon_instance_max_move/
     // player_progress_personal tables. See schema.ts's comments on `profile`
     // and `pokemon_instance` for what's deliberately NOT done here yet
     // (profile_id isn't part of any PRIMARY KEY — real multi-profile support
@@ -98,9 +98,6 @@ const MIGRATIONS: Migration[] = [
           await db.execute(`ALTER TABLE ${table} ADD COLUMN profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID} REFERENCES profile(id)`, false);
         }
       }
-      if (await tableExists(db, "mega_personal")) {
-        await db.execute("ALTER TABLE mega_personal ADD COLUMN current_mega_level INTEGER", false);
-      }
 
       await db.execute(
         `CREATE TABLE IF NOT EXISTS pokemon_instance (
@@ -118,6 +115,7 @@ const MIGRATIONS: Migration[] = [
           shadow INTEGER NOT NULL DEFAULT 0 CHECK (shadow IN (0, 1)),
           purified INTEGER NOT NULL DEFAULT 0 CHECK (purified IN (0, 1)),
           hearts_earned INTEGER,
+          current_mega_level INTEGER,
           nickname TEXT,
           background_slug TEXT REFERENCES backgrounds(slug)
         )`,
@@ -141,13 +139,12 @@ const MIGRATIONS: Migration[] = [
         false,
       );
       await db.execute(
-        `CREATE TABLE IF NOT EXISTS dynamax_personal (
-          form_slug TEXT NOT NULL REFERENCES form(slug),
-          profile_id INTEGER NOT NULL REFERENCES profile(id),
+        `CREATE TABLE IF NOT EXISTS pokemon_instance_max_move (
+          pokemon_instance_id INTEGER NOT NULL REFERENCES pokemon_instance(id),
           move_slot TEXT NOT NULL,
           level INTEGER,
           updated_at TEXT NOT NULL,
-          PRIMARY KEY (form_slug, profile_id, move_slot)
+          PRIMARY KEY (pokemon_instance_id, move_slot)
         )`,
         false,
       );

@@ -309,18 +309,11 @@ CREATE TABLE IF NOT EXISTS form_background_personal (
   PRIMARY KEY (form_slug, achievement_field, background_slug)
 );
 
--- current_mega_level: Mega Level is species-wide progression (like Buddy
--- Level), tracked regardless of which individual caught Pokémon is the one
--- being Mega Evolved — it belongs here, not on pokemon_instance. Whether a
--- given species caps at level 3 or 4 is a real-game fact we haven't
--- verified against a source yet, so that cap isn't modeled here — only the
--- trainer's current progress toward whatever the real cap turns out to be.
 CREATE TABLE IF NOT EXISTS mega_personal (
   mega_variant_slug TEXT PRIMARY KEY REFERENCES mega_variant(slug),
   profile_id INTEGER NOT NULL DEFAULT 1 REFERENCES profile(id),
   evolved INTEGER NOT NULL DEFAULT 0 CHECK (evolved IN (0, 1)),
   shiny_evolved INTEGER NOT NULL DEFAULT 0 CHECK (shiny_evolved IN (0, 1)),
-  current_mega_level INTEGER,
   updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'
 );
 
@@ -329,6 +322,15 @@ CREATE TABLE IF NOT EXISTS mega_personal (
 -- obtained this tier", not "how many do I currently hold"). Everything but
 -- form_slug/profile_id/recorded_at is optional on purpose, so bulk-adding a
 -- pile of low-value catches without filling in details stays fast.
+--
+-- current_mega_level lives here, NOT on mega_personal: Mega Level turned
+-- out to be per-INDIVIDUAL, not species-wide (confirmed directly by the
+-- owner — two caught Charizard can be at different Mega Levels from each
+-- other). mega_personal.evolved/shiny_evolved stay species-wide, since
+-- "have I ever Mega Evolved this species at all" genuinely is a one-time
+-- achievement regardless of which individual did it; only the *level*
+-- progress is per-individual. Whether a species caps at level 3 or 4 is
+-- still an unverified real-game fact, not modeled here.
 CREATE TABLE IF NOT EXISTS pokemon_instance (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   form_slug TEXT NOT NULL REFERENCES form(slug),
@@ -351,6 +353,9 @@ CREATE TABLE IF NOT EXISTS pokemon_instance (
   -- the raw count rather than a derived tier, since the exact hearts-per-
   -- tier thresholds haven't been confirmed against a real source yet.
   hearts_earned INTEGER,
+  -- Only meaningful for an individual that's actually been Mega Evolved
+  -- (see the table comment above for why this isn't on mega_personal).
+  current_mega_level INTEGER,
   nickname TEXT,
   background_slug TEXT REFERENCES backgrounds(slug)
 );
@@ -368,23 +373,25 @@ CREATE TABLE IF NOT EXISTS pokemon_instance_tag (
   PRIMARY KEY (pokemon_instance_id, tag_id)
 );
 
--- Max Move levels for Dynamax-capable forms. Deliberately keyed by
--- form_slug alone, NOT gated on form.dynamax_available/species.can_gigantamax
--- -- some forms (e.g. Zacian's Crowned Sword form) can use Max Moves
--- without being flagged Dynamax/Gigantamax-capable the normal way, so this
--- table shouldn't assume that flag correctly predicts Max Move access.
--- move_slot is a provisional free-text identifier (not a verified enum):
--- the exact Max Move mechanic (how many slots, whether a slot's move type
--- is fixed per form or follows whatever fast/charged moves are currently
--- equipped) hasn't been confirmed against a real source yet -- don't build
--- UI assuming a specific slot count or naming until that's verified.
-CREATE TABLE IF NOT EXISTS dynamax_personal (
-  form_slug TEXT NOT NULL REFERENCES form(slug),
-  profile_id INTEGER NOT NULL REFERENCES profile(id),
+-- Max Move levels — per INDIVIDUAL, same correction as current_mega_level
+-- above (confirmed by the owner: two Dynamax-capable individuals of the
+-- same species level their Max Moves independently), so this is keyed by
+-- pokemon_instance, not form_slug. Still NOT gated on
+-- form.dynamax_available/species.can_gigantamax -- some forms (e.g.
+-- Zacian's Crowned Sword) have Max Move access without being flagged
+-- Dynamax-capable the normal way, so a row here shouldn't be assumed to
+-- imply that flag either. move_slot is a provisional free-text identifier
+-- (not a verified enum): the exact Max Move mechanic (how many slots,
+-- whether a slot's move type is fixed or follows whatever fast/charged
+-- moves are currently equipped) hasn't been confirmed against a real
+-- source yet -- don't build UI assuming a specific slot count or naming
+-- until that's verified.
+CREATE TABLE IF NOT EXISTS pokemon_instance_max_move (
+  pokemon_instance_id INTEGER NOT NULL REFERENCES pokemon_instance(id),
   move_slot TEXT NOT NULL,
   level INTEGER,
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (form_slug, profile_id, move_slot)
+  PRIMARY KEY (pokemon_instance_id, move_slot)
 );
 
 -- Deliberately separate from the profile table (identity) -- level/XP

@@ -81,7 +81,6 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
       megaVariantSlug: row.mega_variant_slug,
       evolved: !!row.evolved,
       shinyEvolved: !!row.shiny_evolved,
-      currentMegaLevel: row.current_mega_level ?? null,
       updatedAt: row.updated_at,
     };
   }
@@ -179,9 +178,9 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       const inBulk = bulkDepth > 0;
       enqueueWrite(async () => {
         await db.run(
-          `INSERT INTO mega_personal (mega_variant_slug, evolved, shiny_evolved, current_mega_level, updated_at) VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(mega_variant_slug) DO UPDATE SET evolved = excluded.evolved, shiny_evolved = excluded.shiny_evolved, current_mega_level = excluded.current_mega_level, updated_at = excluded.updated_at`,
-          [megaVariantSlug, personal.evolved ? 1 : 0, personal.shinyEvolved ? 1 : 0, personal.currentMegaLevel, personal.updatedAt],
+          `INSERT INTO mega_personal (mega_variant_slug, evolved, shiny_evolved, updated_at) VALUES (?, ?, ?, ?)
+           ON CONFLICT(mega_variant_slug) DO UPDATE SET evolved = excluded.evolved, shiny_evolved = excluded.shiny_evolved, updated_at = excluded.updated_at`,
+          [megaVariantSlug, personal.evolved ? 1 : 0, personal.shinyEvolved ? 1 : 0, personal.updatedAt],
           !inBulk,
         );
         if (!inBulk) await persistDb();

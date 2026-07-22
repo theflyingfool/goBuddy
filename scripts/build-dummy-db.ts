@@ -183,12 +183,11 @@ insertAll(
 
 insertAll(
   "mega_personal",
-  ["mega_variant_slug", "evolved", "shiny_evolved", "current_mega_level", "updated_at"],
+  ["mega_variant_slug", "evolved", "shiny_evolved", "updated_at"],
   megaPersonal.map((mp) => ({
     mega_variant_slug: mp.megaVariantSlug,
     evolved: b(mp.evolved),
     shiny_evolved: b(mp.shinyEvolved),
-    current_mega_level: mp.currentMegaLevel,
     updated_at: mp.updatedAt,
   })),
 );
