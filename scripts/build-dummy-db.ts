@@ -8,7 +8,7 @@ import { existsSync, unlinkSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-import { PERSONAL_SCHEMA_SQL, REFERENCE_SCHEMA_SQL, CURRENT_PERSONAL_SCHEMA_VERSION } from "../src/db/schema";
+import { PERSONAL_SCHEMA_SQL, REFERENCE_SCHEMA_SQL, CURRENT_PERSONAL_SCHEMA_VERSION, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME } from "../src/db/schema";
 import { DEFAULT_APP_SETTINGS } from "../src/db/defaults";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS } from "../src/db/types";
 import type { ReferenceData } from "../src/db/reference-data";
@@ -127,6 +127,12 @@ insertAll(
 
 db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(CURRENT_PERSONAL_SCHEMA_VERSION);
 
+db.prepare("INSERT INTO profile (id, username, friend_code, created_at) VALUES (?, ?, NULL, ?)").run(
+  DEFAULT_PROFILE_ID,
+  DEFAULT_PROFILE_USERNAME,
+  "2024-01-01T00:00:00.000Z",
+);
+
 insertAll(
   "app_settings",
   ["key", "value"],
@@ -177,11 +183,12 @@ insertAll(
 
 insertAll(
   "mega_personal",
-  ["mega_variant_slug", "evolved", "shiny_evolved", "updated_at"],
+  ["mega_variant_slug", "evolved", "shiny_evolved", "current_mega_level", "updated_at"],
   megaPersonal.map((mp) => ({
     mega_variant_slug: mp.megaVariantSlug,
     evolved: b(mp.evolved),
     shiny_evolved: b(mp.shinyEvolved),
+    current_mega_level: mp.currentMegaLevel,
     updated_at: mp.updatedAt,
   })),
 );

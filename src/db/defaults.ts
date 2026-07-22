@@ -24,7 +24,7 @@ export function emptySpeciesPersonal(speciesSlug: string): SpeciesPersonal {
 }
 
 export function emptyMegaPersonal(megaVariantSlug: string): MegaPersonal {
-  return { megaVariantSlug, evolved: false, shinyEvolved: false, updatedAt: NEVER_UPDATED };
+  return { megaVariantSlug, evolved: false, shinyEvolved: false, currentMegaLevel: null, updatedAt: NEVER_UPDATED };
 }
 
 export function emptyFormPersonal(formSlug: string, overrides: Partial<Omit<FormPersonal, "formSlug">> = {}): FormPersonal {

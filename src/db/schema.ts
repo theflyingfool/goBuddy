@@ -227,8 +227,26 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL
 );
 
+-- Local-only trainer profile — never an auth account (this app talks to no
+-- server), just an identity to hang personal data on. friend_code is
+-- captured here (rather than left for later) since it's effectively
+-- immutable in-game and cheap to ask for once, up front. Every other
+-- personal table gets a profile_id column (below) so a future "send my
+-- collection to another trainer's install" feature has something to key
+-- on — deliberately NOT yet part of any table's PRIMARY KEY, since nothing
+-- in the app switches between profiles today; making that real (composite
+-- keys, a repository-layer "current profile" concept) is deferred until
+-- multi-profile is an actual feature, not just schema groundwork.
+CREATE TABLE IF NOT EXISTS profile (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL,
+  friend_code TEXT,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS species_personal (
   species_slug TEXT PRIMARY KEY REFERENCES species(slug),
+  profile_id INTEGER NOT NULL DEFAULT 1 REFERENCES profile(id),
   registered INTEGER NOT NULL DEFAULT 0 CHECK (registered IN (0, 1)),
   xxl INTEGER NOT NULL DEFAULT 0 CHECK (xxl IN (0, 1)),
   xxs INTEGER NOT NULL DEFAULT 0 CHECK (xxs IN (0, 1)),
@@ -238,6 +256,7 @@ CREATE TABLE IF NOT EXISTS species_personal (
 
 CREATE TABLE IF NOT EXISTS form_personal (
   form_slug TEXT PRIMARY KEY REFERENCES form(slug),
+  profile_id INTEGER NOT NULL DEFAULT 1 REFERENCES profile(id),
 
   caught INTEGER NOT NULL DEFAULT 0 CHECK (caught IN (0, 1)),
   shiny INTEGER NOT NULL DEFAULT 0 CHECK (shiny IN (0, 1)),
@@ -283,17 +302,99 @@ CREATE TABLE IF NOT EXISTS form_personal (
 -- Always optional: no row means no background recorded for that variant.
 CREATE TABLE IF NOT EXISTS form_background_personal (
   form_slug TEXT NOT NULL REFERENCES form(slug),
+  profile_id INTEGER NOT NULL DEFAULT 1 REFERENCES profile(id),
   achievement_field TEXT NOT NULL,
   background_slug TEXT NOT NULL REFERENCES backgrounds(slug),
   updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z',
   PRIMARY KEY (form_slug, achievement_field, background_slug)
 );
 
+-- current_mega_level: Mega Level is species-wide progression (like Buddy
+-- Level), tracked regardless of which individual caught Pokémon is the one
+-- being Mega Evolved — it belongs here, not on pokemon_instance. Whether a
+-- given species caps at level 3 or 4 is a real-game fact we haven't
+-- verified against a source yet, so that cap isn't modeled here — only the
+-- trainer's current progress toward whatever the real cap turns out to be.
 CREATE TABLE IF NOT EXISTS mega_personal (
   mega_variant_slug TEXT PRIMARY KEY REFERENCES mega_variant(slug),
+  profile_id INTEGER NOT NULL DEFAULT 1 REFERENCES profile(id),
   evolved INTEGER NOT NULL DEFAULT 0 CHECK (evolved IN (0, 1)),
   shiny_evolved INTEGER NOT NULL DEFAULT 0 CHECK (shiny_evolved IN (0, 1)),
+  current_mega_level INTEGER,
   updated_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'
+);
+
+-- Individual caught-specimen log — the "I have 30 random Pikachu" case
+-- form_personal's achievement flags can't answer (those track "have I ever
+-- obtained this tier", not "how many do I currently hold"). Everything but
+-- form_slug/profile_id/recorded_at is optional on purpose, so bulk-adding a
+-- pile of low-value catches without filling in details stays fast.
+CREATE TABLE IF NOT EXISTS pokemon_instance (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  form_slug TEXT NOT NULL REFERENCES form(slug),
+  profile_id INTEGER NOT NULL REFERENCES profile(id),
+  status TEXT NOT NULL DEFAULT 'kept' CHECK (status IN ('kept', 'traded', 'released', 'evolved')),
+  -- When this row was actually created (always known, defaulted in code) --
+  -- distinct from caught_at, the real in-game catch date, which is often
+  -- unknown for backfilled specimens.
+  recorded_at TEXT NOT NULL,
+  caught_at TEXT,
+  updated_at TEXT NOT NULL,
+  cp INTEGER,
+  iv_percent REAL,
+  shiny INTEGER NOT NULL DEFAULT 0 CHECK (shiny IN (0, 1)),
+  lucky INTEGER NOT NULL DEFAULT 0 CHECK (lucky IN (0, 1)),
+  shadow INTEGER NOT NULL DEFAULT 0 CHECK (shadow IN (0, 1)),
+  purified INTEGER NOT NULL DEFAULT 0 CHECK (purified IN (0, 1)),
+  -- Buddy Level is based on cumulative hearts earned with this specific
+  -- individual (only one Pokémon is ever your buddy at a time) -- storing
+  -- the raw count rather than a derived tier, since the exact hearts-per-
+  -- tier thresholds haven't been confirmed against a real source yet.
+  hearts_earned INTEGER,
+  nickname TEXT,
+  background_slug TEXT REFERENCES backgrounds(slug)
+);
+
+CREATE TABLE IF NOT EXISTS tag (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  profile_id INTEGER NOT NULL REFERENCES profile(id),
+  name TEXT NOT NULL,
+  UNIQUE (profile_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS pokemon_instance_tag (
+  pokemon_instance_id INTEGER NOT NULL REFERENCES pokemon_instance(id),
+  tag_id INTEGER NOT NULL REFERENCES tag(id),
+  PRIMARY KEY (pokemon_instance_id, tag_id)
+);
+
+-- Max Move levels for Dynamax-capable forms. Deliberately keyed by
+-- form_slug alone, NOT gated on form.dynamax_available/species.can_gigantamax
+-- -- some forms (e.g. Zacian's Crowned Sword form) can use Max Moves
+-- without being flagged Dynamax/Gigantamax-capable the normal way, so this
+-- table shouldn't assume that flag correctly predicts Max Move access.
+-- move_slot is a provisional free-text identifier (not a verified enum):
+-- the exact Max Move mechanic (how many slots, whether a slot's move type
+-- is fixed per form or follows whatever fast/charged moves are currently
+-- equipped) hasn't been confirmed against a real source yet -- don't build
+-- UI assuming a specific slot count or naming until that's verified.
+CREATE TABLE IF NOT EXISTS dynamax_personal (
+  form_slug TEXT NOT NULL REFERENCES form(slug),
+  profile_id INTEGER NOT NULL REFERENCES profile(id),
+  move_slot TEXT NOT NULL,
+  level INTEGER,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (form_slug, profile_id, move_slot)
+);
+
+-- Deliberately separate from the profile table (identity) -- level/XP
+-- changes constantly, identity doesn't. References player_level (this
+-- file's Tier-1 reference table) for the XP-per-level lookup.
+CREATE TABLE IF NOT EXISTS player_progress_personal (
+  profile_id INTEGER PRIMARY KEY REFERENCES profile(id),
+  current_level INTEGER REFERENCES player_level(level),
+  total_xp INTEGER,
+  updated_at TEXT NOT NULL
 );
 
 -- Landing zone for personal rows reference-sync.ts finds orphaned (their
@@ -312,4 +413,10 @@ CREATE TABLE IF NOT EXISTS personal_data_quarantine (
 );
 `;
 
-export const CURRENT_PERSONAL_SCHEMA_VERSION = 3;
+export const CURRENT_PERSONAL_SCHEMA_VERSION = 4;
+
+// id=1 is the implicit single profile every table's profile_id column
+// defaults to today — every fresh install and every migrated existing
+// install gets exactly this row, so that default is always valid.
+export const DEFAULT_PROFILE_ID = 1;
+export const DEFAULT_PROFILE_USERNAME = "Trainer";

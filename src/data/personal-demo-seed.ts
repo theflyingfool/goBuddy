@@ -35,5 +35,5 @@ export const formBackgroundPersonal: FormBackgroundPersonal[] = [
 ];
 
 export const megaPersonal: MegaPersonal[] = [
-  { megaVariantSlug: "charizard-mega-x", evolved: true, shinyEvolved: false, updatedAt: DEMO_UPDATED_AT },
+  { megaVariantSlug: "charizard-mega-x", evolved: true, shinyEvolved: false, currentMegaLevel: 1, updatedAt: DEMO_UPDATED_AT },
 ];

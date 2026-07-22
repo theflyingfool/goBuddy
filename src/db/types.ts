@@ -350,7 +350,71 @@ export interface MegaPersonal {
   megaVariantSlug: string;
   evolved: boolean;
   shinyEvolved: boolean;
+  /** Species-wide Mega Level progress (like Buddy Level, not tied to a specific caught individual). Whether a species caps at level 3 or 4 is an unverified real-game fact, not modeled here — just the trainer's current progress. */
+  currentMegaLevel: number | null;
   /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
+  updatedAt: string;
+}
+
+// ---- Local trainer profile (not an auth account — see schema.ts) ----
+
+export interface Profile {
+  id: number;
+  username: string;
+  friendCode: string | null;
+  createdAt: string;
+}
+
+export type PokemonInstanceStatus = "kept" | "traded" | "released" | "evolved";
+
+// Individual caught-specimen log — see schema.ts's pokemon_instance comment
+// for why this exists alongside FormPersonal's achievement flags rather
+// than replacing them. Everything but the identity/bookkeeping fields is
+// nullable on purpose (fast bulk-add of low-value catches).
+export interface PokemonInstance {
+  id: number;
+  formSlug: string;
+  profileId: number;
+  status: PokemonInstanceStatus;
+  recordedAt: string;
+  caughtAt: string | null;
+  updatedAt: string;
+  cp: number | null;
+  ivPercent: number | null;
+  shiny: boolean;
+  lucky: boolean;
+  shadow: boolean;
+  purified: boolean;
+  heartsEarned: number | null;
+  nickname: string | null;
+  backgroundSlug: string | null;
+}
+
+export interface Tag {
+  id: number;
+  profileId: number;
+  name: string;
+}
+
+export interface PokemonInstanceTag {
+  pokemonInstanceId: number;
+  tagId: number;
+}
+
+// move_slot is a provisional identifier — see schema.ts's dynamax_personal
+// comment on why the exact Max Move mechanic isn't fully modeled yet.
+export interface DynamaxPersonal {
+  formSlug: string;
+  profileId: number;
+  moveSlot: string;
+  level: number | null;
+  updatedAt: string;
+}
+
+export interface PlayerProgressPersonal {
+  profileId: number;
+  currentLevel: number | null;
+  totalXp: number | null;
   updatedAt: string;
 }
 

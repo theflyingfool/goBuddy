@@ -100,6 +100,7 @@ export async function readPersonalDataBestEffort(db: SQLiteDBConnection): Promis
           megaVariantSlug: row.mega_variant_slug,
           evolved: !!row.evolved,
           shinyEvolved: !!row.shiny_evolved,
+          currentMegaLevel: row.current_mega_level ?? null,
           updatedAt: row.updated_at ?? NEVER_UPDATED,
         };
       }

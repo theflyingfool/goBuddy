@@ -17,7 +17,7 @@
 // (see reference-sync.ts for the same pattern) rather than opening their own.
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
-import { CURRENT_PERSONAL_SCHEMA_VERSION, PERSONAL_SCHEMA_SQL } from "./schema";
+import { CURRENT_PERSONAL_SCHEMA_VERSION, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME, PERSONAL_SCHEMA_SQL } from "./schema";
 
 interface Migration {
   version: number;
@@ -67,6 +67,101 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    // Adds the profile table (plus the seeded id=1 default row every
+    // existing table's profile_id column defaults to), a profile_id column
+    // on every pre-existing personal table, mega_personal.current_mega_level,
+    // and the new pokemon_instance/tag/pokemon_instance_tag/dynamax_personal/
+    // player_progress_personal tables. See schema.ts's comments on `profile`
+    // and `pokemon_instance` for what's deliberately NOT done here yet
+    // (profile_id isn't part of any PRIMARY KEY — real multi-profile support
+    // is a later, separate change, not implied by this migration).
+    version: 4,
+    up: async (db) => {
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS profile (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL,
+          friend_code TEXT,
+          created_at TEXT NOT NULL
+        )`,
+        false,
+      );
+      await db.run(
+        "INSERT OR IGNORE INTO profile (id, username, friend_code, created_at) VALUES (?, ?, NULL, ?)",
+        [DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME, new Date().toISOString()],
+        false,
+      );
+
+      for (const table of ["species_personal", "form_personal", "form_background_personal", "mega_personal"]) {
+        if (await tableExists(db, table)) {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN profile_id INTEGER NOT NULL DEFAULT ${DEFAULT_PROFILE_ID} REFERENCES profile(id)`, false);
+        }
+      }
+      if (await tableExists(db, "mega_personal")) {
+        await db.execute("ALTER TABLE mega_personal ADD COLUMN current_mega_level INTEGER", false);
+      }
+
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS pokemon_instance (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          form_slug TEXT NOT NULL REFERENCES form(slug),
+          profile_id INTEGER NOT NULL REFERENCES profile(id),
+          status TEXT NOT NULL DEFAULT 'kept' CHECK (status IN ('kept', 'traded', 'released', 'evolved')),
+          recorded_at TEXT NOT NULL,
+          caught_at TEXT,
+          updated_at TEXT NOT NULL,
+          cp INTEGER,
+          iv_percent REAL,
+          shiny INTEGER NOT NULL DEFAULT 0 CHECK (shiny IN (0, 1)),
+          lucky INTEGER NOT NULL DEFAULT 0 CHECK (lucky IN (0, 1)),
+          shadow INTEGER NOT NULL DEFAULT 0 CHECK (shadow IN (0, 1)),
+          purified INTEGER NOT NULL DEFAULT 0 CHECK (purified IN (0, 1)),
+          hearts_earned INTEGER,
+          nickname TEXT,
+          background_slug TEXT REFERENCES backgrounds(slug)
+        )`,
+        false,
+      );
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS tag (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          profile_id INTEGER NOT NULL REFERENCES profile(id),
+          name TEXT NOT NULL,
+          UNIQUE (profile_id, name)
+        )`,
+        false,
+      );
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS pokemon_instance_tag (
+          pokemon_instance_id INTEGER NOT NULL REFERENCES pokemon_instance(id),
+          tag_id INTEGER NOT NULL REFERENCES tag(id),
+          PRIMARY KEY (pokemon_instance_id, tag_id)
+        )`,
+        false,
+      );
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS dynamax_personal (
+          form_slug TEXT NOT NULL REFERENCES form(slug),
+          profile_id INTEGER NOT NULL REFERENCES profile(id),
+          move_slot TEXT NOT NULL,
+          level INTEGER,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (form_slug, profile_id, move_slot)
+        )`,
+        false,
+      );
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS player_progress_personal (
+          profile_id INTEGER PRIMARY KEY REFERENCES profile(id),
+          current_level INTEGER REFERENCES player_level(level),
+          total_xp INTEGER,
+          updated_at TEXT NOT NULL
+        )`,
+        false,
+      );
+    },
+  },
 ];
 
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {
@@ -85,8 +180,15 @@ export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<voi
 
   if (!hasSchemaVersionTable) {
     // Fresh database: create every personal table at the current version in
-    // one shot, no incremental migrations to replay.
+    // one shot, no incremental migrations to replay. Every table's
+    // profile_id column defaults to DEFAULT_PROFILE_ID, so that row must
+    // exist before anything else gets written.
     await db.execute(PERSONAL_SCHEMA_SQL);
+    await db.run("INSERT INTO profile (id, username, friend_code, created_at) VALUES (?, ?, NULL, ?)", [
+      DEFAULT_PROFILE_ID,
+      DEFAULT_PROFILE_USERNAME,
+      new Date().toISOString(),
+    ]);
     await db.run("INSERT INTO schema_version (version) VALUES (?)", [CURRENT_PERSONAL_SCHEMA_VERSION]);
     return;
   }
