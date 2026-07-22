@@ -12,7 +12,7 @@
 // is restored by hand in the generated migration file — see
 // src/db/migrations/0000_baseline.sql's header comment.
 
-import { check, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { check, integer, primaryKey, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
@@ -160,7 +160,7 @@ export const pokemonInstance = sqliteTable(
     caughtAt: integer("caught_at", { mode: "timestamp_ms" }),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
     cp: integer("cp"),
-    ivPercent: integer("iv_percent"),
+    ivPercent: real("iv_percent"),
     shiny: integer("shiny", { mode: "boolean" }).notNull().default(false),
     lucky: integer("lucky", { mode: "boolean" }).notNull().default(false),
     shadow: integer("shadow", { mode: "boolean" }).notNull().default(false),
@@ -170,7 +170,10 @@ export const pokemonInstance = sqliteTable(
     nickname: text("nickname"),
     backgroundSlug: text("background_slug"),
   },
-  (table) => boolChecks("pokemon_instance", { shiny: table.shiny, lucky: table.lucky, shadow: table.shadow, purified: table.purified }),
+  (table) => ({
+    ...boolChecks("pokemon_instance", { shiny: table.shiny, lucky: table.lucky, shadow: table.shadow, purified: table.purified }),
+    statusCheck: check("pokemon_instance_status_enum", sql`${table.status} IN ('kept', 'traded', 'released', 'evolved')`),
+  }),
 );
 
 export const tag = sqliteTable(
