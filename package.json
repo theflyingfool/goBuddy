@@ -12,6 +12,7 @@
     "test": "tsx --test test/**/*.test.ts",
     "test:e2e": "playwright test",
     "version:bump": "tsx scripts/bump-version.ts",
+    "db:generate": "drizzle-kit generate",
     "build:dummy-db": "tsx scripts/build-dummy-db.ts",
     "ingest:fetch": "tsx scripts/ingest/fetch-reference-data.ts",
     "ingest:fetch-sprites": "tsx scripts/ingest/fetch-sprites.ts",
@@ -37,6 +38,7 @@
     "@playwright/test": "^1.61.1",
     "@types/node": "^22.10.0",
     "@vitejs/plugin-vue": "^6.0.8",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "globals": "^17.7.0",
     "sharp": "^0.35.3",
@@ -52,6 +54,7 @@
     "@capacitor/core": "^8.4.1",
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/share": "^8.0.1",
+    "drizzle-orm": "^0.44.6",
     "jeep-sqlite": "^2.8.0",
     "sql.js": "1.11.0",
     "vue": "^3.5.40"
