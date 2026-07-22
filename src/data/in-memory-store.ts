@@ -28,6 +28,7 @@ import {
   type PokemonInstanceStatus,
   type PokemonInstanceTag,
   type PokemonType,
+  type Profile,
   type Region,
   type Species,
   type SpeciesPersonal,
@@ -70,6 +71,7 @@ export interface PersonalState {
   tags: Tag[];
   pokemonInstanceTags: PokemonInstanceTag[];
   playerProgress: PlayerProgressPersonal | undefined;
+  profile: Profile;
 }
 
 export interface InMemoryStoreHooks {
@@ -83,6 +85,7 @@ export interface InMemoryStoreHooks {
   onPlayerProgressChanged(progress: PlayerProgressPersonal): void;
   /** Existing-row status update only — creation (which needs a real AUTOINCREMENT id) is implemented directly in sqlite-repository.ts, not through this shared hook. */
   onPokemonInstanceStatusChanged(instance: PokemonInstance): void;
+  onProfileChanged(profile: Profile): void;
 }
 
 export function createInMemoryRepository(
@@ -322,6 +325,12 @@ export function createInMemoryRepository(
     hooks.onPlayerProgressChanged(updated);
   }
 
+  function applyProfile(username: string, friendCode: string | null): void {
+    const updated: Profile = { ...state.profile, username, friendCode };
+    state.profile = updated;
+    hooks.onProfileChanged(updated);
+  }
+
   function applyPokemonInstanceStatus(id: number, status: PokemonInstanceStatus): void {
     const index = state.pokemonInstances.findIndex((i) => i.id === id);
     if (index === -1) return;
@@ -499,6 +508,14 @@ export function createInMemoryRepository(
 
     listTags(): Tag[] {
       return state.tags;
+    },
+
+    getProfile(): Profile {
+      return state.profile;
+    },
+
+    setProfile(username: string, friendCode: string | null) {
+      applyProfile(username, friendCode);
     },
 
     getPlayerProgress(): PlayerProgressPersonal | undefined {

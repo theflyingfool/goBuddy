@@ -11,6 +11,14 @@ import type { Repository } from "../../data/repository";
 
 const props = defineProps<{ repo: Repository }>();
 
+const profile = ref(props.repo.getProfile());
+const usernameInput = ref(profile.value.username);
+const friendCodeInput = ref(profile.value.friendCode ?? "");
+function saveProfile() {
+  props.repo.setProfile(usernameInput.value.trim() || "Trainer", friendCodeInput.value.trim() || null);
+  profile.value = props.repo.getProfile();
+}
+
 const progress = ref(props.repo.getPlayerProgress());
 const levelInput = ref(progress.value?.currentLevel ?? "");
 const xpInput = ref(progress.value?.totalXp ?? "");
@@ -53,6 +61,20 @@ function updateCount(medalSlug: string, tiers: { rank: number; target: number | 
 
 <template>
   <h2>Trainer</h2>
+
+  <fieldset>
+    <legend>Identity</legend>
+    <div class="input-grid">
+      <label class="field">
+        Trainer name
+        <input type="text" maxlength="20" v-model="usernameInput" @change="saveProfile" />
+      </label>
+      <label class="field">
+        Friend code
+        <input type="text" placeholder="0000 0000 0000" v-model="friendCodeInput" @change="saveProfile" />
+      </label>
+    </div>
+  </fieldset>
 
   <fieldset>
     <legend>Level &amp; XP</legend>

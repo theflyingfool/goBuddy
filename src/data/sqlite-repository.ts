@@ -26,6 +26,7 @@ import {
   type PlayerProgressPersonal,
   type PokemonInstance,
   type PokemonInstanceTag,
+  type Profile,
   type SpeciesPersonal,
   type Tag,
 } from "../db/types";
@@ -163,6 +164,15 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     };
   }
 
+  // Always exactly one row (id=DEFAULT_PROFILE_ID), seeded by runPersonalMigrations.
+  const profileRow = (await db.query("SELECT * FROM profile")).values![0];
+  const profile: Profile = {
+    id: profileRow.id,
+    username: profileRow.username,
+    friendCode: profileRow.friend_code ?? null,
+    createdAt: profileRow.created_at,
+  };
+
   return {
     speciesPersonal,
     formPersonal,
@@ -174,6 +184,7 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     tags,
     pokemonInstanceTags,
     playerProgress,
+    profile,
   };
 }
 
@@ -301,6 +312,13 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
           [progress.profileId, progress.currentLevel, progress.totalXp, progress.updatedAt],
           !inBulk,
         );
+        if (!inBulk) await persistDb();
+      });
+    },
+    onProfileChanged(profile) {
+      const inBulk = bulkDepth > 0;
+      enqueueWrite(async () => {
+        await db.run("UPDATE profile SET username = ?, friend_code = ? WHERE id = ?", [profile.username, profile.friendCode, profile.id], !inBulk);
         if (!inBulk) await persistDb();
       });
     },

@@ -16,6 +16,7 @@ import type {
   PokemonInstance,
   PokemonInstanceStatus,
   PokemonType,
+  Profile,
   Region,
   Species,
   SpeciesPersonal,
@@ -279,6 +280,17 @@ export interface Repository {
   createTag(name: string): Promise<Tag>;
 
   // ---- Trainer/Profile page ----
+  /**
+   * The single existing profile row (id=1) — identity only (username/friend
+   * code), not a multi-profile switcher. species_personal/form_personal/
+   * mega_personal's PK is the slug alone, not composite with profile_id, so
+   * a second profile couldn't hold separate Dex data without a schema
+   * migration — that's deferred to the Drizzle pass, not done here. Not
+   * included in export/import: it's per-install identity, not collection
+   * data to merge across devices.
+   */
+  getProfile(): Profile;
+  setProfile(username: string, friendCode: string | null): void;
   getPlayerProgress(): PlayerProgressPersonal | undefined;
   setPlayerProgress(currentLevel: number | null, totalXp: number | null): void;
   listMedalProgress(): MedalProgress[];
