@@ -31,6 +31,7 @@
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { migrate } from "drizzle-orm/sqlite-proxy/migrator";
 import { getDrizzleDb } from "./drizzle-client";
+import { DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME } from "./schema";
 import journal from "./migrations/meta/_journal.json" with { type: "json" };
 
 const MIGRATIONS_TABLE = "__drizzle_migrations";
@@ -76,6 +77,26 @@ async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection)
   await db.run(`INSERT INTO ${MIGRATIONS_TABLE} (hash, created_at) VALUES (?, ?)`, [BASELINE_MIGRATION_HASH, BASELINE_MIGRATION_MILLIS], false);
 }
 
+// Drizzle-kit only ever generates schema DDL, never seed data — the profile
+// table's id=1 row (every other personal table's profile_id column defaults
+// to this id, several of them via a FK into profile(id)) has to be inserted
+// by app code. An upgrading v6 device already has a real profile row
+// (migration 0001's table-rebuild carries it across); this only matters for
+// a genuinely fresh install. Must run after migrate() completes (the
+// profile table doesn't exist before then) and before any other write to a
+// personal table, since profile_id defaults/FKs depend on this row existing
+// — runPersonalMigrations is the right place, as the last thing it does.
+async function seedDefaultProfileIfMissing(db: SQLiteDBConnection): Promise<void> {
+  const result = await db.query("SELECT COUNT(*) as c FROM profile");
+  const row = result.values?.[0] as { c: number } | undefined;
+  if ((row?.c ?? 0) > 0) return;
+  await db.run(
+    "INSERT INTO profile (id, username, friend_code, created_at) VALUES (?, ?, NULL, ?)",
+    [DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME, Date.now()],
+    false,
+  );
+}
+
 async function assertNotADowngrade(db: SQLiteDBConnection): Promise<void> {
   if (!(await tableExists(db, MIGRATIONS_TABLE))) return; // fresh install, or bootstrap just ran with nothing later than baseline
   const result = await db.query(`SELECT created_at FROM ${MIGRATIONS_TABLE} ORDER BY created_at DESC LIMIT 1`);
@@ -112,7 +133,7 @@ export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<voi
   // before trusting this fix.
   await db.run("PRAGMA foreign_keys = OFF", [], false);
   try {
-    const drizzleDb = await getDrizzleDb();
+    const drizzleDb = getDrizzleDb(db);
     await migrate(drizzleDb, async (queries) => {
       await db.beginTransaction();
       try {
@@ -128,4 +149,6 @@ export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<voi
   } finally {
     await db.run("PRAGMA foreign_keys = ON", [], false);
   }
+
+  await seedDefaultProfileIfMissing(db);
 }
