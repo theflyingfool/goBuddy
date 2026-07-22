@@ -11,6 +11,34 @@ import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { REFERENCE_SCHEMA_SQL } from "./schema";
 import type { ReferenceData } from "./reference-data";
 import { SLUG_RENAMES } from "./slug-renames";
+import { getDrizzleDb } from "./drizzle-client";
+import {
+  backgrounds,
+  communityDay,
+  communityDayBonus,
+  communityDayEventMove,
+  communityDaySpecies,
+  form,
+  formMove,
+  formTypes,
+  friendshipLevel,
+  medal,
+  medalTier,
+  megaVariant,
+  move,
+  playerLevel,
+  playerLevelReward,
+  pvpRankRequirement,
+  pvpRankReward,
+  raidBoss,
+  raidBossWeatherBoost,
+  regions,
+  species,
+  speciesEvolution,
+  typeEffectiveness,
+  types,
+  weatherBoost,
+} from "./schema/reference";
 
 const VERSION_SETTING_KEY = "reference_data_version";
 
@@ -71,7 +99,23 @@ async function quarantineOrphans(
   }
 }
 
-const b = (value: boolean) => (value ? 1 : 0);
+// Splits a row array into fixed-size slices for batched inserts. Needed
+// because a single `.values([...])` call binds one SQL parameter per cell,
+// and older SQLite builds (pre-3.32, still the default on some Android
+// toolchains) cap bound parameters at 999 — comfortably exceeded by this
+// app's largest reference tables (e.g. form_move: ~10k rows) if inserted in
+// one shot. 90 rows keeps every table (max 11 columns, e.g. species/form)
+// safely under that limit (990 params) with margin to spare, regardless of
+// which SQLite build a given device actually ships.
+const INSERT_CHUNK_SIZE = 90;
+
+function chunk<T>(rows: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
+}
 
 export async function syncReferenceData(db: SQLiteDBConnection, referenceData: ReferenceData): Promise<void> {
   await db.execute(REFERENCE_SCHEMA_SQL);
@@ -80,6 +124,8 @@ export async function syncReferenceData(db: SQLiteDBConnection, referenceData: R
   const newVersion = hashContent(content);
   const storedVersion = await getStoredReferenceVersion(db);
   if (storedVersion === newVersion) return;
+
+  const drizzleDb = getDrizzleDb(db);
 
   await db.beginTransaction();
   try {
@@ -159,161 +205,234 @@ export async function syncReferenceData(db: SQLiteDBConnection, referenceData: R
     }
     await db.execute(REFERENCE_SCHEMA_SQL, false);
 
-    for (const region of referenceData.regions) {
-      await db.run("INSERT INTO regions (slug, name) VALUES (?, ?)", [region.slug, region.name], false);
+    for (const rows of chunk(referenceData.regions.map((r) => ({ slug: r.slug, name: r.name })), INSERT_CHUNK_SIZE)) {
+      await drizzleDb.insert(regions).values(rows).run();
     }
-    for (const type of referenceData.types) {
-      await db.run("INSERT INTO types (slug, name) VALUES (?, ?)", [type.slug, type.name], false);
+    for (const rows of chunk(referenceData.types.map((t) => ({ slug: t.slug, name: t.name })), INSERT_CHUNK_SIZE)) {
+      await drizzleDb.insert(types).values(rows).run();
     }
-    for (const bg of referenceData.backgrounds) {
-      await db.run("INSERT INTO backgrounds (slug, name) VALUES (?, ?)", [bg.slug, bg.name], false);
+    for (const rows of chunk(referenceData.backgrounds.map((bg) => ({ slug: bg.slug, name: bg.name })), INSERT_CHUNK_SIZE)) {
+      await drizzleDb.insert(backgrounds).values(rows).run();
     }
-    for (const s of referenceData.species) {
-      await db.run(
-        `INSERT INTO species (slug, dex_number, name, family_slug, gen, rarity, region_slug, has_male, has_female, can_mega_evolve, can_gigantamax)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [s.slug, s.dexNumber, s.name, s.familySlug, s.gen, s.rarity, s.regionSlug, b(s.hasMale), b(s.hasFemale), b(s.canMegaEvolve), b(s.canGigantamax)],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.species.map((s) => ({
+        slug: s.slug,
+        dexNumber: s.dexNumber,
+        name: s.name,
+        familySlug: s.familySlug,
+        gen: s.gen,
+        rarity: s.rarity,
+        regionSlug: s.regionSlug,
+        hasMale: s.hasMale,
+        hasFemale: s.hasFemale,
+        canMegaEvolve: s.canMegaEvolve,
+        canGigantamax: s.canGigantamax,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(species).values(rows).run();
     }
-    for (const f of referenceData.forms) {
-      await db.run(
-        `INSERT INTO form (slug, species_slug, form_name, costume_name, gender, evolves, shiny_available, shadow_available, dynamax_available, regional_exclusive, image_ref)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          f.slug,
-          f.speciesSlug,
-          f.formName,
-          f.costumeName,
-          f.gender,
-          b(f.evolves),
-          b(f.shinyAvailable),
-          b(f.shadowAvailable),
-          b(f.dynamaxAvailable),
-          b(f.regionalExclusive),
-          f.imageRef,
-        ],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.forms.map((f) => ({
+        slug: f.slug,
+        speciesSlug: f.speciesSlug,
+        formName: f.formName,
+        costumeName: f.costumeName,
+        gender: f.gender,
+        evolves: f.evolves,
+        shinyAvailable: f.shinyAvailable,
+        shadowAvailable: f.shadowAvailable,
+        dynamaxAvailable: f.dynamaxAvailable,
+        regionalExclusive: f.regionalExclusive,
+        imageRef: f.imageRef,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(form).values(rows).run();
     }
-    for (const ft of referenceData.formTypes) {
-      await db.run("INSERT INTO form_types (form_slug, type_slug) VALUES (?, ?)", [ft.formSlug, ft.typeSlug], false);
+    for (const rows of chunk(
+      referenceData.formTypes.map((ft) => ({ formSlug: ft.formSlug, typeSlug: ft.typeSlug })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(formTypes).values(rows).run();
     }
-    for (const m of referenceData.megaVariants) {
-      await db.run("INSERT INTO mega_variant (slug, species_slug, variant) VALUES (?, ?, ?)", [m.slug, m.speciesSlug, m.variant], false);
+    for (const rows of chunk(
+      referenceData.megaVariants.map((m) => ({ slug: m.slug, speciesSlug: m.speciesSlug, variant: m.variant })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(megaVariant).values(rows).run();
     }
-    for (const mv of referenceData.moves) {
-      await db.run(
-        `INSERT INTO move (slug, name, category, type_slug, power, energy_delta, duration_ms, pvp_power, pvp_energy_delta, pvp_turns)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [mv.slug, mv.name, mv.category, mv.typeSlug, mv.power, mv.energyDelta, mv.durationMs, mv.pvpPower, mv.pvpEnergyDelta, mv.pvpTurns],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.moves.map((mv) => ({
+        slug: mv.slug,
+        name: mv.name,
+        category: mv.category,
+        typeSlug: mv.typeSlug,
+        power: mv.power,
+        energyDelta: mv.energyDelta,
+        durationMs: mv.durationMs,
+        pvpPower: mv.pvpPower,
+        pvpEnergyDelta: mv.pvpEnergyDelta,
+        pvpTurns: mv.pvpTurns,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(move).values(rows).run();
     }
-    for (const fm of referenceData.formMoves) {
-      await db.run(
-        "INSERT INTO form_move (form_slug, move_slug, is_elite) VALUES (?, ?, ?)",
-        [fm.formSlug, fm.moveSlug, b(fm.isElite)],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.formMoves.map((fm) => ({ formSlug: fm.formSlug, moveSlug: fm.moveSlug, isElite: fm.isElite })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(formMove).values(rows).run();
     }
-    for (const se of referenceData.speciesEvolutions) {
-      await db.run(
-        "INSERT INTO species_evolution (from_species_slug, to_species_slug, candy_required, item_required) VALUES (?, ?, ?, ?)",
-        [se.fromSpeciesSlug, se.toSpeciesSlug, se.candyRequired, se.itemRequired],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.speciesEvolutions.map((se) => ({
+        fromSpeciesSlug: se.fromSpeciesSlug,
+        toSpeciesSlug: se.toSpeciesSlug,
+        candyRequired: se.candyRequired,
+        itemRequired: se.itemRequired,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(speciesEvolution).values(rows).run();
     }
-    for (const te of referenceData.typeEffectiveness) {
-      await db.run(
-        "INSERT INTO type_effectiveness (attacking_type_slug, defending_type_slug, multiplier) VALUES (?, ?, ?)",
-        [te.attackingTypeSlug, te.defendingTypeSlug, te.multiplier],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.typeEffectiveness.map((te) => ({
+        attackingTypeSlug: te.attackingTypeSlug,
+        defendingTypeSlug: te.defendingTypeSlug,
+        multiplier: te.multiplier,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(typeEffectiveness).values(rows).run();
     }
-    for (const wb of referenceData.weatherBoosts) {
-      await db.run("INSERT INTO weather_boost (weather, type_slug) VALUES (?, ?)", [wb.weather, wb.typeSlug], false);
+    for (const rows of chunk(
+      referenceData.weatherBoosts.map((wb) => ({ weather: wb.weather, typeSlug: wb.typeSlug })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(weatherBoost).values(rows).run();
     }
-    for (const pl of referenceData.playerLevels) {
-      await db.run("INSERT INTO player_level (level, cumulative_xp) VALUES (?, ?)", [pl.level, pl.cumulativeXp], false);
+    for (const rows of chunk(
+      referenceData.playerLevels.map((pl) => ({ level: pl.level, cumulativeXp: pl.cumulativeXp })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(playerLevel).values(rows).run();
     }
-    for (const plr of referenceData.playerLevelRewards) {
-      await db.run(
-        "INSERT INTO player_level_reward (level, sort_order, item_name, amount) VALUES (?, ?, ?, ?)",
-        [plr.level, plr.sortOrder, plr.itemName, plr.amount],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.playerLevelRewards.map((plr) => ({
+        level: plr.level,
+        sortOrder: plr.sortOrder,
+        itemName: plr.itemName,
+        amount: plr.amount,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(playerLevelReward).values(rows).run();
     }
-    for (const md of referenceData.medals) {
-      await db.run(
-        "INSERT INTO medal (slug, name, description, is_event_medal) VALUES (?, ?, ?, ?)",
-        [md.slug, md.name, md.description, b(md.isEventMedal)],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.medals.map((md) => ({
+        slug: md.slug,
+        name: md.name,
+        description: md.description,
+        isEventMedal: md.isEventMedal,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(medal).values(rows).run();
     }
-    for (const mt of referenceData.medalTiers) {
-      await db.run("INSERT INTO medal_tier (medal_slug, rank, target) VALUES (?, ?, ?)", [mt.medalSlug, mt.rank, mt.target], false);
+    for (const rows of chunk(
+      referenceData.medalTiers.map((mt) => ({ medalSlug: mt.medalSlug, rank: mt.rank, target: mt.target })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(medalTier).values(rows).run();
     }
-    for (const fl of referenceData.friendshipLevels) {
-      await db.run(
-        `INSERT INTO friendship_level (level, name, points_required, xp_reward, attack_bonus, trading_discount, raid_ball_bonus)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [fl.level, fl.name, fl.pointsRequired, fl.xpReward, fl.attackBonus, fl.tradingDiscount, fl.raidBallBonus],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.friendshipLevels.map((fl) => ({
+        level: fl.level,
+        name: fl.name,
+        pointsRequired: fl.pointsRequired,
+        xpReward: fl.xpReward,
+        attackBonus: fl.attackBonus,
+        tradingDiscount: fl.tradingDiscount,
+        raidBallBonus: fl.raidBallBonus,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(friendshipLevel).values(rows).run();
     }
-    for (const pr of referenceData.pvpRankRewards) {
-      await db.run(
-        "INSERT INTO pvp_rank_reward (league_rank, track, sort_order, reward_type, item_name, amount) VALUES (?, ?, ?, ?, ?, ?)",
-        [pr.leagueRank, pr.track, pr.sortOrder, pr.rewardType, pr.itemName, pr.amount],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.pvpRankRewards.map((pr) => ({
+        leagueRank: pr.leagueRank,
+        track: pr.track,
+        sortOrder: pr.sortOrder,
+        rewardType: pr.rewardType,
+        itemName: pr.itemName,
+        amount: pr.amount,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(pvpRankReward).values(rows).run();
     }
-    for (const rq of referenceData.pvpRankRequirements) {
-      await db.run(
-        "INSERT INTO pvp_rank_requirement (rank, additional_battles_required, additional_battle_wins_required) VALUES (?, ?, ?)",
-        [rq.rank, rq.additionalBattlesRequired, rq.additionalBattleWinsRequired],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.pvpRankRequirements.map((rq) => ({
+        rank: rq.rank,
+        additionalBattlesRequired: rq.additionalBattlesRequired,
+        additionalBattleWinsRequired: rq.additionalBattleWinsRequired,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(pvpRankRequirement).values(rows).run();
     }
-    for (const rb of referenceData.raidBosses) {
-      await db.run(
-        `INSERT INTO raid_boss (tier, form_slug, min_cp, max_cp, min_boosted_cp, max_boosted_cp, possible_shiny)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [rb.tier, rb.formSlug, rb.minCp, rb.maxCp, rb.minBoostedCp, rb.maxBoostedCp, b(rb.possibleShiny)],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.raidBosses.map((rb) => ({
+        tier: rb.tier,
+        formSlug: rb.formSlug,
+        minCp: rb.minCp,
+        maxCp: rb.maxCp,
+        minBoostedCp: rb.minBoostedCp,
+        maxBoostedCp: rb.maxBoostedCp,
+        possibleShiny: rb.possibleShiny,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(raidBoss).values(rows).run();
     }
-    for (const rw of referenceData.raidBossWeatherBoosts) {
-      await db.run(
-        "INSERT INTO raid_boss_weather_boost (tier, form_slug, weather) VALUES (?, ?, ?)",
-        [rw.tier, rw.formSlug, rw.weather],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.raidBossWeatherBoosts.map((rw) => ({ tier: rw.tier, formSlug: rw.formSlug, weather: rw.weather })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(raidBossWeatherBoost).values(rows).run();
     }
-    for (const cd of referenceData.communityDays) {
-      await db.run("INSERT INTO community_day (number, start_date, end_date) VALUES (?, ?, ?)", [cd.number, cd.startDate, cd.endDate], false);
+    for (const rows of chunk(
+      referenceData.communityDays.map((cd) => ({ number: cd.number, startDate: cd.startDate, endDate: cd.endDate })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(communityDay).values(rows).run();
     }
-    for (const cdb of referenceData.communityDayBonuses) {
-      await db.run(
-        "INSERT INTO community_day_bonus (community_day_number, bonus) VALUES (?, ?)",
-        [cdb.communityDayNumber, cdb.bonus],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.communityDayBonuses.map((cdb) => ({ communityDayNumber: cdb.communityDayNumber, bonus: cdb.bonus })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(communityDayBonus).values(rows).run();
     }
-    for (const cds of referenceData.communityDaySpecies) {
-      await db.run(
-        "INSERT INTO community_day_species (community_day_number, species_slug) VALUES (?, ?)",
-        [cds.communityDayNumber, cds.speciesSlug],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.communityDaySpecies.map((cds) => ({
+        communityDayNumber: cds.communityDayNumber,
+        speciesSlug: cds.speciesSlug,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(communityDaySpecies).values(rows).run();
     }
-    for (const cdm of referenceData.communityDayEventMoves) {
-      await db.run(
-        "INSERT INTO community_day_event_move (community_day_number, species_slug, move_slug) VALUES (?, ?, ?)",
-        [cdm.communityDayNumber, cdm.speciesSlug, cdm.moveSlug],
-        false,
-      );
+    for (const rows of chunk(
+      referenceData.communityDayEventMoves.map((cdm) => ({
+        communityDayNumber: cdm.communityDayNumber,
+        speciesSlug: cdm.speciesSlug,
+        moveSlug: cdm.moveSlug,
+      })),
+      INSERT_CHUNK_SIZE,
+    )) {
+      await drizzleDb.insert(communityDayEventMove).values(rows).run();
     }
 
     await db.run(
