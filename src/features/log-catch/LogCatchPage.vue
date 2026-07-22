@@ -8,6 +8,7 @@
 import { computed, ref } from "vue";
 import type { NewPokemonInstanceBatch, Repository } from "../../data/repository";
 import type { Form, PokemonInstance, Species } from "../../db/types";
+import { speciesSpritePath } from "../../ui/sprites";
 
 const props = defineProps<{ repo: Repository }>();
 
@@ -124,13 +125,25 @@ async function quickAction(id: number, status: "traded" | "evolved" | "released"
 
   <fieldset>
     <legend>Species</legend>
-    <input class="search-input" type="search" placeholder="Search species…" v-model="speciesQuery" @input="searchSpecies" />
-    <ul v-if="speciesResults.length" class="species-results">
+    <div class="species-picker" v-if="selectedSpecies">
+      <img class="sprite-sm" :src="speciesSpritePath(selectedSpecies.dexNumber)" alt="" />
+      <div>
+        <div class="name">{{ selectedSpecies.name }}</div>
+        <div class="form gap-note" v-if="formsForSpecies.length">
+          {{ formsForSpecies.find((f) => f.slug === selectedFormSlug)?.costumeName ?? formsForSpecies.find((f) => f.slug === selectedFormSlug)?.formName }}
+        </div>
+      </div>
+      <button type="button" class="chip-btn" @click="selectedSpecies = null; speciesQuery = ''">Change</button>
+    </div>
+    <input v-else class="search-input" type="search" placeholder="Search species…" v-model="speciesQuery" @input="searchSpecies" />
+    <ul v-if="!selectedSpecies && speciesResults.length" class="species-results">
       <li v-for="s in speciesResults" :key="s.slug">
-        <button type="button" @click="pickSpecies(s)">#{{ s.dexNumber }} {{ s.name }}</button>
+        <button type="button" @click="pickSpecies(s)">
+          <img class="sprite-sm" :src="speciesSpritePath(s.dexNumber)" alt="" />#{{ s.dexNumber }} {{ s.name }}
+        </button>
       </li>
     </ul>
-    <label class="field" v-if="selectedSpecies">
+    <label class="field" v-if="selectedSpecies && formsForSpecies.length > 1">
       Form
       <select v-model="selectedFormSlug">
         <option v-for="f in formsForSpecies" :key="f.slug" :value="f.slug">{{ f.costumeName ?? f.formName }} ({{ f.gender }})</option>
@@ -149,10 +162,10 @@ async function quickAction(id: number, status: "traded" | "evolved" | "released"
   <fieldset v-if="mode === 'quick'">
     <legend>How many?</legend>
     <div class="qty-row">
-      <button type="button" @click="setQuantity(quantity - 1)">−</button>
+      <button type="button" aria-label="Fewer" @click="setQuantity(quantity - 1)">−</button>
       <input type="number" min="1" max="500" v-model.number="quantity" />
-      <button type="button" @click="setQuantity(quantity + 1)">+</button>
-      <button type="button" v-for="n in [5, 10, 25, 50]" :key="n" @click="setQuantity(n)">{{ n }}</button>
+      <button type="button" aria-label="More" @click="setQuantity(quantity + 1)">+</button>
+      <button type="button" v-for="n in [5, 10, 25, 50]" :key="n" data-qty="1" :class="{ on: quantity === n }" @click="setQuantity(n)">{{ n }}</button>
     </div>
   </fieldset>
 
@@ -201,73 +214,6 @@ async function quickAction(id: number, status: "traded" | "evolved" | "released"
   </div>
 </template>
 
-<style scoped>
-.segmented {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-.segmented button {
-  flex: 1;
-}
-.segmented button.active {
-  background: var(--accent, #2a55d6);
-  color: #fff;
-}
-.species-results {
-  list-style: none;
-  margin: 6px 0;
-  padding: 0;
-}
-.qty-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.qty-row input {
-  width: 60px;
-  text-align: center;
-}
-.input-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.tag-picker {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-.tag-chip {
-  border: 1px dashed var(--line);
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: none;
-}
-.tag-chip.on {
-  border-style: solid;
-  background: var(--surface-2);
-}
-.new-tag-row {
-  display: flex;
-  gap: 6px;
-}
-.save-button {
-  width: 100%;
-  margin: 14px 0;
-  padding: 10px;
-  font-weight: 700;
-}
-.just-logged {
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-}
-.logged-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-}
-</style>
+<!-- Shared "field-log" classes (segmented, qty-row, tag-picker, save-button,
+     just-logged, species-results) are styled globally in src/style.css so
+     this page matches Trainer/Collection/species-detail's visual language. -->

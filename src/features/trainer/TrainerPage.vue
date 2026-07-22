@@ -56,7 +56,7 @@ function updateCount(medalSlug: string, tiers: { rank: number; target: number | 
 
   <fieldset>
     <legend>Level &amp; XP</legend>
-    <div class="input-grid" style="display:flex;gap:10px;flex-wrap:wrap;">
+    <div class="input-grid">
       <label class="field">
         Level
         <input type="number" min="1" max="50" v-model="levelInput" @change="saveProgress" />
@@ -94,24 +94,4 @@ function updateCount(medalSlug: string, tiers: { rank: number; target: number | 
   </fieldset>
 </template>
 
-<style scoped>
-.medal-row {
-  padding: 10px 0;
-  border-top: 1px solid var(--line);
-}
-.medal-head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: 6px;
-}
-.medal-progress {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.medal-progress input {
-  width: 90px;
-}
-</style>
+<!-- .medal-row/.medal-head/.medal-progress are styled globally in src/style.css. -->

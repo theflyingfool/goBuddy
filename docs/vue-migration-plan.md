@@ -180,12 +180,27 @@ deleted, not deprecated-and-kept.
 - [x] Phase 0: Vue plumbing + Settings pilot
 - [x] `medal_progress_personal` schema + migration (v5) + repository support
 - [x] Trainer/Profile page (`src/features/trainer/TrainerPage.vue`) — level/XP + medal progress
-- [ ] **Dex grid + Bulk Edit merge — deliberately deferred, not attempted.** This
-      is the app's most heavily-used, cascade-critical screen; doing the merge
-      (described above) safely needs its own tested, reviewed pass, not a
-      same-session addition alongside five other new features with no
-      incremental testing. `bulk-form-edit.ts` and the grid's existing
-      species-level select-mode are both still exactly as they were.
+- [x] **Dex grid + Bulk Edit merge.** Owner call to do this now despite the
+      breakage risk flagged above. Implementation is a granularity toggle
+      inside the grid's existing select-mode (`species-grid.ts`'s
+      `bulkGranularity: "species" | "form"`) rather than a rewrite:
+      "Species fields" is the grid's original select-mode, unchanged;
+      "Form fields" hands the content area to `bulk-form-edit.ts`'s existing
+      render function, rendered into a slot inside the grid page instead of
+      its own route — that file's filter/search/apply logic is completely
+      untouched, only its call site moved. `/bulk-edit` and the "Bulk Edit"
+      nav entry are gone; the route falls through to the grid.
+- [x] **Visual pass to match the approved mockup** (palette, specimen-tag tile
+      shape, pill segmented/toggle/filter controls, chart-card/hbar stats,
+      field-log form language) — `src/style.css`'s tokens and shared component
+      classes were ported from the mockup and applied across every screen
+      (mostly via existing class names + a global `fieldset`/`.toggle-row`
+      reskin, so page markup mostly didn't need to change). Stats gained a
+      chart-first layout (XP card, specimens-by-state, top tags) with the old
+      completion table demoted to a collapsed "Full completion breakdown"
+      rather than being the whole page. Database/schema work is explicitly
+      out of scope for this pass (Drizzle migration + DB cleanup planned
+      next).
 - [x] Species detail — Tracking tab unchanged; Info tab added
       (`species-detail.ts`, additive, not a Vue rewrite) with real type
       matchups. CP calculator and flavor text show an honest "not available

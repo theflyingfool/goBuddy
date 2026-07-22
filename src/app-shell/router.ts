@@ -1,7 +1,6 @@
 export type Route =
   | { name: "data-entry-grid" }
   | { name: "data-entry-detail"; speciesSlug: string }
-  | { name: "bulk-form-edit" }
   | { name: "stats" }
   | { name: "search-tools" }
   | { name: "coverage-report" }
@@ -19,8 +18,10 @@ export function parseRoute(hash: string): Route {
   if (detailMatch) return { name: "data-entry-detail", speciesSlug: decodeURIComponent(detailMatch[1]) };
 
   switch (path) {
-    case "/bulk-edit":
-      return { name: "bulk-form-edit" };
+    // "/bulk-edit" no longer has its own route — Bulk Edit was merged into
+    // the Dex grid's select-mode (see species-grid.ts). Falls through to the
+    // default grid route below rather than 404-ing for anyone with an old
+    // bookmark/hash.
     case "/stats":
       return { name: "stats" };
     case "/search-tools":

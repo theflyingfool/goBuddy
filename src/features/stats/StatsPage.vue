@@ -23,6 +23,12 @@ onUnmounted(() => {
   // nothing further to clean up here.
 });
 
+// Level-to-next-level XP thresholds aren't exposed on Repository yet (that's
+// a real ingestion-data read, not something to fabricate) — this card shows
+// what's actually known (current level + total XP) rather than a guessed
+// progress bar toward the next level.
+const progress = props.repo.getPlayerProgress();
+
 const stateCounts = props.repo.getSpecimenStateCounts();
 const topTags = props.repo.getTopTagCounts();
 const maxTagCount = Math.max(1, ...topTags.map((t) => t.count));
@@ -30,59 +36,48 @@ const maxStateCount = Math.max(1, stateCounts.shiny, stateCounts.lucky, stateCou
 </script>
 
 <template>
-  <div ref="hostEl"></div>
+  <div class="chart-card xp-card" v-if="progress && (progress.currentLevel !== null || progress.totalXp !== null)">
+    <div class="xp-top">
+      <span v-if="progress.currentLevel !== null">Trainer level {{ progress.currentLevel }}</span>
+      <b class="tabular" v-if="progress.totalXp !== null">{{ progress.totalXp.toLocaleString() }} XP</b>
+    </div>
+  </div>
 
-  <fieldset>
-    <legend>Specimens by state</legend>
-    <div class="bar-row">
+  <div class="chart-card">
+    <div class="ctitle">Specimens by state</div>
+    <div class="hbar-row">
       <span>Shiny</span>
-      <div class="bar-track"><div class="bar-fill" :style="{ width: (stateCounts.shiny / maxStateCount) * 100 + '%' }"></div></div>
-      <span class="tabular">{{ stateCounts.shiny }}</span>
+      <div class="hbar-track"><div class="hbar-fill" :style="{ width: (stateCounts.shiny / maxStateCount) * 100 + '%', background: 'var(--shiny)' }"></div></div>
+      <span class="hbar-val">{{ stateCounts.shiny }}</span>
     </div>
-    <div class="bar-row">
+    <div class="hbar-row">
       <span>Lucky</span>
-      <div class="bar-track"><div class="bar-fill" :style="{ width: (stateCounts.lucky / maxStateCount) * 100 + '%' }"></div></div>
-      <span class="tabular">{{ stateCounts.lucky }}</span>
+      <div class="hbar-track"><div class="hbar-fill" :style="{ width: (stateCounts.lucky / maxStateCount) * 100 + '%', background: 'var(--lucky)' }"></div></div>
+      <span class="hbar-val">{{ stateCounts.lucky }}</span>
     </div>
-    <div class="bar-row">
+    <div class="hbar-row">
       <span>Shadow</span>
-      <div class="bar-track"><div class="bar-fill" :style="{ width: (stateCounts.shadow / maxStateCount) * 100 + '%' }"></div></div>
-      <span class="tabular">{{ stateCounts.shadow }}</span>
+      <div class="hbar-track"><div class="hbar-fill" :style="{ width: (stateCounts.shadow / maxStateCount) * 100 + '%', background: 'var(--shadow)' }"></div></div>
+      <span class="hbar-val">{{ stateCounts.shadow }}</span>
     </div>
-    <div class="bar-row">
+    <div class="hbar-row">
       <span>Purified</span>
-      <div class="bar-track"><div class="bar-fill" :style="{ width: (stateCounts.purified / maxStateCount) * 100 + '%' }"></div></div>
-      <span class="tabular">{{ stateCounts.purified }}</span>
+      <div class="hbar-track"><div class="hbar-fill" :style="{ width: (stateCounts.purified / maxStateCount) * 100 + '%', background: 'var(--purified)' }"></div></div>
+      <span class="hbar-val">{{ stateCounts.purified }}</span>
     </div>
-  </fieldset>
+  </div>
 
-  <fieldset v-if="topTags.length">
-    <legend>Top tags</legend>
-    <div class="bar-row" v-for="entry in topTags" :key="entry.tag.id">
+  <div class="chart-card" v-if="topTags.length">
+    <div class="ctitle">Top tags</div>
+    <div class="hbar-row" v-for="entry in topTags" :key="entry.tag.id">
       <span>{{ entry.tag.name }}</span>
-      <div class="bar-track"><div class="bar-fill" :style="{ width: (entry.count / maxTagCount) * 100 + '%' }"></div></div>
-      <span class="tabular">{{ entry.count }}</span>
+      <div class="hbar-track"><div class="hbar-fill" :style="{ width: (entry.count / maxTagCount) * 100 + '%' }"></div></div>
+      <span class="hbar-val">{{ entry.count }}</span>
     </div>
-  </fieldset>
-</template>
+  </div>
 
-<style scoped>
-.bar-row {
-  display: grid;
-  grid-template-columns: 90px 1fr 40px;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 0.85rem;
-}
-.bar-track {
-  height: 10px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-.bar-fill {
-  height: 100%;
-  background: var(--accent, #2a55d6);
-}
-</style>
+  <details class="settings-details">
+    <summary>Full completion breakdown</summary>
+    <div ref="hostEl"></div>
+  </details>
+</template>

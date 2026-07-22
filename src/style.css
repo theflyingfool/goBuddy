@@ -1,8 +1,11 @@
 /* ==========================================================================
-   Design tokens — "Night Studio": dark-first ink-blue/teal palette carried
-   by a restrained, modern layout system (soft 10px radii, hairline borders,
-   sentence-case type, monospace only for actual numeric data). Light is a
-   genuine second theme, not an inversion — both are hand-tuned.
+   Design tokens — "Field Log": a trainer's specimen journal. "Capture Ring"
+   blue accent (the AR catch-ring/lock-on flash), grounded specimen-tag tile
+   shapes, pill controls. Light is a genuine second theme, not an inversion —
+   both are hand-tuned. Ported from the approved mockup (see
+   docs/vue-migration-plan.md) — palette + component shapes only, none of the
+   mockup's illustrative/fabricated data (CP formula constants, flavor text,
+   PvP ranks) came with it.
 
    Precedence: @media (prefers-color-scheme) sets the OS-driven default;
    :root[data-theme] (stamped by the in-app Settings toggle) overrides it in
@@ -11,75 +14,116 @@
 
 :root {
   color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
 
-  --bg: #eef2f4;
+  --bg: #e8eef6;
   --surface: #ffffff;
-  --surface-2: #e4eaed;
-  --ink: #12181f;
-  --muted: #5c6b78;
-  --line: #dbe3e7;
-  --accent: #0b756c;
-  --on-accent: #eafdfb;
+  --surface-2: #dce6f0;
+  --ink: #101a2c;
+  --muted: #57697e;
+  --line: #cbd8e5;
+  --accent: #2a55d6;
+  --on-accent: #f4f8ff;
 
   /* Positive/negative are self-contained filled controls (fixed fill + text
      pair, contrast-checked against each other) — theme-independent, since the
      button's own background makes the surrounding page bg irrelevant. */
   --positive: #15803d;
   --on-positive: #ffffff;
-  --negative: #dc2626;
-  --on-negative: #ffffff;
+  --negative: #b23b2e;
+  --on-negative: #fdf3f1;
   /* ...but plain colored text (no fill box) reads against the page/card
      surface directly, so it does need a theme-tuned variant. */
   --positive-text: #15803d;
 
+  /* Game-state colors (shiny/lucky/shadow/purified) — mapped to the game's
+     own iconography, not the accent scale, so they stay distinct from it and
+     from each other in both color vision and normal vision. */
+  --shiny: #b8841c;
+  --lucky: #1b84a8;
+  --shadow: #a13232;
+  --purified: #7a5cc2;
+  --shiny-glow: none;
+
   --radius-xs: 4px;
   --radius-sm: 10px;
+  --radius-tag: 14px;
   --radius-pill: 999px;
 
-  --accent-wash: color-mix(in srgb, var(--accent) 14%, transparent);
+  --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", monospace;
+
+  --accent-wash: color-mix(in srgb, var(--accent) 12%, transparent);
   --overlay: color-mix(in srgb, var(--ink) 7%, transparent);
   --overlay-strong: color-mix(in srgb, var(--ink) 12%, transparent);
+  --shadow-card: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent);
+  --shadow-pop: 0 8px 24px color-mix(in srgb, var(--ink) 18%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0c1220;
-    --surface: #131b2c;
-    --surface-2: #1a2436;
-    --ink: #e4ebf4;
-    --muted: #7d8b9a;
-    --line: #232f42;
-    --accent: #3fd1c4;
-    --on-accent: #062522;
+    --bg: #0a1220;
+    --surface: #101a2c;
+    --surface-2: #16223a;
+    --ink: #e7eef7;
+    --muted: #8496ac;
+    --line: #22314a;
+    --accent: #5b8cff;
+    --on-accent: #06122a;
     --positive-text: #34d399;
+    --negative: #e17a6d;
+    --on-negative: #2a0e0a;
+    --shiny: #ad7e1e;
+    --lucky: #3d9dc2;
+    --shadow: #c7695f;
+    --purified: #9779d1;
+    --shiny-glow: 0 0 0 1px color-mix(in srgb, var(--shiny) 55%, transparent), 0 0 14px color-mix(in srgb, var(--shiny) 45%, transparent);
+    --shadow-card: 0 1px 2px color-mix(in srgb, black 30%, transparent);
+    --shadow-pop: 0 12px 32px color-mix(in srgb, black 50%, transparent);
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0c1220;
-  --surface: #131b2c;
-  --surface-2: #1a2436;
-  --ink: #e4ebf4;
-  --muted: #7d8b9a;
-  --line: #232f42;
-  --accent: #3fd1c4;
-  --on-accent: #062522;
+  --bg: #0a1220;
+  --surface: #101a2c;
+  --surface-2: #16223a;
+  --ink: #e7eef7;
+  --muted: #8496ac;
+  --line: #22314a;
+  --accent: #5b8cff;
+  --on-accent: #06122a;
   --positive-text: #34d399;
+  --negative: #e17a6d;
+  --on-negative: #2a0e0a;
+  --shiny: #ad7e1e;
+  --lucky: #3d9dc2;
+  --shadow: #c7695f;
+  --purified: #9779d1;
+  --shiny-glow: 0 0 0 1px color-mix(in srgb, var(--shiny) 55%, transparent), 0 0 14px color-mix(in srgb, var(--shiny) 45%, transparent);
+  --shadow-card: 0 1px 2px color-mix(in srgb, black 30%, transparent);
+  --shadow-pop: 0 12px 32px color-mix(in srgb, black 50%, transparent);
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #eef2f4;
+  --bg: #e8eef6;
   --surface: #ffffff;
-  --surface-2: #e4eaed;
-  --ink: #12181f;
-  --muted: #5c6b78;
-  --line: #dbe3e7;
-  --accent: #0b756c;
-  --on-accent: #eafdfb;
+  --surface-2: #dce6f0;
+  --ink: #101a2c;
+  --muted: #57697e;
+  --line: #cbd8e5;
+  --accent: #2a55d6;
+  --on-accent: #f4f8ff;
   --positive-text: #15803d;
+  --negative: #b23b2e;
+  --on-negative: #fdf3f1;
+  --shiny: #b8841c;
+  --lucky: #1b84a8;
+  --shadow: #a13232;
+  --purified: #7a5cc2;
+  --shiny-glow: none;
+  --shadow-card: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent);
+  --shadow-pop: 0 8px 24px color-mix(in srgb, var(--ink) 18%, transparent);
 }
 
 * {
@@ -102,16 +146,24 @@ h3 {
   margin: 0 0 0.5rem;
 }
 
+/* Every fieldset app-wide reads as a "field-card"/"info-block"/"achv-group"
+   from the mockup — a rounded surface card with an uppercase muted legend —
+   without needing per-page markup changes. */
 fieldset {
-  border-color: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 0.85rem 0.9rem;
+  margin: 0 0 0.65rem;
 }
 
 legend {
   color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  padding: 0 0.3rem;
 }
 
 input[type="checkbox"] {
@@ -119,9 +171,13 @@ input[type="checkbox"] {
 }
 
 .dex-num {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--muted);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 #app {
@@ -159,10 +215,18 @@ input[type="checkbox"] {
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: 0.6rem;
+  padding: 0.7rem 0.75rem;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+}
+
+.app-header-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
 }
 
 .header-search {
@@ -183,7 +247,7 @@ input[type="checkbox"] {
   width: 2.4rem;
   height: 2.4rem;
   font-size: 1.05rem;
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -198,7 +262,7 @@ input[type="checkbox"] {
   right: -0.3rem;
   background: var(--accent);
   color: var(--on-accent);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   line-height: 1.3;
   border-radius: var(--radius-pill);
@@ -209,7 +273,7 @@ input[type="checkbox"] {
   width: 100%;
   box-sizing: border-box;
   padding: 0.6rem 0.7rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
   background: var(--bg);
   color: var(--ink);
   border: 1px solid var(--line);
@@ -284,6 +348,8 @@ input[type="checkbox"] {
 
 .nav-title {
   margin-top: 0;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .nav-list {
@@ -295,25 +361,36 @@ input[type="checkbox"] {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.65rem;
   width: 100%;
   text-align: left;
-  padding: 0.75rem 0.5rem;
-  font-size: 1.05rem;
-  color: var(--ink);
+  padding: 0.6rem 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
 }
 
+.nav-item:hover {
+  background: var(--surface-2);
+}
+
 .nav-item-icon {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   flex-shrink: 0;
+  width: 1.3rem;
+  text-align: center;
 }
 
 .nav-item-current {
-  font-weight: bold;
+  font-weight: 700;
   color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.nav-item-current:hover {
   background: var(--accent-wash);
 }
 
@@ -344,16 +421,18 @@ input[type="checkbox"] {
 .tab-item {
   flex: 1;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.5rem 0.25rem 0.7rem;
+  gap: 0.2rem;
+  padding: 0.55rem 0.25rem 0.65rem;
   border-radius: 0;
-  font-size: 0.7rem;
+  font-size: 0.64rem;
+  font-weight: 700;
   text-align: center;
   color: var(--muted);
 }
 
 .tab-item .nav-item-icon {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
+  width: auto;
 }
 
 .tab-item.nav-item-current {
@@ -369,11 +448,11 @@ input[type="checkbox"] {
 @media (min-width: 720px) {
   .sidebar-nav {
     display: block;
-    width: 220px;
+    width: 224px;
     flex-shrink: 0;
     background: var(--surface);
     border-right: 1px solid var(--line);
-    padding: 1rem;
+    padding: 1.1rem 0.9rem;
     box-sizing: border-box;
     overflow-y: auto;
   }
@@ -471,9 +550,10 @@ input[type="checkbox"] {
   max-height: 75vh;
   background: var(--surface);
   border-top: 1px solid var(--line);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border-radius: 18px 18px 0 0;
   padding: 1rem 1rem 1.5rem;
   box-sizing: border-box;
+  box-shadow: var(--shadow-pop);
   transform: translateY(100%);
   transition: transform 0.2s ease;
   z-index: 30;
@@ -531,11 +611,13 @@ input[type="checkbox"] {
 
 .filter-chip {
   padding: 0.4rem 0.9rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  background: none;
+  background: var(--bg);
+  white-space: nowrap;
 }
 
 .filter-chip-active {
@@ -607,19 +689,36 @@ input[type="checkbox"] {
   gap: 0.25rem;
 }
 
+/* "Specimen-tag" tile — a museum specimen label punched for a string: a
+   die-cut notch (::before) on the top edge, a round sprite well instead of a
+   square thumbnail. */
 .species-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.15rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.6rem 0.4rem 0.5rem;
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-tag);
+  box-shadow: var(--shadow-card);
   position: relative;
   width: 100%;
   box-sizing: border-box;
+}
+
+.species-tile::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--line);
 }
 
 /* Sibling of .species-tile (see species-grid.ts) rather than nested inside
@@ -650,9 +749,12 @@ input[type="checkbox"] {
 }
 
 .species-sprite {
-  width: 100%;
+  width: 78%;
   aspect-ratio: 1 / 1;
   object-fit: contain;
+  border-radius: 50%;
+  background: var(--surface-2);
+  margin: 0.15rem auto 0.1rem;
 }
 
 .species-tile.uncaught .species-sprite {
@@ -662,11 +764,11 @@ input[type="checkbox"] {
 
 .badge-row {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 4px;
+  right: 4px;
   display: flex;
   gap: 1px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   line-height: 1;
 }
 
@@ -674,13 +776,14 @@ input[type="checkbox"] {
   background: var(--surface-2);
   color: var(--ink);
   border-radius: var(--radius-xs);
-  padding: 1px 2px;
+  padding: 1px 3px;
 }
 
 .tile-label {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
   text-align: center;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 /* ---- Species detail ---- */
@@ -690,7 +793,19 @@ input[type="checkbox"] {
   flex-wrap: wrap;
   align-items: stretch;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin: -0.5rem -0.5rem 0.75rem;
+  padding: 0.9rem 0.75rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (min-width: 720px) {
+  .detail-header {
+    margin: -0.5rem -0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    margin-bottom: 0.75rem;
+  }
 }
 
 .detail-header-identity {
@@ -743,11 +858,15 @@ input[type="checkbox"] {
 }
 
 .type-chip {
-  padding: 0.1rem 0.5rem;
-  font-size: 0.75rem;
-  color: var(--ink);
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
   background: var(--surface-2);
-  border: 1px solid var(--line);
+  border: none;
   border-radius: var(--radius-pill);
 }
 
@@ -760,8 +879,9 @@ input[type="checkbox"] {
   width: 4.5rem;
   height: 4.5rem;
   display: block;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   background: var(--surface-2);
+  box-shadow: var(--shadow-card);
 }
 
 .shiny-view-toggle {
@@ -827,14 +947,10 @@ input[type="checkbox"] {
   opacity: 0.3;
 }
 
-fieldset {
-  margin: 0.5rem 0;
-  border-radius: var(--radius-sm);
-}
-
 .settings-details {
-  margin: 0.5rem 0;
-  padding: 0.6rem 0.75rem;
+  margin: 0 0 0.65rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 }
@@ -842,10 +958,10 @@ fieldset {
 .settings-details > summary {
   cursor: pointer;
   color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .settings-details[open] > summary {
@@ -883,7 +999,8 @@ fieldset {
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-tag);
+  box-shadow: var(--shadow-card);
   position: relative;
   cursor: pointer;
 }
@@ -956,12 +1073,29 @@ fieldset {
   padding: 0.4rem 0.25rem;
 }
 
+/* Pill "toggle-chip" look (mockup's .toggle-chip) applied to the existing
+   checkbox+label markup (ui/dom.ts's labeledToggle) via :has(), so every
+   achievement/settings toggle app-wide gets the chip treatment without
+   markup changes. */
 .toggle-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.25rem;
-  font-size: 1rem;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  margin: 0.2rem 0.3rem 0.2rem 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.toggle-row:has(input:checked) {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
 }
 
 .mega-variant-row {
@@ -988,13 +1122,27 @@ fieldset {
   min-width: 4.5rem;
 }
 
+/* Mega row's toggles sit inline next to a sprite/label in a data row, not
+   loose in a wrapping chip cloud — keep them a plain compact checkbox+label
+   instead of the full pill treatment above. */
 .mega-variant-row .toggle-row {
   padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--ink);
+}
+
+.mega-variant-row .toggle-row:has(input:checked) {
+  background: none;
+  color: var(--accent);
 }
 
 .toggle-row input[type="checkbox"] {
-  width: 1.4em;
-  height: 1.4em;
+  width: 1em;
+  height: 1em;
+  accent-color: var(--accent);
 }
 
 .toggle-row-disabled {
@@ -1070,7 +1218,7 @@ fieldset {
 }
 
 .stats-cell-text {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1084,13 +1232,15 @@ fieldset {
 .stats-kpi-card {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.35rem;
-  padding: 0.75rem 0.85rem;
-  text-align: left;
+  padding: 0.85rem 0.7rem;
+  text-align: center;
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
 }
 
 .stats-kpi-card .stats-cell-bar {
@@ -1098,22 +1248,24 @@ fieldset {
 }
 
 .stats-kpi-label {
-  font-size: 0.75rem;
+  font-size: 0.66rem;
   color: var(--muted);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
 .stats-kpi-value {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1.7rem;
-  font-weight: 650;
+  font-size: 1.5rem;
+  font-weight: 800;
   line-height: 1.1;
+  color: var(--accent);
 }
 
 .stats-kpi-fraction {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
   color: var(--muted);
@@ -1162,6 +1314,78 @@ fieldset {
   font-size: 0.9rem;
   color: var(--muted);
   cursor: pointer;
+}
+
+/* Trainer XP card + specimens-by-state/top-tags charts (StatsPage.vue) —
+   the mockup's xp-card/chart-card/hbar-row language. */
+.chart-card {
+  margin: 0 0 0.65rem;
+  padding: 0.85rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.ctitle {
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+.xp-card {
+  padding: 0.85rem 0.9rem;
+}
+
+.xp-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.bar-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+}
+
+.hbar-row {
+  display: grid;
+  grid-template-columns: 84px 1fr 44px;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.hbar-row:last-child {
+  margin-bottom: 0;
+}
+
+.hbar-track {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.hbar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.hbar-val {
+  text-align: right;
+  font-family: var(--font-mono);
+  color: var(--muted);
 }
 
 /* ---- Bulk edit (grid select-mode + bulk-form page) ---- */
@@ -1255,9 +1479,9 @@ fieldset {
   padding: 0.45rem 0.9rem;
   border: none;
   border-radius: var(--radius-pill);
-  background: var(--positive);
-  color: var(--on-positive);
-  font-weight: 650;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
 }
 
 .bulk-apply-button:disabled {
@@ -1306,4 +1530,488 @@ fieldset {
 .theme-options {
   display: flex;
   gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* ---- Shared "field-log" component vocabulary (segmented control, stepper,
+   qty presets, tag picker, save bar) — used by Log a catch, Trainer, and
+   the species-detail Tracking/Info split. ---- */
+
+.segmented {
+  display: flex;
+  gap: 3px;
+  margin: 0 0 0.75rem;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.segmented button,
+.species-view-segmented {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  margin: 0.5rem 0 0.75rem;
+}
+
+.segmented button {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.segmented button.active,
+.segmented button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.species-view-tab {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.species-view-tab.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.species-info-panel fieldset {
+  margin-bottom: 0.65rem;
+}
+
+.matchup-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.matchup-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+}
+
+.matchup-chip.matchup-weak {
+  background: color-mix(in srgb, var(--negative) 16%, var(--surface-2));
+  color: var(--negative);
+}
+
+.matchup-chip.matchup-resist {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  color: var(--accent);
+}
+
+.qty-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.qty-row input[type="number"] {
+  width: 3.4rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.4rem 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.qty-row > button {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.qty-row > button[data-qty],
+.qty-row > button:nth-of-type(n + 3) {
+  width: auto;
+  height: auto;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+}
+
+.qty-row > button.on {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+}
+
+.species-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.species-picker .sprite-sm {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: var(--surface-2);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.species-picker .name {
+  font-weight: 700;
+}
+
+.species-picker button {
+  margin-left: auto;
+}
+
+.species-results .sprite-sm {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+  background: var(--surface-2);
+}
+
+.chip-btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-pill);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+label.field input,
+label.field select {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+  font-size: 0.92rem;
+  font-weight: 400;
+}
+
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.6rem;
+}
+
+.tag-chip,
+.tag-pick-chip {
+  border: 1px dashed var(--line);
+  background: none;
+  color: var(--muted);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tag-chip.on,
+.tag-pick-chip.on {
+  border-style: solid;
+  background: var(--accent-wash);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.new-tag-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.new-tag-row input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
+  padding: 0.4rem 0.6rem;
+}
+
+.save-button {
+  width: 100%;
+  margin: 0.9rem 0;
+  padding: 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.save-button:disabled {
+  background: var(--overlay-strong);
+  color: var(--muted);
+}
+
+.just-logged {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.just-logged h3 {
+  margin: 0 0 0.2rem;
+}
+
+.logged-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.logged-row:first-of-type {
+  border-top: none;
+}
+
+.logged-row button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.species-results {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+}
+
+.species-results button {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: 0.25rem;
+}
+
+/* ---- Collection list ---- */
+
+.collection-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.6rem;
+}
+
+.collection-filters select,
+.collection-filters .search-input {
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.collection-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.collection-row {
+  border-bottom: 1px solid var(--line);
+}
+
+.collection-row:last-child {
+  border-bottom: none;
+}
+
+.collection-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.6rem 0.7rem;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.collection-row-main:hover {
+  background: var(--surface-2);
+}
+
+.collection-sprite {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  background: var(--surface-2);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.collection-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.collection-stats {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.collection-tags {
+  display: flex;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.mini-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.status-pill {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.status-pill.traded,
+.status-pill.transferred {
+  background: color-mix(in srgb, var(--lucky) 16%, var(--surface-2));
+  color: var(--lucky);
+}
+
+.status-pill.released {
+  background: color-mix(in srgb, var(--negative) 14%, var(--surface-2));
+  color: var(--negative);
+}
+
+.status-pill.evolved {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.collection-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.7rem 0.7rem;
+  flex-wrap: wrap;
+}
+
+.collection-actions button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+/* ---- Trainer page: medals ---- */
+
+.medal-row {
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.medal-row:first-of-type {
+  border-top: none;
+}
+
+.medal-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.4rem;
+}
+
+.medal-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.medal-progress label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.medal-progress input {
+  width: 5.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
 }

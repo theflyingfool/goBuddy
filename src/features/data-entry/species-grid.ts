@@ -1,6 +1,7 @@
 import type { GridFilterField, Repository, SpeciesFilter } from "../../data/repository";
 import { clear, el } from "../../ui/dom";
 import { speciesSpritePath } from "../../ui/sprites";
+import { renderBulkFormEditPage } from "./bulk-form-edit";
 import { SPECIES_FIELDS } from "./field-groups";
 import { CLASSIFICATION_FIELDS, INDICATOR_LABELS, MORE_FILTER_FIELDS, gridFilterFieldLabel, renderFilterLegend } from "./indicator-labels";
 
@@ -27,6 +28,15 @@ export interface GridState {
   bulkField: SpeciesBulkField;
   /** Whether the bulk action turns the field on (true) or off (false). */
   bulkValue: boolean;
+  /**
+   * Bulk Edit merged into the Dex grid's select-mode rather than staying a
+   * separate page (owner call — see docs/vue-migration-plan.md): "species"
+   * bulk-edits the species-level fields below via this grid's own tiles;
+   * "form" hands the whole content area to bulk-form-edit.ts's untouched
+   * per-form tile/filter/apply logic instead, since form-level bulk edit
+   * needs a different tile granularity (gender-collapsed forms, not species).
+   */
+  bulkGranularity: "species" | "form";
 }
 
 export interface GridCallbacks {
@@ -37,6 +47,7 @@ export interface GridCallbacks {
   onCycleFieldFilter: (field: GridFilterField) => void;
   onToggleMoreFilters: () => void;
   onToggleSelectMode: () => void;
+  onGranularityChange: (granularity: GridState["bulkGranularity"]) => void;
   onBulkFieldChange: (field: SpeciesBulkField) => void;
   onBulkValueChange: (value: boolean) => void;
   /** Apply the chosen field/value to every selected species (bulkSetSpeciesPersonalField), then clear + refresh. */
@@ -182,9 +193,30 @@ export function renderSpeciesGrid(container: HTMLElement, repo: Repository, stat
   selectToggle.addEventListener("click", () => callbacks.onToggleSelectMode());
   selectToolbar.append(selectToggle);
   if (state.selectMode) {
-    selectToolbar.append(el("span", { class: "grid-select-hint" }, ["Tap tiles to select, then choose a field to set."]));
+    const granularitySeg = el("div", { class: "segmented", style: "margin: 0; flex-shrink: 0;" }, [
+      el("button", { type: "button", "aria-selected": String(state.bulkGranularity === "species") }, ["Species fields"]),
+      el("button", { type: "button", "aria-selected": String(state.bulkGranularity === "form") }, ["Form fields"]),
+    ]);
+    const [speciesTab, formTab] = [...granularitySeg.children] as HTMLButtonElement[];
+    speciesTab.addEventListener("click", () => callbacks.onGranularityChange("species"));
+    formTab.addEventListener("click", () => callbacks.onGranularityChange("form"));
+    selectToolbar.append(granularitySeg);
+    if (state.bulkGranularity === "species") {
+      selectToolbar.append(el("span", { class: "grid-select-hint" }, ["Tap tiles to select, then choose a field to set."]));
+    }
   }
   container.append(selectToolbar);
+
+  if (state.selectMode && state.bulkGranularity === "form") {
+    // Bulk Edit's own logic/state is untouched (see bulk-form-edit.ts) — it
+    // just renders into a slot inside this page instead of its own route,
+    // and self-manages its own re-renders from here on via its closure over
+    // formEditSlot.
+    const formEditSlot = el("div", {});
+    container.append(formEditSlot);
+    renderBulkFormEditPage(formEditSlot, repo);
+    return;
+  }
 
   // Lives in its own stable slot so toggling one tile's selection only
   // touches this small bar in place, instead of rebuilding the entire

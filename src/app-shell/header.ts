@@ -4,12 +4,19 @@ import { clear, el } from "../ui/dom";
 export type HeaderMode =
   | { kind: "filter"; value: string; onChange: (value: string) => void; filterButton?: { activeCount: number; onClick: () => void } }
   | { kind: "jump"; repo: Repository; onSelect: (speciesSlug: string) => void }
-  | { kind: "none" };
+  | { kind: "none"; title?: string };
 
 // Nav moved to the bottom tab bar / sidebar (nav-drawer.ts) — this header is
-// just search (+ an optional filter-sheet trigger) now, no hamburger.
+// just search (+ an optional filter-sheet trigger) now, no hamburger. "none"
+// mode still shows a plain screen title (mockup's topbar) so pages that
+// aren't the grid/detail aren't left with a blank header bar.
 export function renderHeader(container: HTMLElement, mode: HeaderMode) {
   clear(container);
+
+  if (mode.kind === "none") {
+    if (mode.title) container.append(el("div", { class: "app-header-title" }, [mode.title]));
+    return;
+  }
 
   const searchWrap = el("div", { class: "header-search" });
 

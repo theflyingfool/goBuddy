@@ -13,6 +13,7 @@
 import { ref, watch } from "vue";
 import type { PokemonInstanceSort, Repository } from "../../data/repository";
 import type { PokemonInstanceStatus } from "../../db/types";
+import { formSpritePath } from "../../ui/sprites";
 
 const props = defineProps<{ repo: Repository }>();
 
@@ -86,9 +87,10 @@ async function setStatus(id: number, next: PokemonInstanceStatus) {
   <ul class="collection-list">
     <li v-for="row in rows" :key="row.instance.id" class="collection-row">
       <button type="button" class="collection-row-main" @click="toggleActions(row.instance.id)">
-        <span class="dex-num">#{{ row.species.dexNumber }}</span>
+        <img class="collection-sprite" :src="formSpritePath(row.form.slug, row.species.dexNumber, row.instance.shiny)" alt="" />
         <span class="collection-name">{{ row.instance.nickname || row.species.name }}</span>
-        <span class="gap-note">{{ row.form.formName }}<template v-if="row.instance.status !== 'kept'"> · {{ row.instance.status }}</template></span>
+        <span v-if="row.instance.status !== 'kept'" :class="['status-pill', row.instance.status]">{{ row.instance.status }}</span>
+        <span class="gap-note">#{{ row.species.dexNumber }} {{ row.form.formName }}</span>
         <span class="collection-stats tabular" v-if="row.instance.cp !== null || row.instance.ivPercent !== null">
           <template v-if="row.instance.cp !== null">{{ row.instance.cp }} CP</template>
           <template v-if="row.instance.ivPercent !== null"> · {{ row.instance.ivPercent }}% IV</template>
@@ -110,59 +112,4 @@ async function setStatus(id: number, next: PokemonInstanceStatus) {
   <button type="button" v-if="rows.length < total" @click="loadMore">Load more ({{ rows.length }} / {{ total }})</button>
 </template>
 
-<style scoped>
-.collection-filters {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 12px 0;
-}
-.collection-filters select,
-.collection-filters .search-input {
-  padding: 6px 8px;
-}
-.collection-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.collection-row {
-  border-bottom: 1px solid var(--line);
-}
-.collection-row-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  padding: 10px 4px;
-  cursor: pointer;
-  flex-wrap: wrap;
-}
-.collection-name {
-  font-weight: 700;
-}
-.collection-stats {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-.collection-tags {
-  display: flex;
-  gap: 4px;
-}
-.mini-tag {
-  font-size: 0.72rem;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--surface-2);
-}
-.collection-actions {
-  display: flex;
-  gap: 8px;
-  padding: 0 4px 10px;
-  flex-wrap: wrap;
-}
-</style>
+<!-- .collection-* classes are styled globally in src/style.css. -->

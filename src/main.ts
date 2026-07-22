@@ -8,7 +8,6 @@ import { createSqliteRepository } from "./data/sqlite-repository";
 import type { Repository, GridFilterField } from "./data/repository";
 import { renderSpeciesDetail } from "./features/data-entry/species-detail";
 import { renderSpeciesGrid, renderFilterSheetContent, countActiveFilters, type GridState, type GridCallbacks } from "./features/data-entry/species-grid";
-import { renderBulkFormEditPage } from "./features/data-entry/bulk-form-edit";
 import { renderCoverageReportPage } from "./features/coverage-report/coverage-report-page";
 import SettingsPage from "./features/settings/SettingsPage.vue";
 import TrainerPage from "./features/trainer/TrainerPage.vue";
@@ -20,6 +19,21 @@ import { renderHelpPage } from "./features/help/help-page";
 import { renderAchievementsPage, renderSearchToolsPage, renderXpAssistantPage } from "./features/stubs";
 import { createOverlayPanel, bindEscapeToClose } from "./ui/overlay-panel";
 import { el } from "./ui/dom";
+
+// Plain-title header content for every "none"-mode route (data-entry-grid/
+// data-entry-detail build their own header via kind "filter"/"jump" instead).
+const ROUTE_TITLES: Partial<Record<import("./app-shell/router").Route["name"], string>> = {
+  stats: "Stats",
+  "search-tools": "Search Tools",
+  "coverage-report": "Coverage Report",
+  settings: "Settings",
+  trainer: "Trainer",
+  collection: "Collection",
+  "log-catch": "Log a Catch",
+  help: "Help",
+  achievements: "Achievements",
+  "xp-assistant": "XP Assistant",
+};
 
 const app = document.getElementById("app")!;
 const loadingEl = el("p", { class: "app-loading" }, ["Loading your dex…"]);
@@ -72,6 +86,7 @@ function bootstrap(repo: Repository) {
     selectedSpecies: new Set(),
     bulkField: "registered",
     bulkValue: true,
+    bulkGranularity: "species",
   };
 
   // Created once against stable containers — renderTabBar rebuilds the
@@ -126,7 +141,14 @@ function bootstrap(repo: Repository) {
         },
         onToggleSelectMode: () => {
           gridState.selectMode = !gridState.selectMode;
-          if (!gridState.selectMode) gridState.selectedSpecies.clear();
+          if (!gridState.selectMode) {
+            gridState.selectedSpecies.clear();
+            gridState.bulkGranularity = "species";
+          }
+          renderGrid();
+        },
+        onGranularityChange: (granularity: GridState["bulkGranularity"]) => {
+          gridState.bulkGranularity = granularity;
           renderGrid();
         },
         onBulkFieldChange: (field: GridState["bulkField"]) => {
@@ -176,11 +198,8 @@ function bootstrap(repo: Repository) {
         location.hash = "/data-entry";
       });
     } else {
-      renderHeader(headerEl, { kind: "none" });
+      renderHeader(headerEl, { kind: "none", title: ROUTE_TITLES[route.name] });
       switch (route.name) {
-        case "bulk-form-edit":
-          renderBulkFormEditPage(contentEl, repo);
-          break;
         case "stats":
           mountVueRoute(contentEl, StatsPage, { repo });
           break;
