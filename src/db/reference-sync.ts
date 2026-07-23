@@ -86,7 +86,7 @@ async function quarantineOrphans(
   isValid: (row: Record<string, unknown>) => boolean,
 ): Promise<void> {
   const result = await db.query(`SELECT * FROM ${table}`);
-  const now = new Date().toISOString();
+  const now = Date.now();
   for (const row of (result.values ?? []) as Record<string, unknown>[]) {
     if (isValid(row)) continue;
     await db.run(

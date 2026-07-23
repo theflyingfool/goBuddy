@@ -419,7 +419,7 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
     // web, node:sqlite in tests) — plugin-specific `run()` result shapes
     // aren't consistent enough to rely on directly.
     async createPokemonInstances(batch: NewPokemonInstanceBatch): Promise<PokemonInstance[]> {
-      const now = new Date().toISOString();
+      const now = Date.now();
       const created: PokemonInstance[] = [];
       const tagLinks: PokemonInstanceTag[] = [];
       enqueueWrite(async () => {

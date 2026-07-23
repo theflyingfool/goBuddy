@@ -45,7 +45,24 @@ function setQuantity(n: number) {
 const cp = ref<number | null>(null);
 const ivPercent = ref<number | null>(null);
 const nickname = ref("");
-const caughtAt = ref(new Date().toISOString().slice(0, 10));
+// YYYY-MM-DD, bound to <input type="date"> — a UI-only string, converted to
+// epoch-ms at save time (dateInputToEpochMs). Built from local date parts
+// (not toISOString(), which is UTC) so today's date always matches what the
+// date picker shows regardless of the device's timezone offset.
+function todayDateInputValue(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+const caughtAt = ref(todayDateInputValue());
+
+// Parses a "YYYY-MM-DD" <input type="date"> value as local midnight, not UTC
+// midnight (new Date("2026-07-22") parses as UTC, which reads back as the
+// previous day in any timezone west of UTC) — this must round-trip back to
+// the same calendar date the user picked.
+function dateInputToEpochMs(value: string): number {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day).getTime();
+}
 
 const tags = ref(props.repo.listTags());
 const selectedTagIds = ref<Set<number>>(new Set());
@@ -95,7 +112,7 @@ async function save() {
       cp: mode.value === "full" ? cp.value : null,
       ivPercent: mode.value === "full" ? ivPercent.value : null,
       nickname: mode.value === "full" ? nickname.value || null : null,
-      caughtAt: mode.value === "full" ? caughtAt.value : null,
+      caughtAt: mode.value === "full" ? dateInputToEpochMs(caughtAt.value) : null,
       tagIds: mode.value === "full" ? [...selectedTagIds.value] : [],
     };
     justLogged.value = await props.repo.createPokemonInstances(batch);

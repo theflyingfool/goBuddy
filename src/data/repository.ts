@@ -345,7 +345,8 @@ export interface NewPokemonInstanceBatch {
   cp?: number | null;
   ivPercent?: number | null;
   nickname?: string | null;
-  caughtAt?: string | null;
+  /** Epoch milliseconds, matching PokemonInstance.caughtAt — see LogCatchPage.vue for the date-input-string -> epoch-ms conversion. */
+  caughtAt?: number | null;
   backgroundSlug?: string | null;
   tagIds?: number[];
 }

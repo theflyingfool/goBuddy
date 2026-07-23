@@ -219,7 +219,16 @@ CREATE TABLE IF NOT EXISTS community_day_event_move (
 );
 `;
 
-export const CURRENT_PERSONAL_SCHEMA_VERSION = 6;
+// Bumped 6 -> 7 for the Drizzle migration's timestamp format change: every
+// personal-table timestamp column is now an INTEGER (epoch milliseconds)
+// instead of a TEXT ISO-8601 string — a "column meaning changed" bump per
+// docs/data-model.md's versioning policy, not a column add/remove. This
+// constant no longer drives an on-device migration path (see
+// src/db/migrations.ts, which migrates off Drizzle's own tracking table) —
+// it's only compared against PersonalDataExport.schemaVersion on import, so
+// an export from a pre-7 (ISO-string) build is detected rather than merged
+// in silently corrupted (see personal-data-transfer.ts's readPersonalDataFile).
+export const CURRENT_PERSONAL_SCHEMA_VERSION = 7;
 
 // id=1 is the implicit single profile every table's profile_id column
 // defaults to today — every fresh install and every migrated existing

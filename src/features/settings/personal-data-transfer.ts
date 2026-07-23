@@ -24,12 +24,56 @@ export async function exportPersonalData(repo: Repository): Promise<void> {
   });
 }
 
+// Schema version 7 switched every personal-table timestamp from an ISO-8601
+// TEXT string to epoch-ms (see schema.ts's CURRENT_PERSONAL_SCHEMA_VERSION
+// comment). An export file from before that (schemaVersion < 7) still has
+// string timestamps — merging those straight into importPersonalData's
+// number-typed updatedAt/recordedAt fields would compare a number against a
+// string (always false/NaN) and corrupt the column the moment it's written
+// back to SQLite's INTEGER-affinity column. Converting here, once, up front,
+// means importPersonalData never has to know about the old format.
+function isoToEpochMs(value: string): number {
+  return new Date(value).getTime();
+}
+
+function convertLegacyTimestamps(data: PersonalDataExport): PersonalDataExport {
+  return {
+    ...data,
+    speciesPersonal: Object.fromEntries(
+      Object.entries(data.speciesPersonal).map(([slug, row]) => [slug, { ...row, updatedAt: isoToEpochMs(row.updatedAt as unknown as string) }]),
+    ),
+    formPersonal: Object.fromEntries(
+      Object.entries(data.formPersonal).map(([slug, row]) => [slug, { ...row, updatedAt: isoToEpochMs(row.updatedAt as unknown as string) }]),
+    ),
+    megaPersonal: data.megaPersonal
+      ? Object.fromEntries(
+          Object.entries(data.megaPersonal).map(([slug, row]) => [slug, { ...row, updatedAt: isoToEpochMs(row.updatedAt as unknown as string) }]),
+        )
+      : data.megaPersonal,
+    formBackgroundPersonal: data.formBackgroundPersonal?.map((row) => ({ ...row, updatedAt: isoToEpochMs(row.updatedAt as unknown as string) })),
+    medalProgress: data.medalProgress
+      ? Object.fromEntries(
+          Object.entries(data.medalProgress).map(([slug, row]) => [slug, { ...row, updatedAt: isoToEpochMs(row.updatedAt as unknown as string) }]),
+        )
+      : data.medalProgress,
+    pokemonInstances: data.pokemonInstances?.map((row) => ({
+      ...row,
+      recordedAt: isoToEpochMs(row.recordedAt as unknown as string),
+      caughtAt: row.caughtAt ? isoToEpochMs(row.caughtAt as unknown as string) : null,
+      updatedAt: isoToEpochMs(row.updatedAt as unknown as string),
+    })),
+    playerProgress: data.playerProgress ? { ...data.playerProgress, updatedAt: isoToEpochMs(data.playerProgress.updatedAt as unknown as string) } : data.playerProgress,
+    playerProgressLog: data.playerProgressLog?.map((row) => ({ ...row, recordedAt: isoToEpochMs(row.recordedAt as unknown as string) })),
+  };
+}
+
 /** Reads and validates a picked file; the caller (Settings UI) handles confirmation and the actual importPersonalData call. */
 export async function readPersonalDataFile(file: File): Promise<{ data: PersonalDataExport; schemaMismatch: boolean }> {
   const text = await file.text();
-  const data = JSON.parse(text) as PersonalDataExport;
+  let data = JSON.parse(text) as PersonalDataExport;
   if (typeof data.schemaVersion !== "number" || !data.speciesPersonal || !data.formPersonal || !data.appSettings) {
     throw new Error("This doesn't look like a GoBuddy export file.");
   }
+  if (data.schemaVersion < 7) data = convertLegacyTimestamps(data);
   return { data, schemaMismatch: data.schemaVersion !== CURRENT_PERSONAL_SCHEMA_VERSION };
 }

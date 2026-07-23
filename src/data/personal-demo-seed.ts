@@ -12,7 +12,8 @@ import type { FormBackgroundPersonal, FormPersonal, MegaPersonal, SpeciesPersona
 
 // Any fixed value works for demo data — real rows get a real
 // updatedAt from applyXPersonalField, this is only for dummy.sqlite.
-const DEMO_UPDATED_AT = "2024-01-01T00:00:00.000Z";
+// Epoch milliseconds, matching the INTEGER column this is stored in.
+const DEMO_UPDATED_AT = new Date("2024-01-01T00:00:00.000Z").getTime();
 
 export const speciesPersonal: SpeciesPersonal[] = [
   { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: false, purified: false, updatedAt: DEMO_UPDATED_AT },

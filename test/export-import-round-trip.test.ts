@@ -73,7 +73,7 @@ function emptyState(): PersonalState {
     pokemonInstanceTags: [],
     playerProgress: undefined,
     playerProgressLog: [],
-    profile: { id: 1, username: "Trainer", friendCode: null, createdAt: new Date().toISOString() },
+    profile: { id: 1, username: "Trainer", friendCode: null, createdAt: Date.now() },
   };
 }
 
@@ -125,8 +125,8 @@ test("import skips rows whose slug no longer resolves against the loaded referen
     exportedAt: new Date().toISOString(),
     schemaVersion: 1,
     speciesPersonal: {
-      bulbasaur: { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: false, purified: false, updatedAt: new Date().toISOString() },
-      "no-longer-exists": { speciesSlug: "no-longer-exists", registered: true, xxl: false, xxs: false, purified: false, updatedAt: new Date().toISOString() },
+      bulbasaur: { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: false, purified: false, updatedAt: Date.now() },
+      "no-longer-exists": { speciesSlug: "no-longer-exists", registered: true, xxl: false, xxs: false, purified: false, updatedAt: Date.now() },
     },
     formPersonal: {},
     appSettings: {},
@@ -173,7 +173,7 @@ test("import keeps the local row when it's newer than the imported one", async (
     exportedAt: new Date().toISOString(),
     schemaVersion: 1,
     speciesPersonal: {
-      bulbasaur: { speciesSlug: "bulbasaur", registered: false, xxl: false, xxs: true, purified: false, updatedAt: "2000-01-01T00:00:00.000Z" },
+      bulbasaur: { speciesSlug: "bulbasaur", registered: false, xxl: false, xxs: true, purified: false, updatedAt: new Date("2000-01-01T00:00:00.000Z").getTime() },
     },
     formPersonal: {},
     appSettings: {},
@@ -187,13 +187,13 @@ test("import keeps the local row when it's newer than the imported one", async (
 test("import overwrites the local row when the imported one is newer", async () => {
   const destState = emptyState();
   const dest = createInMemoryRepository(referenceData, destState, noopHooks);
-  destState.speciesPersonal.bulbasaur = { speciesSlug: "bulbasaur", registered: true, xxl: true, xxs: false, purified: false, updatedAt: "2000-01-01T00:00:00.000Z" };
+  destState.speciesPersonal.bulbasaur = { speciesSlug: "bulbasaur", registered: true, xxl: true, xxs: false, purified: false, updatedAt: new Date("2000-01-01T00:00:00.000Z").getTime() };
 
   await dest.importPersonalData({
     exportedAt: new Date().toISOString(),
     schemaVersion: 1,
     speciesPersonal: {
-      bulbasaur: { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: true, purified: false, updatedAt: new Date().toISOString() },
+      bulbasaur: { speciesSlug: "bulbasaur", registered: true, xxl: false, xxs: true, purified: false, updatedAt: Date.now() },
     },
     formPersonal: {},
     appSettings: {},

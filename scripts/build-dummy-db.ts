@@ -142,7 +142,7 @@ insertAll(
     xxl: b(sp.xxl),
     xxs: b(sp.xxs),
     purified: b(sp.purified),
-    updated_at: new Date(sp.updatedAt).getTime(),
+    updated_at: sp.updatedAt,
   })),
 );
 
@@ -159,7 +159,7 @@ insertAll(
     row.best_shiny = fp.bestShiny;
     row.best_non_shiny = fp.bestNonShiny;
     row.best_lucky = fp.bestLucky;
-    row.updated_at = new Date(fp.updatedAt).getTime();
+    row.updated_at = fp.updatedAt;
     return row;
   }),
 );
@@ -171,7 +171,7 @@ insertAll(
     form_slug: fb.formSlug,
     achievement_field: FORM_PERSONAL_FIELD_COLUMNS[fb.achievementField],
     background_slug: fb.backgroundSlug,
-    updated_at: new Date(fb.updatedAt).getTime(),
+    updated_at: fb.updatedAt,
   })),
 );
 
@@ -182,7 +182,7 @@ insertAll(
     mega_variant_slug: mp.megaVariantSlug,
     evolved: b(mp.evolved),
     shiny_evolved: b(mp.shinyEvolved),
-    updated_at: new Date(mp.updatedAt).getTime(),
+    updated_at: mp.updatedAt,
   })),
 );
 

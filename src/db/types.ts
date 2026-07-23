@@ -229,8 +229,8 @@ export interface SpeciesPersonal {
   xxl: boolean;
   xxs: boolean;
   purified: boolean;
-  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
-  updatedAt: string;
+  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. Epoch milliseconds (Date.now()), not an ISO string — matches the INTEGER column this is stored in. */
+  updatedAt: number;
 }
 
 export interface FormPersonal {
@@ -270,8 +270,8 @@ export interface FormPersonal {
   bestNonShiny: string | null;
   bestLucky: string | null;
 
-  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
-  updatedAt: string;
+  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. Epoch milliseconds, not an ISO string. */
+  updatedAt: number;
 }
 
 // Every independently-ownable variant of a form — used both to drive the
@@ -342,16 +342,16 @@ export interface FormBackgroundPersonal {
   formSlug: string;
   achievementField: FormPersonalBooleanField;
   backgroundSlug: string;
-  /** When this link was added — the composite PK has no "value" to compare on merge (a row either exists or doesn't), so this is informational, not a merge tiebreaker. */
-  updatedAt: string;
+  /** When this link was added — the composite PK has no "value" to compare on merge (a row either exists or doesn't), so this is informational, not a merge tiebreaker. Epoch milliseconds, not an ISO string. */
+  updatedAt: number;
 }
 
 export interface MegaPersonal {
   megaVariantSlug: string;
   evolved: boolean;
   shinyEvolved: boolean;
-  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. */
-  updatedAt: string;
+  /** Last write to this row, any field — the merge-on-import unit (see importPersonalData): the whole row is kept-or-replaced together, not field by field. Epoch milliseconds, not an ISO string. */
+  updatedAt: number;
 }
 
 // ---- Local trainer profile (not an auth account — see schema.ts) ----
@@ -360,7 +360,7 @@ export interface Profile {
   id: number;
   username: string;
   friendCode: string | null;
-  createdAt: string;
+  createdAt: number;
 }
 
 export type PokemonInstanceStatus = "kept" | "traded" | "released" | "evolved";
@@ -374,9 +374,9 @@ export interface PokemonInstance {
   formSlug: string;
   profileId: number;
   status: PokemonInstanceStatus;
-  recordedAt: string;
-  caughtAt: string | null;
-  updatedAt: string;
+  recordedAt: number;
+  caughtAt: number | null;
+  updatedAt: number;
   cp: number | null;
   ivPercent: number | null;
   shiny: boolean;
@@ -410,14 +410,14 @@ export interface PokemonInstanceMaxMove {
   pokemonInstanceId: number;
   moveSlot: string;
   level: number | null;
-  updatedAt: string;
+  updatedAt: number;
 }
 
 export interface PlayerProgressPersonal {
   profileId: number;
   currentLevel: number | null;
   totalXp: number | null;
-  updatedAt: string;
+  updatedAt: number;
 }
 
 // One immutable snapshot per setPlayerProgress call (schema version 6) — an
@@ -426,7 +426,7 @@ export interface PlayerProgressPersonal {
 export interface PlayerProgressLogEntry {
   id: number;
   profileId: number;
-  recordedAt: string;
+  recordedAt: number;
   currentLevel: number | null;
   totalXp: number | null;
 }
@@ -440,7 +440,7 @@ export interface MedalProgressPersonal {
   profileId: number;
   currentRank: number;
   currentCount: number;
-  updatedAt: string;
+  updatedAt: number;
 }
 
 export const SPECIES_PERSONAL_BOOLEAN_FIELDS = [

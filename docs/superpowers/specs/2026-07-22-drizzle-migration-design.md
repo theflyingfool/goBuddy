@@ -60,11 +60,9 @@ Concrete field-type wins (the "field types SQLite doesn't support" goal):
   `personal_data_quarantine`) — typed JSON in/out instead of manual
   `JSON.parse`/`JSON.stringify` at call sites.
 - **Deliberately not changed**: `updated_at`/`recorded_at`/`created_at`/
-  `caught_at`/`quarantined_at` stay plain `text()` ISO-string columns, not
-  Drizzle's `integer({ mode: 'timestamp' })`. Switching would change the
-  on-disk representation (epoch integer vs ISO text) and require its own
-  data migration — out of scope for this change, which should not alter any
-  stored value, only how the schema is declared and diffed.
+  `caught_at`/`quarantined_at` ~~stay plain `text()` ISO-string columns, not~~
+  Drizzle's `integer({ mode: 'timestamp' })`. We are going with the timestamp
+  despite the risk.
 
 ## 3. Migration execution & the v6 bootstrap
 

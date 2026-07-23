@@ -17,7 +17,9 @@ export const DEFAULT_APP_SETTINGS: Record<string, string> = {
 // Sentinel for a row that's never actually been written — always sorts
 // older than any real updatedAt, so an incoming import row always wins a
 // merge against a not-yet-existing local row (see importPersonalData).
-export const NEVER_UPDATED = "1970-01-01T00:00:00.000Z";
+// Epoch milliseconds (0 = 1970-01-01T00:00:00.000Z), matching the INTEGER
+// column updatedAt is now stored in.
+export const NEVER_UPDATED = 0;
 
 export function emptySpeciesPersonal(speciesSlug: string): SpeciesPersonal {
   return { speciesSlug, registered: false, xxl: false, xxs: false, purified: false, updatedAt: NEVER_UPDATED };

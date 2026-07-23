@@ -265,7 +265,7 @@ export function createInMemoryRepository(
     if (!speciesSlug) return;
     const currentSpecies = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
     if (currentSpecies.registered) return;
-    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true, updatedAt: new Date().toISOString() };
+    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true, updatedAt: Date.now() };
     state.speciesPersonal[speciesSlug] = updatedSpecies;
     hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
@@ -277,7 +277,7 @@ export function createInMemoryRepository(
   // than duplicating it and risking drift from the single-edit behavior.
   function applyFormPersonalField(formSlug: string, field: keyof Omit<FormPersonal, "formSlug">, value: boolean): void {
     const current = state.formPersonal[formSlug] ?? emptyFormPersonal(formSlug);
-    const updated = { ...mergeFormPersonalCascade(current, field, value), updatedAt: new Date().toISOString() };
+    const updated = { ...mergeFormPersonalCascade(current, field, value), updatedAt: Date.now() };
     state.formPersonal[formSlug] = updated;
     hooks.onFormPersonalChanged(formSlug, updated);
     cascadeSpeciesRegisteredForForm(formSlug, updated);
@@ -289,7 +289,7 @@ export function createInMemoryRepository(
   function applySpeciesPersonalField(speciesSlug: string, field: keyof Omit<SpeciesPersonal, "speciesSlug">, value: boolean): void {
     const current = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
     const impliesRegistered = value && (field === "xxl" || field === "xxs" || field === "purified");
-    const updated: SpeciesPersonal = { ...current, [field]: value, ...(impliesRegistered ? { registered: true } : {}), updatedAt: new Date().toISOString() };
+    const updated: SpeciesPersonal = { ...current, [field]: value, ...(impliesRegistered ? { registered: true } : {}), updatedAt: Date.now() };
     state.speciesPersonal[speciesSlug] = updated;
     hooks.onSpeciesPersonalChanged(speciesSlug, updated);
   }
@@ -302,7 +302,7 @@ export function createInMemoryRepository(
   // at all.
   function applyMegaPersonalField(megaVariantSlug: string, field: keyof Omit<MegaPersonal, "megaVariantSlug">, value: boolean): void {
     const current = state.megaPersonal[megaVariantSlug] ?? emptyMegaPersonal(megaVariantSlug);
-    const updated: MegaPersonal = { ...current, [field]: value, updatedAt: new Date().toISOString() };
+    const updated: MegaPersonal = { ...current, [field]: value, updatedAt: Date.now() };
     if (value && field === "shinyEvolved") updated.evolved = true;
     state.megaPersonal[megaVariantSlug] = updated;
     hooks.onMegaPersonalChanged(megaVariantSlug, updated);
@@ -312,19 +312,19 @@ export function createInMemoryRepository(
     if (!speciesSlug) return;
     const currentSpecies = state.speciesPersonal[speciesSlug] ?? emptySpeciesPersonal(speciesSlug);
     if (currentSpecies.registered) return;
-    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true, updatedAt: new Date().toISOString() };
+    const updatedSpecies: SpeciesPersonal = { ...currentSpecies, registered: true, updatedAt: Date.now() };
     state.speciesPersonal[speciesSlug] = updatedSpecies;
     hooks.onSpeciesPersonalChanged(speciesSlug, updatedSpecies);
   }
 
   function applyMedalProgress(medalSlug: string, currentRank: number, currentCount: number): void {
-    const updated: MedalProgressPersonal = { medalSlug, profileId: DEFAULT_PROFILE_ID, currentRank, currentCount, updatedAt: new Date().toISOString() };
+    const updated: MedalProgressPersonal = { medalSlug, profileId: DEFAULT_PROFILE_ID, currentRank, currentCount, updatedAt: Date.now() };
     state.medalProgress[medalSlug] = updated;
     hooks.onMedalProgressChanged(medalSlug, updated);
   }
 
   function applyPlayerProgress(currentLevel: number | null, totalXp: number | null): void {
-    const now = new Date().toISOString();
+    const now = Date.now();
     const updated: PlayerProgressPersonal = { profileId: DEFAULT_PROFILE_ID, currentLevel, totalXp, updatedAt: now };
     state.playerProgress = updated;
     hooks.onPlayerProgressChanged(updated);
@@ -347,7 +347,7 @@ export function createInMemoryRepository(
   function applyPokemonInstanceStatus(id: number, status: PokemonInstanceStatus): void {
     const index = state.pokemonInstances.findIndex((i) => i.id === id);
     if (index === -1) return;
-    const updated: PokemonInstance = { ...state.pokemonInstances[index], status, updatedAt: new Date().toISOString() };
+    const updated: PokemonInstance = { ...state.pokemonInstances[index], status, updatedAt: Date.now() };
     state.pokemonInstances[index] = updated;
     hooks.onPokemonInstanceStatusChanged(updated);
   }
@@ -363,7 +363,7 @@ export function createInMemoryRepository(
         return sorted.sort((a, b) => a.species.name.localeCompare(b.species.name));
       case "recent":
       default:
-        return sorted.sort((a, b) => (b.instance.caughtAt ?? b.instance.recordedAt).localeCompare(a.instance.caughtAt ?? a.instance.recordedAt));
+        return sorted.sort((a, b) => (b.instance.caughtAt ?? b.instance.recordedAt) - (a.instance.caughtAt ?? a.instance.recordedAt));
     }
   }
 
@@ -542,7 +542,7 @@ export function createInMemoryRepository(
     listPlayerProgressLog(): PlayerProgressLogEntry[] {
       // Already append-ordered (pushed in setPlayerProgress call order) —
       // re-sort defensively in case an import interleaved older entries in.
-      return [...state.playerProgressLog].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
+      return [...state.playerProgressLog].sort((a, b) => a.recordedAt - b.recordedAt);
     },
 
     listMedalProgress(): MedalProgress[] {
