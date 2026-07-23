@@ -12,8 +12,9 @@
 // scripts/build-dummy-db.ts) — discovered via this project's own e2e smoke
 // test, which is exactly the kind of check meant to catch this. Instead,
 // each migration's SQL is embedded as a plain string constant
-// (./migrations-data.ts, generated once from the real .sql files) and
-// applied with the same logic drizzle-orm's own migrator uses internally
+// (./migrations-data.ts, generated via `npm run db:generate-data` — see
+// scripts/generate-migrations-data.ts) and applied with the same logic
+// drizzle-orm's own migrator uses internally
 // (compare each migration's journal timestamp against the latest applied
 // row, apply anything newer, record it), just without any filesystem
 // access.
@@ -44,18 +45,10 @@
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME } from "./schema";
-import { MIGRATION_0000_SQL, MIGRATION_0001_SQL } from "./migrations-data";
+import { MIGRATION_SQL_BY_TAG } from "./migrations-data";
 import journal from "./migrations/meta/_journal.json" with { type: "json" };
 
 const MIGRATIONS_TABLE = "__drizzle_migrations";
-
-// Maps each journal entry (by tag) to its embedded SQL content — the same
-// data drizzle-kit's generated files hold, just sourced from a plain
-// string constant instead of reading a file off disk.
-const MIGRATION_SQL_BY_TAG: Record<string, string> = {
-  "0000_baseline": MIGRATION_0000_SQL,
-  "0001_timestamps_to_epoch_ms": MIGRATION_0001_SQL,
-};
 
 interface Migration {
   tag: string;

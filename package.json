@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "version:bump": "tsx scripts/bump-version.ts",
     "db:generate": "drizzle-kit generate",
+    "db:generate-data": "tsx scripts/generate-migrations-data.ts",
     "build:dummy-db": "tsx scripts/build-dummy-db.ts",
     "ingest:fetch": "tsx scripts/ingest/fetch-reference-data.ts",
     "ingest:fetch-sprites": "tsx scripts/ingest/fetch-sprites.ts",
