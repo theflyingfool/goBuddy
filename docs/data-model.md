@@ -41,12 +41,13 @@ mode to avoid:
 
 - **`CURRENT_PERSONAL_SCHEMA_VERSION`** (`src/db/schema.ts`) — covers the
   *structure* of the personal tables (`species_personal`, `form_personal`,
-  etc.), not their contents. Bump this by hand, and append a matching
-  `{ version, up }` entry to `MIGRATIONS` in `src/db/migrations.ts`,
-  **whenever a personal-table column is added, removed, renamed, or its
-  meaning changes** (e.g. adding a new achievement boolean like
-  `four_star_dynamax`). This is also the version number stamped into
-  Settings → Export files and checked on Import (see
+  etc.), not their contents. Bump this by hand **whenever a personal-table
+  column is added, removed, renamed, or its meaning changes** (e.g. adding a
+  new achievement boolean like `four_star_dynamax`) — edit
+  `src/db/schema/personal.ts` and run `npm run db:generate` to produce the
+  matching migration (see "Migration runner (Drizzle)" below); there is no
+  `MIGRATIONS` array to append to anymore. This constant is also the version
+  number stamped into Settings → Export files and checked on Import (see
   `src/data/repository.ts`'s `PersonalDataExport`), so an out-of-date bump
   here would let a structurally-mismatched export get imported without
   warning.
@@ -71,8 +72,8 @@ Reference tables are **not** part of this migration system — `src/db/schema/re
 
 In short: touching `reference.json` (new Pokémon, new forms/costumes, data
 corrections) needs no manual version bump. Touching the *shape* of a
-personal table in `schema.ts` needs both a `CURRENT_PERSONAL_SCHEMA_VERSION`
-bump and a migration entry.
+personal table needs a `CURRENT_PERSONAL_SCHEMA_VERSION` bump plus editing
+`src/db/schema/personal.ts` and running `npm run db:generate`.
 
 ## Suggested schema (starting point, not a mandate)
 
