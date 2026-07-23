@@ -2,8 +2,12 @@
 
 Detailed rationale behind the storage architecture and reference-data pipeline.
 CLAUDE.md carries the condensed invariants; this file is the full reference.
-The *actual* schema is defined in code (`src/db/schema.ts`, `src/db/types.ts`) —
-the DDL block below is the reasoned proposal it grew from, kept for the design
+The *actual* schema is defined in code — reference tables' raw SQL DDL in
+`src/db/schema.ts`, personal tables' shape in `src/db/schema/personal.ts`
+(Drizzle), with `src/db/types.ts` as the separate, hand-written TS interface
+source the rest of the app codes against (see "Migration runner (Drizzle)"
+below and docs/architecture.md's DB layer table for how these relate) — the
+DDL block below is the reasoned proposal they grew from, kept for the design
 rationale in its comments.
 
 ## Storage
