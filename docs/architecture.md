@@ -35,7 +35,7 @@ instead, linked from here.*
 
 | File | Purpose |
 |---|---|
-| `schema.ts` | Drizzle schema for reference tables (the sole remaining content) — reference DDL was previously here, but personal DDL moved to `schema/personal.ts`. |
+| `schema.ts` | Raw SQL DDL for reference tables (`REFERENCE_SCHEMA_SQL`) — personal DDL moved to `schema/personal.ts`'s Drizzle definitions. Also still holds `CURRENT_PERSONAL_SCHEMA_VERSION`/`DEFAULT_PROFILE_ID`/`DEFAULT_PROFILE_USERNAME` (unrelated to Drizzle — used for export/import version stamping, Settings display, and the boot-rescue path). |
 | `schema/personal.ts` | Drizzle schema for personal tables — the sole input to `npm run db:generate`; single source of truth for these tables' shape and TS types (`$inferSelect`/`$inferInsert`). |
 | `schema/reference.ts` | Drizzle schema for reference tables, for typed queries only — deliberately excluded from drizzle-kit's schema path since these tables are wholesale-replaced by `reference-sync.ts`, never migrated. |
 | `drizzle-client.ts` | Wraps a given `SQLiteDBConnection` in Drizzle's `sqlite-proxy` driver — `getDrizzleDb(conn)` (synchronous, takes the connection as a parameter, no caching) is what `migrations.ts` and the query layer both call. |
