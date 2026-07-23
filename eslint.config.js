@@ -18,6 +18,9 @@ export default defineConfig([
       // (task briefs, implementer reports, review packages) — not project
       // source, not meant to be linted.
       ".superpowers/**",
+      // Playwright's own generated test-run artifacts (traces, screenshots,
+      // error-context.md) — not project source, not meant to be linted.
+      "test-results/**",
       ".obsidian/**",
       "scripts/ingest/.cache/**",
       "data-authoring/**",

@@ -1,53 +1,91 @@
-// Personal-schema migration runner. Now a thin wrapper around
-// drizzle-orm/sqlite-proxy's migrate(), with a one-time bootstrap for
-// devices that shipped before this change (already at hand-rolled
-// personal-schema v6 — see schema.ts's old CURRENT_PERSONAL_SCHEMA_VERSION
-// and the removed MIGRATIONS array, preserved in git history).
+// Personal-schema migration runner. Applies migrations tracked in Drizzle's
+// own `__drizzle_migrations` table, with a one-time bootstrap for devices
+// that shipped before this change (already at hand-rolled personal-schema
+// v6 — see schema.ts's old CURRENT_PERSONAL_SCHEMA_VERSION and the removed
+// MIGRATIONS array, preserved in git history).
+//
+// This does NOT use drizzle-orm/sqlite-proxy/migrator's migrate() — that
+// function's readMigrationFiles() reads migration files off disk via
+// Node's `fs` module, which does not exist in a browser. This app runs in
+// exactly that environment (Vite dev server / the Web build, via
+// jeep-sqlite+sql.js — see sqlite-client.ts), not just under Node (tests,
+// scripts/build-dummy-db.ts) — discovered via this project's own e2e smoke
+// test, which is exactly the kind of check meant to catch this. Instead,
+// each migration's SQL is embedded as a plain string constant
+// (./migrations-data.ts, generated once from the real .sql files) and
+// applied with the same logic drizzle-orm's own migrator uses internally
+// (compare each migration's journal timestamp against the latest applied
+// row, apply anything newer, record it), just without any filesystem
+// access.
 //
 // Bootstrap: a v6 device has a `schema_version` table (version = 6) but no
 // `__drizzle_migrations` table yet. On first boot under this code, seed
 // `__drizzle_migrations` with a row matching migration 0000's own
-// timestamp *before* calling migrate() — this tells Drizzle "this device is
-// already caught up through 0000", so 0000's CREATE TABLE statements are
-// never replayed against tables that already exist. migration 0000
-// deliberately encodes the schema v6 devices actually have on disk (TEXT
-// timestamps) — not the final INTEGER-timestamp shape — precisely so this
-// bootstrap step can be this simple: migration 0001 (not skipped here) then
-// does the real TEXT->INTEGER conversion via a table-rebuild, applied
-// through the normal migrate() path below, identically for fresh installs
-// (a no-op over empty tables) and upgrading v6 devices (the real
-// conversion). See src/db/migrations/0000_baseline.sql's header comment and
-// this plan's Architecture note for the full reasoning — an earlier draft
-// of this file tried to convert timestamp values in place via UPDATE
-// without rebuilding the table, which does not work: SQLite column
-// affinity is fixed at CREATE TABLE time, so a value written into a
-// TEXT-affinity column is always re-stored as text regardless of what type
-// was bound, silently corrupting every timestamp the first time Drizzle's
-// timestamp_ms mode tried to read it back as a Date.
+// timestamp *before* applying anything else — this tells the runner "this
+// device is already caught up through 0000", so 0000's CREATE TABLE
+// statements are never replayed against tables that already exist.
+// migration 0000 deliberately encodes the schema v6 devices actually have
+// on disk (TEXT timestamps) — not the final INTEGER-timestamp shape —
+// precisely so this bootstrap step can be this simple: migration 0001 (not
+// skipped here) then does the real TEXT->INTEGER conversion via a
+// table-rebuild, applied identically for fresh installs (a no-op over
+// empty tables) and upgrading v6 devices (the real conversion). See
+// src/db/migrations/0000_baseline.sql's header comment and this plan's
+// Architecture note for the full reasoning — an earlier draft of this file
+// tried to convert timestamp values in place via UPDATE without rebuilding
+// the table, which does not work: SQLite column affinity is fixed at
+// CREATE TABLE time, so a value written into a TEXT-affinity column is
+// always re-stored as text regardless of what type was bound, silently
+// corrupting every timestamp the first time Drizzle's timestamp_ms mode
+// tried to read it back as a Date.
 //
 // The old `schema_version` table is left in place afterward — unread,
 // harmless.
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
-import { migrate } from "drizzle-orm/sqlite-proxy/migrator";
-import { getDrizzleDb } from "./drizzle-client";
 import { DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME } from "./schema";
+import { MIGRATION_0000_SQL, MIGRATION_0001_SQL } from "./migrations-data";
 import journal from "./migrations/meta/_journal.json" with { type: "json" };
 
 const MIGRATIONS_TABLE = "__drizzle_migrations";
 
+// Maps each journal entry (by tag) to its embedded SQL content — the same
+// data drizzle-kit's generated files hold, just sourced from a plain
+// string constant instead of reading a file off disk.
+const MIGRATION_SQL_BY_TAG: Record<string, string> = {
+  "0000_baseline": MIGRATION_0000_SQL,
+  "0001_timestamps_to_epoch_ms": MIGRATION_0001_SQL,
+};
+
+interface Migration {
+  tag: string;
+  millis: number;
+  statements: string[];
+}
+
+// Ordered by idx, matching drizzle-kit's own journal ordering — each
+// migration's SQL is split on the same "--> statement-breakpoint" marker
+// drizzle-kit's generated files use between statements (identical to
+// drizzle-orm's own readMigrationFiles(), see node_modules/drizzle-orm/migrator.js).
+const MIGRATIONS: Migration[] = journal.entries
+  .slice()
+  .sort((a: { idx: number }, b: { idx: number }) => a.idx - b.idx)
+  .map((entry: { tag: string; when: number }) => {
+    const sql = MIGRATION_SQL_BY_TAG[entry.tag];
+    if (!sql) throw new Error(`No embedded SQL found for migration "${entry.tag}" — update migrations-data.ts`);
+    return { tag: entry.tag, millis: entry.when, statements: sql.split("--> statement-breakpoint") };
+  });
+
 // migration 0000's own timestamp, read from the journal drizzle-kit
 // generated (Task 4) rather than hand-copied — a hand-copied constant is
 // exactly the kind of value that silently drifts from the real migration
-// files. Its hash isn't read from the journal (drizzle-kit doesn't store
-// per-file hashes there; it computes them from file content at runtime) —
-// the bootstrap row's hash only needs to be distinct from the row Drizzle's
-// own migrator writes once it applies migration 0000's *content* normally,
-// so a fixed literal is enough here.
-const BASELINE_ENTRY = journal.entries.find((e: { idx: number }) => e.idx === 0)!;
-const BASELINE_MIGRATION_MILLIS: number = BASELINE_ENTRY.when;
+// files. Its hash isn't meaningful here (nothing compares hashes, only
+// `created_at`), so a fixed literal is enough — matches drizzle-orm's own
+// migrator, which only uses the hash column for row uniqueness/display.
+const BASELINE_ENTRY = MIGRATIONS.find((m) => m.tag === "0000_baseline")!;
+const BASELINE_MIGRATION_MILLIS: number = BASELINE_ENTRY.millis;
 const BASELINE_MIGRATION_HASH = "v6-bootstrap-baseline";
-const BUNDLED_LATEST_MIGRATION_MILLIS: number = Math.max(...journal.entries.map((e: { when: number }) => e.when));
+const BUNDLED_LATEST_MIGRATION_MILLIS: number = Math.max(...MIGRATIONS.map((m) => m.millis));
 
 async function tableExists(db: SQLiteDBConnection, table: string): Promise<boolean> {
   const result = await db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [table]);
@@ -61,11 +99,7 @@ async function getOldSchemaVersion(db: SQLiteDBConnection): Promise<number | nul
   return row ? row.version : null;
 }
 
-async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection): Promise<void> {
-  const oldVersion = await getOldSchemaVersion(db);
-  if (oldVersion === null) return; // fresh install — nothing to bootstrap
-  if (await tableExists(db, MIGRATIONS_TABLE)) return; // already bootstrapped
-
+async function ensureMigrationsTable(db: SQLiteDBConnection): Promise<void> {
   await db.execute(
     `CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,6 +108,14 @@ async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection)
     )`,
     false,
   );
+}
+
+async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection): Promise<void> {
+  const oldVersion = await getOldSchemaVersion(db);
+  if (oldVersion === null) return; // fresh install — nothing to bootstrap
+  if (await tableExists(db, MIGRATIONS_TABLE)) return; // already bootstrapped
+
+  await ensureMigrationsTable(db);
   await db.run(`INSERT INTO ${MIGRATIONS_TABLE} (hash, created_at) VALUES (?, ?)`, [BASELINE_MIGRATION_HASH, BASELINE_MIGRATION_MILLIS], false);
 }
 
@@ -82,8 +124,8 @@ async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection)
 // to this id, several of them via a FK into profile(id)) has to be inserted
 // by app code. An upgrading v6 device already has a real profile row
 // (migration 0001's table-rebuild carries it across); this only matters for
-// a genuinely fresh install. Must run after migrate() completes (the
-// profile table doesn't exist before then) and before any other write to a
+// a genuinely fresh install. Must run after migrations apply (the profile
+// table doesn't exist before then) and before any other write to a
 // personal table, since profile_id defaults/FKs depend on this row existing
 // — runPersonalMigrations is the right place, as the last thing it does.
 async function seedDefaultProfileIfMissing(db: SQLiteDBConnection): Promise<void> {
@@ -113,42 +155,52 @@ export async function runPersonalMigrations(db: SQLiteDBConnection): Promise<voi
   await bootstrapDrizzleTrackingForExistingDevice(db);
   await assertNotADowngrade(db);
 
-  // PRAGMA foreign_keys is a documented no-op when issued inside an active
-  // transaction (SQLite refuses to change enforcement mid-transaction) — the
-  // migrate() callback below wraps every pending migration's statements in
-  // one transaction, so migration 0001's own embedded `PRAGMA
-  // foreign_keys=OFF/ON` (see 0001_timestamps_to_epoch_ms.sql's header
-  // comment) has no effect there; it's correct SQL, just inert under this
-  // runner. FK enforcement must instead be toggled OFF here, before that
-  // transaction ever opens — every table 0001 rebuilds carries a REFERENCES
-  // clause into tables that don't exist yet on first boot (reference tables
-  // are created by syncReferenceData(), which runs AFTER this function
-  // returns), and SQLite validates a REFERENCES target's existence at
-  // INSERT time whenever enforcement is on, regardless of row count.
-  // Restored to ON only after migrate() fully completes, matching the app's
-  // normal enforced-FK operating state. Verified empirically: issuing this
-  // PRAGMA inside a transaction leaves `PRAGMA foreign_keys` reading back
-  // as still-enabled and a dangling-FK insert still fails — confirm this
-  // still holds for whatever SQLite build backs the connection under test
-  // before trusting this fix.
-  await db.run("PRAGMA foreign_keys = OFF", [], false);
-  try {
-    const drizzleDb = getDrizzleDb(db);
-    await migrate(drizzleDb, async (queries) => {
-      await db.beginTransaction();
-      try {
-        for (const query of queries) {
-          await db.run(query, [], false);
-        }
-        await db.commitTransaction();
-      } catch (err) {
-        await db.rollbackTransaction();
-        throw err;
-      }
-    }, { migrationsFolder: "./src/db/migrations" });
-  } finally {
-    await db.run("PRAGMA foreign_keys = ON", [], false);
+  await ensureMigrationsTable(db);
+  const latestRow = (await db.query(`SELECT created_at FROM ${MIGRATIONS_TABLE} ORDER BY created_at DESC LIMIT 1`)).values?.[0] as
+    | { created_at: number }
+    | undefined;
+  const pending = MIGRATIONS.filter((m) => !latestRow || m.millis > latestRow.created_at);
+
+  if (pending.length > 0) {
+    await applyPendingMigrations(db, pending);
   }
 
   await seedDefaultProfileIfMissing(db);
+}
+
+// PRAGMA foreign_keys is a documented no-op when issued inside an active
+// transaction (SQLite refuses to change enforcement mid-transaction) — the
+// pending migrations below are applied inside one transaction, so
+// migration 0001's own embedded `PRAGMA foreign_keys=OFF/ON` (see
+// 0001_timestamps_to_epoch_ms.sql's header comment) has no effect there;
+// it's correct SQL, just inert under this runner. FK enforcement must
+// instead be toggled OFF here, before that transaction ever opens — every
+// table 0001 rebuilds carries a REFERENCES clause into tables that don't
+// exist yet on first boot (reference tables are created by
+// syncReferenceData(), which runs AFTER this function returns), and
+// SQLite validates a REFERENCES target's existence at INSERT time
+// whenever enforcement is on, regardless of row count. Restored to ON only
+// after every pending migration is applied, matching the app's normal
+// enforced-FK operating state. Verified empirically: issuing this PRAGMA
+// inside a transaction leaves `PRAGMA foreign_keys` reading back as
+// still-enabled and a dangling-FK insert still fails.
+async function applyPendingMigrations(db: SQLiteDBConnection, pending: Migration[]): Promise<void> {
+  await db.run("PRAGMA foreign_keys = OFF", [], false);
+  try {
+    await db.beginTransaction();
+    try {
+      for (const migration of pending) {
+        for (const statement of migration.statements) {
+          await db.run(statement, [], false);
+        }
+        await db.run(`INSERT INTO ${MIGRATIONS_TABLE} (hash, created_at) VALUES (?, ?)`, [migration.tag, migration.millis], false);
+      }
+      await db.commitTransaction();
+    } catch (err) {
+      await db.rollbackTransaction();
+      throw err;
+    }
+  } finally {
+    await db.run("PRAGMA foreign_keys = ON", [], false);
+  }
 }
