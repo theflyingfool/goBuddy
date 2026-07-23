@@ -8,12 +8,14 @@ import { existsSync, unlinkSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-import { PERSONAL_SCHEMA_SQL, REFERENCE_SCHEMA_SQL, CURRENT_PERSONAL_SCHEMA_VERSION, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_USERNAME } from "../src/db/schema";
+import { REFERENCE_SCHEMA_SQL } from "../src/db/schema";
 import { DEFAULT_APP_SETTINGS } from "../src/db/defaults";
 import { FORM_PERSONAL_BOOLEAN_FIELDS, FORM_PERSONAL_FIELD_COLUMNS } from "../src/db/types";
 import type { ReferenceData } from "../src/db/reference-data";
 import referenceDataJson from "../src/data/reference.json";
 import { formBackgroundPersonal, formPersonal, megaPersonal, speciesPersonal } from "../src/data/personal-demo-seed";
+import { runPersonalMigrations } from "../src/db/migrations";
+import { nodeSqliteConnection } from "../test/node-sqlite-connection";
 
 const { regions, types, backgrounds, species, forms, formTypes, megaVariants } = referenceDataJson as unknown as ReferenceData;
 
@@ -25,7 +27,7 @@ if (existsSync(DB_PATH)) unlinkSync(DB_PATH);
 const db = new DatabaseSync(DB_PATH);
 db.exec("PRAGMA foreign_keys = ON;");
 db.exec(REFERENCE_SCHEMA_SQL);
-db.exec(PERSONAL_SCHEMA_SQL);
+await runPersonalMigrations(nodeSqliteConnection(db));
 
 const b = (value: boolean) => (value ? 1 : 0);
 
@@ -125,14 +127,6 @@ insertAll(
   megaVariants.map((m) => ({ slug: m.slug, species_slug: m.speciesSlug, variant: m.variant })),
 );
 
-db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(CURRENT_PERSONAL_SCHEMA_VERSION);
-
-db.prepare("INSERT INTO profile (id, username, friend_code, created_at) VALUES (?, ?, NULL, ?)").run(
-  DEFAULT_PROFILE_ID,
-  DEFAULT_PROFILE_USERNAME,
-  "2024-01-01T00:00:00.000Z",
-);
-
 insertAll(
   "app_settings",
   ["key", "value"],
@@ -148,7 +142,7 @@ insertAll(
     xxl: b(sp.xxl),
     xxs: b(sp.xxs),
     purified: b(sp.purified),
-    updated_at: sp.updatedAt,
+    updated_at: new Date(sp.updatedAt).getTime(),
   })),
 );
 
@@ -165,7 +159,7 @@ insertAll(
     row.best_shiny = fp.bestShiny;
     row.best_non_shiny = fp.bestNonShiny;
     row.best_lucky = fp.bestLucky;
-    row.updated_at = fp.updatedAt;
+    row.updated_at = new Date(fp.updatedAt).getTime();
     return row;
   }),
 );
@@ -177,7 +171,7 @@ insertAll(
     form_slug: fb.formSlug,
     achievement_field: FORM_PERSONAL_FIELD_COLUMNS[fb.achievementField],
     background_slug: fb.backgroundSlug,
-    updated_at: fb.updatedAt,
+    updated_at: new Date(fb.updatedAt).getTime(),
   })),
 );
 
@@ -188,7 +182,7 @@ insertAll(
     mega_variant_slug: mp.megaVariantSlug,
     evolved: b(mp.evolved),
     shiny_evolved: b(mp.shinyEvolved),
-    updated_at: mp.updatedAt,
+    updated_at: new Date(mp.updatedAt).getTime(),
   })),
 );
 
