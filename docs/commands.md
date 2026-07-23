@@ -67,3 +67,15 @@ Developer commands for running, building, testing, and managing data in PoGo Bud
   ```sh
   npm run build:dummy-db
   ```
+
+---
+
+## Schema & Migrations
+
+- Generate a SQL migration file from changes to `src/db/schema/personal.ts`:
+
+  ```sh
+  npm run db:generate
+  ```
+
+  Runs drizzle-kit to generate the migration. Run after editing `schema/personal.ts`; hand-verify the generated SQL before committing, per docs/data-model.md's migration-runner section.

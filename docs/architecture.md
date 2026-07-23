@@ -35,9 +35,12 @@ instead, linked from here.*
 
 | File | Purpose |
 |---|---|
-| `schema.ts` | SQL DDL for both reference and personal tables — the single source of truth consumed by `scripts/build-dummy-db.ts` and the on-device migration runner. Also defines `CURRENT_PERSONAL_SCHEMA_VERSION`. |
+| `schema.ts` | Drizzle schema for reference tables (the sole remaining content) — reference DDL was previously here, but personal DDL moved to `schema/personal.ts`. |
+| `schema/personal.ts` | Drizzle schema for personal tables — the sole input to `npm run db:generate`; single source of truth for these tables' shape and TS types (`$inferSelect`/`$inferInsert`). |
+| `schema/reference.ts` | Drizzle schema for reference tables, for typed queries only — deliberately excluded from drizzle-kit's schema path since these tables are wholesale-replaced by `reference-sync.ts`, never migrated. |
+| `drizzle-client.ts` | Wraps a given `SQLiteDBConnection` in Drizzle's `sqlite-proxy` driver — `getDrizzleDb(conn)` (synchronous, takes the connection as a parameter, no caching) is what `migrations.ts` and the query layer both call. |
 | `types.ts` | camelCase TypeScript mirror of `schema.ts`; drives SQL, UI field groups, cascades, and the export format from one place. |
-| `migrations.ts` | Personal-schema migration runner — only ever touches personal tables; reference tables are wholesale-replaced, never migrated. |
+| `migrations.ts` | Runs `drizzle-orm/sqlite-proxy/migrator`'s `migrate()` against two generated migrations under `src/db/migrations/` (`0000` = the schema v1.0.0 devices actually shipped with; `0001` = a real SQLite table-rebuild converting timestamp columns from TEXT to INTEGER), with a one-time bootstrap for devices that shipped before this system existed — see docs/data-model.md's migration-runner section. |
 | `reference-data.ts` | The `ReferenceData` shape of the bundled `src/data/reference.json` asset. |
 | `reference-sync.ts` | On every startup, wipes and reloads reference tables from `reference.json` if its content hash changed; applies slug renames first. |
 | `slug-renames.ts` | Hand-maintained registry mapping old→new slugs, so a display-name correction in the ingestion pipeline doesn't orphan personal data already keyed to the old slug. |
