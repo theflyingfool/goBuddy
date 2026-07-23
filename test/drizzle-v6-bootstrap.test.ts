@@ -32,6 +32,13 @@ function v6FixtureDb(): DatabaseSync {
   return db;
 }
 
+function v5FixtureDb(): DatabaseSync {
+  const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys = ON;");
+  db.exec(readFileSync(resolve(__dirname, "fixtures/v5-personal-schema.sql"), "utf8"));
+  return db;
+}
+
 test("bootstrapping a real v6 device preserves every existing row and correctly converts timestamps", async () => {
   const db = v6FixtureDb();
   const maxExistingInstanceId = (db.prepare("SELECT MAX(id) as m FROM pokemon_instance").get() as { m: number }).m;
@@ -97,4 +104,32 @@ test("a second boot after bootstrapping is a no-op", async () => {
   const countAfterSecond = (db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number }).c;
 
   assert.equal(countAfterFirst, countAfterSecond);
+});
+
+// The final whole-branch review caught a real gap: real devices are known
+// to be at hand-rolled personal-schema v5 or v6 (v1.0.0's tagged release,
+// schema v2, was never actually distributed) — the original gating test
+// above only covered v6. A genuine v5 device is missing player_progress_log
+// entirely; migration 0001 unconditionally rebuilds that table
+// (DROP TABLE + INSERT ... SELECT FROM player_progress_log), which would
+// throw "no such table" without createMissingV5Tables()'s defensive create.
+test("bootstrapping a real v5 device (missing player_progress_log) does not crash", async () => {
+  const db = v5FixtureDb();
+  assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'player_progress_log'").get(), undefined);
+
+  const conn = nodeSqliteConnection(db);
+  await runPersonalMigrations(conn);
+
+  // Migration completed without throwing, and the table 0001's rebuild
+  // needs now exists in the final (converted) shape.
+  const columnInfo = db.prepare("PRAGMA table_info(player_progress_log)").all() as { name: string; type: string }[];
+  const recordedAt = columnInfo.find((c) => c.name === "recorded_at");
+  assert.equal(recordedAt?.type.toLowerCase(), "integer");
+
+  // Every other v5 row survived, same as the v6 gating test asserts.
+  const afterSpecies = { ...db.prepare("SELECT species_slug, registered, xxl FROM species_personal WHERE species_slug = 'bulbasaur'").get() };
+  assert.deepEqual(afterSpecies, { species_slug: "bulbasaur", registered: 1, xxl: 1 });
+
+  const migrationRows = db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number };
+  assert.equal(migrationRows.c, 2);
 });

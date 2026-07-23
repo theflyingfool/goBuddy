@@ -1,8 +1,11 @@
 // Personal-schema migration runner. Applies migrations tracked in Drizzle's
 // own `__drizzle_migrations` table, with a one-time bootstrap for devices
-// that shipped before this change (already at hand-rolled personal-schema
-// v6 — see schema.ts's old CURRENT_PERSONAL_SCHEMA_VERSION and the removed
-// MIGRATIONS array, preserved in git history).
+// that shipped before this change (at hand-rolled personal-schema v5 or v6
+// — see schema.ts's old CURRENT_PERSONAL_SCHEMA_VERSION and the removed
+// MIGRATIONS array, preserved in git history). Note this is v5/v6, not the
+// v1.0.0 *tag*'s schema v2 — that tagged release was never actually
+// distributed to any device, real or otherwise, so no migration path from
+// it is needed; every real device that's ever run this app is at v5 or v6.
 //
 // This does NOT use drizzle-orm/sqlite-proxy/migrator's migrate() — that
 // function's readMigrationFiles() reads migration files off disk via
@@ -19,14 +22,16 @@
 // row, apply anything newer, record it), just without any filesystem
 // access.
 //
-// Bootstrap: a v6 device has a `schema_version` table (version = 6) but no
-// `__drizzle_migrations` table yet. On first boot under this code, seed
+// Bootstrap: a v5/v6 device has a `schema_version` table but no
+// `__drizzle_migrations` table yet. On first boot under this code,
+// defensively create the one table a v5 device is missing relative to v6
+// (createMissingV5Tables — see its own comment), then seed
 // `__drizzle_migrations` with a row matching migration 0000's own
 // timestamp *before* applying anything else — this tells the runner "this
 // device is already caught up through 0000", so 0000's CREATE TABLE
 // statements are never replayed against tables that already exist.
-// migration 0000 deliberately encodes the schema v6 devices actually have
-// on disk (TEXT timestamps) — not the final INTEGER-timestamp shape —
+// migration 0000 deliberately encodes the schema these devices actually
+// have on disk (TEXT timestamps) — not the final INTEGER-timestamp shape —
 // precisely so this bootstrap step can be this simple: migration 0001 (not
 // skipped here) then does the real TEXT->INTEGER conversion via a
 // table-rebuild, applied identically for fresh installs (a no-op over
@@ -103,11 +108,37 @@ async function ensureMigrationsTable(db: SQLiteDBConnection): Promise<void> {
   );
 }
 
+// A real device that received a build before this migration exists is
+// known to be at hand-rolled personal-schema v5 or v6 (v1.0.0's tagged
+// release, schema v2, was never actually distributed to anyone — no
+// earlier version needs support here). v5 is missing exactly one table
+// compared to v6: player_progress_log (added by the old migration array's
+// version-6 step). Migration 0001 unconditionally rebuilds that table
+// (DROP TABLE + INSERT ... SELECT FROM player_progress_log), which would
+// fail with "no such table" on a genuine v5 device — create it defensively
+// first, matching migration 0000's exact shape for that table, so 0001's
+// rebuild has something to select from regardless of which of the two
+// real versions this device is actually at.
+async function createMissingV5Tables(db: SQLiteDBConnection): Promise<void> {
+  if (await tableExists(db, "player_progress_log")) return;
+  await db.execute(
+    `CREATE TABLE IF NOT EXISTS player_progress_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      profile_id INTEGER DEFAULT 1 NOT NULL REFERENCES profile(id),
+      recorded_at TEXT NOT NULL,
+      current_level INTEGER,
+      total_xp INTEGER
+    )`,
+    false,
+  );
+}
+
 async function bootstrapDrizzleTrackingForExistingDevice(db: SQLiteDBConnection): Promise<void> {
   const oldVersion = await getOldSchemaVersion(db);
   if (oldVersion === null) return; // fresh install — nothing to bootstrap
   if (await tableExists(db, MIGRATIONS_TABLE)) return; // already bootstrapped
 
+  await createMissingV5Tables(db);
   await ensureMigrationsTable(db);
   await db.run(`INSERT INTO ${MIGRATIONS_TABLE} (hash, created_at) VALUES (?, ?)`, [BASELINE_MIGRATION_HASH, BASELINE_MIGRATION_MILLIS], false);
 }
