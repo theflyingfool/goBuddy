@@ -1,25 +1,35 @@
 <!--
-  Dex grid — core render (Vue port of species-grid.ts's renderSpeciesGrid,
-  non-select-mode path only). Select-mode, the bulk-action bar, and the
-  species/form granularity toggle are deliberately NOT ported here — that's
-  Task 7 (see docs/vue-migration-plan.md). Tiles always navigate on click,
-  matching today's `state.selectMode === false` behavior exactly; there is no
-  UI in this component to turn select mode on (Task 7 adds the toolbar back).
+  Dex grid — Vue port of species-grid.ts's renderSpeciesGrid, now covering
+  the full behavior: core tile rendering (Task 6) plus select-mode,
+  species-field bulk-apply, the species/form granularity toggle, and the
+  Dex-grid FAB (Task 7 — see docs/vue-migration-plan.md).
 
   props.state is the same GridState object main.ts owns and mutates from the
-  header search box / filter sheet (still vanilla TS, untouched by this
-  task) — every callback-driven mutation calls the surrounding renderGrid()
-  closure in main.ts, which re-invokes mountVueRoute() and so fully remounts
-  this component with the freshly-mutated state. That means this component
-  itself never needs to watch props.state for external changes; it just
-  reads it once per mount, like every other prop here.
+  header search box / filter sheet (still vanilla TS, per the migration
+  plan's Global Constraints) — every callback-driven mutation calls the
+  surrounding renderGrid() closure in main.ts, which re-invokes
+  mountVueRoute() and so fully remounts this component with the freshly-
+  mutated state. That's true for every GridCallbacks-driven change
+  (onToggleSelectMode/onGranularityChange/onBulkFieldChange/
+  onBulkValueChange/onApplyBulk/onClearSelection all trigger a full
+  remount in main.ts, same as onCaughtFilterChange etc already did in Task
+  6). The one exception is tapping a tile to select/deselect it while in
+  select mode: species-grid.ts deliberately mutates state.selectedSpecies
+  in place WITHOUT calling back into main.ts, to avoid a full grid rebuild
+  (possibly 1000+ tiles) on every tap — this component preserves that by
+  mutating props.state.selectedSpecies (the same Set main.ts's
+  onApplyBulk/onClearSelection read) directly, then bumping a local
+  `selectionVersion` ref to re-render just this component in place.
 -->
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { Repository, SpeciesSummary } from "../../data/repository";
+import { navigate } from "../../app-shell/router";
 import { speciesSpritePath } from "../../ui/sprites";
+import { SPECIES_FIELDS } from "./field-groups";
 import { INDICATOR_LABELS } from "./indicator-labels";
-import type { GridCallbacks, GridState } from "./species-grid";
+import type { GridCallbacks, GridState, SpeciesBulkField } from "./grid-types";
+import BulkFormEditPanel from "./BulkFormEditPanel.vue";
 
 const props = defineProps<{ repo: Repository; state: GridState; callbacks: GridCallbacks }>();
 
@@ -70,44 +80,127 @@ function toggleRegistered(summary: SpeciesSummary) {
   overrides.set(summary.species.slug, next);
   registeredOverrides.value = overrides;
 }
+
+// ---- Select mode / bulk-apply (species granularity) ----
+// See the module comment above for why this mutates props.state directly
+// instead of going through a callback.
+const selectionVersion = ref(0);
+function isSelected(summary: SpeciesSummary): boolean {
+  void selectionVersion.value; // establish reactive dependency
+  return props.state.selectMode && props.state.selectedSpecies.has(summary.species.slug);
+}
+function selectedCount(): number {
+  void selectionVersion.value;
+  return props.state.selectedSpecies.size;
+}
+function onTileClick(summary: SpeciesSummary) {
+  if (!props.state.selectMode) {
+    props.callbacks.onSelectSpecies(summary.species.slug);
+    return;
+  }
+  const slug = summary.species.slug;
+  if (props.state.selectedSpecies.has(slug)) props.state.selectedSpecies.delete(slug);
+  else props.state.selectedSpecies.add(slug);
+  selectionVersion.value++;
+}
+
+function onBulkFieldChange(e: Event) {
+  props.callbacks.onBulkFieldChange((e.target as HTMLSelectElement).value as SpeciesBulkField);
+}
 </script>
 
 <template>
-  <div class="grid-select-toolbar"></div>
-
-  <template v-for="section in sections" :key="section.slug">
-    <button type="button" class="region-header" @click="props.callbacks.onToggleRegion(section.slug)">
-      <span class="region-collapse-caret">{{ section.collapsed ? "▶" : "▼" }}</span>
-      <span>{{ section.name }} ({{ section.summaries.length }})</span>
+  <div class="grid-select-toolbar">
+    <button
+      type="button"
+      :class="['filter-chip', { 'filter-chip-active': state.selectMode }]"
+      :aria-pressed="String(state.selectMode)"
+      @click="callbacks.onToggleSelectMode()"
+    >
+      {{ state.selectMode ? "✓ Selecting" : "Select" }}
     </button>
-
-    <div v-if="!section.collapsed" class="species-grid">
-      <div v-for="summary in section.summaries" :key="summary.species.slug" class="species-tile-wrap">
-        <button
-          type="button"
-          :class="['species-tile', { uncaught: !effectiveCaught(summary) }]"
-          @click="props.callbacks.onSelectSpecies(summary.species.slug)"
-        >
-          <div class="badge-row">
-            <span v-for="field in badgesFor(summary)" :key="field" class="badge" :title="INDICATOR_LABELS[field].full">
-              {{ INDICATOR_LABELS[field].badge }}
-            </span>
-          </div>
-          <img class="species-sprite" :src="speciesSpritePath(summary.species.dexNumber)" alt="" loading="lazy" />
+    <template v-if="state.selectMode">
+      <div class="segmented" style="margin: 0; flex-shrink: 0">
+        <button type="button" :aria-selected="String(state.bulkGranularity === 'species')" @click="callbacks.onGranularityChange('species')">
+          Species fields
         </button>
-        <button
-          type="button"
-          :class="['registered-toggle', { on: effectiveCaught(summary) }]"
-          :aria-pressed="String(effectiveCaught(summary))"
-          :aria-label="`Registered: ${effectiveCaught(summary) ? 'on' : 'off'}`"
-          @click.stop="toggleRegistered(summary)"
-        >
-          {{ effectiveCaught(summary) ? "✓" : "" }}
+        <button type="button" :aria-selected="String(state.bulkGranularity === 'form')" @click="callbacks.onGranularityChange('form')">
+          Form fields
         </button>
-        <div class="tile-label"><span class="dex-num">#{{ summary.species.dexNumber }}</span> {{ summary.species.name }}</div>
       </div>
-    </div>
-  </template>
+      <span v-if="state.bulkGranularity === 'species'" class="grid-select-hint">Tap tiles to select, then choose a field to set.</span>
+    </template>
+  </div>
 
-  <p v-if="!anyResults" class="empty-state">No Pokémon match that search/filter.</p>
+  <BulkFormEditPanel v-if="state.selectMode && state.bulkGranularity === 'form'" :repo="repo" />
+
+  <template v-else>
+    <div v-if="state.selectMode && selectedCount() > 0" class="bulk-action-bar">
+      <span class="bulk-count">{{ selectedCount() }} selected</span>
+      <span class="bulk-set-label">Set</span>
+      <select class="bulk-field-select" aria-label="Field to set" :value="state.bulkField" @change="onBulkFieldChange">
+        <option v-for="{ field, label } in SPECIES_FIELDS" :key="field" :value="field">{{ label }}</option>
+      </select>
+      <div class="bulk-onoff">
+        <button
+          type="button"
+          :class="['filter-chip', { 'filter-chip-active': state.bulkValue === true }]"
+          :aria-pressed="String(state.bulkValue === true)"
+          @click="callbacks.onBulkValueChange(true)"
+        >
+          On
+        </button>
+        <button
+          type="button"
+          :class="['filter-chip', { 'filter-chip-active': state.bulkValue === false }]"
+          :aria-pressed="String(state.bulkValue === false)"
+          @click="callbacks.onBulkValueChange(false)"
+        >
+          Off
+        </button>
+      </div>
+      <button type="button" class="bulk-apply-button" @click="callbacks.onApplyBulk()">Apply to {{ selectedCount() }}</button>
+      <button type="button" class="bulk-clear-button" @click="callbacks.onClearSelection()">Clear</button>
+    </div>
+
+    <template v-for="section in sections" :key="section.slug">
+      <button type="button" class="region-header" @click="props.callbacks.onToggleRegion(section.slug)">
+        <span class="region-collapse-caret">{{ section.collapsed ? "▶" : "▼" }}</span>
+        <span>{{ section.name }} ({{ section.summaries.length }})</span>
+      </button>
+
+      <div v-if="!section.collapsed" class="species-grid">
+        <div v-for="summary in section.summaries" :key="summary.species.slug" class="species-tile-wrap">
+          <button
+            type="button"
+            :class="['species-tile', { uncaught: !effectiveCaught(summary), selected: isSelected(summary) }]"
+            @click="onTileClick(summary)"
+          >
+            <div class="badge-row">
+              <span v-for="field in badgesFor(summary)" :key="field" class="badge" :title="INDICATOR_LABELS[field].full">
+                {{ INDICATOR_LABELS[field].badge }}
+              </span>
+            </div>
+            <span v-if="state.selectMode" :class="['select-check', { on: isSelected(summary) }]">{{ isSelected(summary) ? "✓" : "" }}</span>
+            <img class="species-sprite" :src="speciesSpritePath(summary.species.dexNumber)" alt="" loading="lazy" />
+          </button>
+          <button
+            v-if="!state.selectMode"
+            type="button"
+            :class="['registered-toggle', { on: effectiveCaught(summary) }]"
+            :aria-pressed="String(effectiveCaught(summary))"
+            :aria-label="`Registered: ${effectiveCaught(summary) ? 'on' : 'off'}`"
+            @click.stop="toggleRegistered(summary)"
+          >
+            {{ effectiveCaught(summary) ? "✓" : "" }}
+          </button>
+          <div class="tile-label"><span class="dex-num">#{{ summary.species.dexNumber }}</span> {{ summary.species.name }}</div>
+        </div>
+      </div>
+    </template>
+
+    <p v-if="!anyResults" class="empty-state">No Pokémon match that search/filter.</p>
+
+    <button type="button" class="fab" @click="navigate('/log-catch')">+ Log a catch</button>
+  </template>
 </template>

@@ -229,6 +229,7 @@ deleted, not deprecated-and-kept.
       `getTopTagCounts`).
 - [x] Help (src/features/help/HelpPage.vue) — static content, direct port.
 - [x] Coverage Report (src/features/coverage-report/CoverageReportPage.vue) — direct port, same per-fieldset CSV export behavior.
+- [x] Dex grid + Bulk Edit (src/features/data-entry/DexGridPage.vue, BulkFormEditPanel.vue) — full Vue rewrite, species-grid.ts and bulk-form-edit.ts deleted.
 
 **Known gap, not addressed this pass:** `PersonalDataExport`/`importPersonalData`
 now export `pokemonInstances`/`tags` for completeness (so a rescue export or

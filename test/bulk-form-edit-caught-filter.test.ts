@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { matchesCaughtFilter } from "../src/features/data-entry/bulk-form-edit";
+import { matchesCaughtFilter } from "../src/features/data-entry/species-detail-shared";
 
 // Regression coverage for the "Caught/Uncaught based on species registered
 // instead of form caught" bug: Bulk Edit's Caught/Uncaught filter must judge
