@@ -47,29 +47,39 @@ Once all four are done, `src/ui/dom.ts`'s helpers should have no remaining
 callers outside test fixtures — confirm and remove dead exports as a
 closing step, not a separate task.
 
-### 2. Stats page: add the mockup's lighter primary view
+### 2. Stats page: add a global lens-progress list
 
-Current `StatsPage.vue` wraps the old completion-table renderer unchanged
-plus two new charts (specimens-by-state, top-tags). This pass adds the
-mockup's three-part primary view **above** that existing content, without
-removing anything already there:
-- **Hero stat tiles** (3, grid layout): Registered %, Specimens logged,
-  Trainer level. All three are values already available from existing
-  repository methods (completion stats, `listPokemonInstances().length`,
-  `getPlayerProgress()`).
-- **XP progress bar**: current level → next level, current/required XP,
-  using `player_level`/`player_level_reward` reference data already in
-  schema.
-- **Lens-progress list** (5 rows, plain progress bars, no table chrome):
-  Registered, Form-complete, Costume-complete, Achievement-complete,
-  Mega/G-Max — these are exactly the lenses `completion-stats-sql.ts`
-  already computes for the existing (collapsed) completion table, just
-  presented as a flat list instead of a nested table.
+**Correction from the original design pass**: `StatsPage.vue` has moved on
+since this doc's first draft (a later commit — "Log XP/level history;
+surface player stats and medals on Stats page" — added more than this doc
+accounted for). It already has: a 3-card KPI row (Trainer level, Specimens
+logged, Medals started), an XP **sparkline** chart (historical trend from
+`player_progress_log`, richer than the mockup's static progress-to-next-level
+bar), a "Top medals" bar chart, Specimens-by-state, Top tags, and the old
+completion table collapsed under "Full completion breakdown". The KPI
+row/XP sparkline/top-medals chart already exceed the mockup's ambition —
+**keep all of it as-is**, don't regress the sparkline back to a dumber
+static bar just to match the mockup literally.
 
-The existing wrapped `renderStatsPage()` completion table and the two
-charts stay exactly where they are today, demoted below this new primary
-view (already effectively "collapsed"/secondary per the current
-implementation — no new collapse mechanism needed).
+The one genuine gap: the mockup's flat **lens-progress list** (a plain
+progress bar per named lens, not buried in the collapsed table) doesn't
+exist yet. Add it as a new card between the KPI row and the existing
+charts, using `Repository.getCompletionStats({ kind: "global" }, lenses)`
+(already exists, `src/data/repository.ts:254`, powers the existing
+collapsed table via `stats-page.ts`) with these five lenses — a
+deliberate substitution of the mockup's row set, since "Achievement-complete"
+isn't a real single lens in this data model (achievement lenses are
+per-field, e.g. `{ kind: "achievement", field: "shiny" }`, not one
+combined summary):
+- `{ kind: "registered" }` → "Registered"
+- `{ kind: "formComplete" }` → "Form-complete"
+- `{ kind: "costumeComplete" }` → "Costume-complete"
+- `{ kind: "gigantamaxComplete" }` → "Gigantamax-complete"
+- `{ kind: "megaComplete" }` → "Mega-complete"
+
+Each row: label, a plain progress bar (reuse `.bar-track`/`.bar-fill`,
+already defined for the XP card), and the `complete / total` fraction as
+text (`CompletionLensResult.complete`/`.total`).
 
 ### 3. Trainer page: medals list → grid
 
