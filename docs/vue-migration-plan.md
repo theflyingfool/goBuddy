@@ -133,8 +133,9 @@ target, from `medal_tier`).
    unchanged, add two new aggregate queries over `pokemon_instance`/`tag`
    for the new specimens-by-state and top-tags charts.
 
-**Staying vanilla for now**, ported in a later pass: Search Tools, Coverage
-Report, Achievements/XP Assistant stubs, Help.
+**Staying vanilla for now**, ported in a later pass: Search Tools,
+Achievements/XP Assistant stubs. (Coverage Report and Help were ported to
+Vue in Sub-project 3 — see Status below.)
 
 ## Dex/Bulk Edit merge
 
@@ -167,9 +168,9 @@ deleted, not deprecated-and-kept.
 
 ## Non-goals (this plan)
 
-- Any visual/behavioral change to Search Tools, Coverage Report,
-  Achievements/XP Assistant, Help — untouched until their own migration
-  pass.
+- Any visual/behavioral change to Search Tools, Achievements/XP Assistant —
+  untouched until their own migration pass. (Coverage Report and Help were
+  in scope for, and completed by, Sub-project 3 — see Status below.)
 - Friendship/buddy/Best-Buddy tracking (separate roadmap item).
 - `vue-tsc` template type-checking (revisit if needed).
 - Personal/reference DB file split, identity/slug rework — both already
@@ -179,7 +180,9 @@ deleted, not deprecated-and-kept.
 
 - [x] Phase 0: Vue plumbing + Settings pilot
 - [x] `medal_progress_personal` schema + migration (v5) + repository support
-- [x] Trainer/Profile page (`src/features/trainer/TrainerPage.vue`) — level/XP + medal progress
+- [x] Trainer/Profile page (`src/features/trainer/TrainerPage.vue`) — level/XP +
+      medal progress, medals shown as a grid (not a list) to match the
+      approved mockup's density.
 - [x] **Dex grid + Bulk Edit merge.** Owner call to do this now despite the
       breakage risk flagged above. Implementation is a granularity toggle
       inside the grid's existing select-mode (`species-grid.ts`'s
@@ -226,7 +229,7 @@ deleted, not deprecated-and-kept.
       `stats-page.ts` completion table unchanged (mounted via a thin Vue host,
       not rewritten — same reasoning as Species detail) plus two new charts:
       specimens-by-state and top-tags (`getSpecimenStateCounts`/
-      `getTopTagCounts`).
+      `getTopTagCounts`), plus a global lens-progress list above the charts.
 - [x] Help (src/features/help/HelpPage.vue) — static content, direct port.
 - [x] Coverage Report (src/features/coverage-report/CoverageReportPage.vue) — direct port, same per-fieldset CSV export behavior.
 - [x] Dex grid + Bulk Edit (src/features/data-entry/DexGridPage.vue, BulkFormEditPanel.vue) — full Vue rewrite, species-grid.ts and bulk-form-edit.ts deleted.
