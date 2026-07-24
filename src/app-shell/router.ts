@@ -10,10 +10,14 @@ export type Route =
   | { name: "xp-assistant" }
   | { name: "trainer" }
   | { name: "collection" }
-  | { name: "log-catch" };
+  | { name: "log-catch"; prefillSpeciesSlug?: string };
 
 export function parseRoute(hash: string): Route {
-  const path = hash.replace(/^#/, "") || "/data-entry";
+  const rawPath = hash.replace(/^#/, "") || "/data-entry";
+  // Only log-catch's deep-link (species detail's Log-a-catch FAB) carries a
+  // query string today — split it off before the switch below so every other
+  // route's plain string match is untouched.
+  const [path, queryString] = rawPath.split("?");
   const detailMatch = path.match(/^\/data-entry\/species\/(.+)$/);
   if (detailMatch) return { name: "data-entry-detail", speciesSlug: decodeURIComponent(detailMatch[1]) };
 
@@ -40,8 +44,11 @@ export function parseRoute(hash: string): Route {
       return { name: "trainer" };
     case "/collection":
       return { name: "collection" };
-    case "/log-catch":
-      return { name: "log-catch" };
+    case "/log-catch": {
+      // URLSearchParams already percent-decodes .get() results.
+      const species = new URLSearchParams(queryString ?? "").get("species");
+      return { name: "log-catch", prefillSpeciesSlug: species ?? undefined };
+    }
     case "/data-entry":
     default:
       return { name: "data-entry-grid" };

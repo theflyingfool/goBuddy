@@ -10,7 +10,11 @@ import type { NewPokemonInstanceBatch, Repository } from "../../data/repository"
 import type { Form, PokemonInstance, Species } from "../../db/types";
 import { speciesSpritePath } from "../../ui/sprites";
 
-const props = defineProps<{ repo: Repository }>();
+// prefillSpeciesSlug: deep-link from the species detail page's Log-a-catch
+// FAB (/#/log-catch?species=<slug>, see SpeciesDetailPage.vue and
+// router.ts's log-catch route). Optional — plain /#/log-catch (no query)
+// starts empty exactly as before.
+const props = defineProps<{ repo: Repository; prefillSpeciesSlug?: string }>();
 
 const mode = ref<"quick" | "full">("quick");
 
@@ -30,6 +34,17 @@ function pickSpecies(species: Species) {
   speciesQuery.value = species.name;
   formsForSpecies.value = props.repo.getSpeciesWithForms(species.slug).forms.map((f) => f.form);
   selectedFormSlug.value = formsForSpecies.value[0]?.slug ?? "";
+}
+
+// A prefill slug that doesn't resolve (stale/hand-typed link) falls back to
+// the ordinary empty picker rather than throwing — getSpeciesWithForms
+// throws for an unknown slug (see src/data/in-memory-store.ts).
+if (props.prefillSpeciesSlug) {
+  try {
+    pickSpecies(props.repo.getSpeciesWithForms(props.prefillSpeciesSlug).species);
+  } catch {
+    // Unknown slug — leave the picker empty, same as no prefill at all.
+  }
 }
 
 const shiny = ref(false);

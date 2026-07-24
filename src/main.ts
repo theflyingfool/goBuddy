@@ -6,8 +6,8 @@ import { applyTheme, getThemePreference } from "./app-shell/theme";
 import { mountWriteFailureBanner, reportWriteFailure } from "./app-shell/write-failure-banner";
 import { createSqliteRepository } from "./data/sqlite-repository";
 import type { Repository, GridFilterField } from "./data/repository";
-import { renderSpeciesDetail } from "./features/data-entry/species-detail";
 import { renderSpeciesGrid, renderFilterSheetContent, countActiveFilters, type GridState, type GridCallbacks } from "./features/data-entry/species-grid";
+import SpeciesDetailPage from "./features/data-entry/SpeciesDetailPage.vue";
 import CoverageReportPage from "./features/coverage-report/CoverageReportPage.vue";
 import SettingsPage from "./features/settings/SettingsPage.vue";
 import TrainerPage from "./features/trainer/TrainerPage.vue";
@@ -194,8 +194,12 @@ function bootstrap(repo: Repository) {
           location.hash = speciesDetailPath(slug);
         },
       });
-      renderSpeciesDetail(contentEl, repo, route.speciesSlug, () => {
-        location.hash = "/data-entry";
+      mountVueRoute(contentEl, SpeciesDetailPage, {
+        repo,
+        speciesSlug: route.speciesSlug,
+        onBack: () => {
+          location.hash = "/data-entry";
+        },
       });
     } else {
       renderHeader(headerEl, { kind: "none", title: ROUTE_TITLES[route.name] });
@@ -219,7 +223,7 @@ function bootstrap(repo: Repository) {
           mountVueRoute(contentEl, CollectionPage, { repo });
           break;
         case "log-catch":
-          mountVueRoute(contentEl, LogCatchPage, { repo });
+          mountVueRoute(contentEl, LogCatchPage, { repo, prefillSpeciesSlug: route.prefillSpeciesSlug });
           break;
         case "help":
           mountVueRoute(contentEl, HelpPage, {});
