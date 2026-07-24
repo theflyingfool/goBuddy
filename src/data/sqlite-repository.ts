@@ -15,7 +15,6 @@
 
 import type { ReferenceData } from "../db/reference-data";
 import { DEFAULT_APP_SETTINGS } from "../db/defaults";
-import { DEFAULT_PROFILE_ID } from "../db/schema";
 import {
   FORM_PERSONAL_BOOLEAN_FIELDS,
   FORM_PERSONAL_FIELD_COLUMNS,
@@ -176,7 +175,10 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
     });
   }
 
-  // Always exactly one row (id=DEFAULT_PROFILE_ID), seeded by runPersonalMigrations.
+  // Always exactly one row, seeded by runPersonalMigrations — its id isn't
+  // guaranteed to be DEFAULT_PROFILE_ID on a device that's been upgraded
+  // since before that constant existed, so every write site below reads
+  // the real id from this row instead of assuming DEFAULT_PROFILE_ID.
   const profileRow = (await db.query("SELECT * FROM profile")).values![0];
   const profile: Profile = {
     id: profileRow.id,
@@ -430,7 +432,7 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
              VALUES (?, ?, 'kept', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               batch.formSlug,
-              DEFAULT_PROFILE_ID,
+              state.profile.id,
               now,
               batch.caughtAt ?? null,
               now,
@@ -450,7 +452,7 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
           created.push({
             id,
             formSlug: batch.formSlug,
-            profileId: DEFAULT_PROFILE_ID,
+            profileId: state.profile.id,
             status: "kept",
             recordedAt: now,
             caughtAt: batch.caughtAt ?? null,
@@ -488,9 +490,9 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
       if (existing) return existing;
       let created: Tag | undefined;
       enqueueWrite(async () => {
-        await db.run("INSERT INTO tag (profile_id, name) VALUES (?, ?)", [DEFAULT_PROFILE_ID, name], true);
+        await db.run("INSERT INTO tag (profile_id, name) VALUES (?, ?)", [state.profile.id, name], true);
         const idRow = (await db.query("SELECT last_insert_rowid() AS id")).values?.[0] as { id: number } | undefined;
-        created = { id: idRow!.id, profileId: DEFAULT_PROFILE_ID, name };
+        created = { id: idRow!.id, profileId: state.profile.id, name };
         await persistDb();
       });
       await writeQueue;

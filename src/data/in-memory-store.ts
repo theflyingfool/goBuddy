@@ -13,7 +13,7 @@
 import { resolveFormFieldCascade } from "../db/cascades";
 import { emptyFormPersonal, emptyMedalProgress, emptyMegaPersonal, emptySpeciesPersonal } from "../db/defaults";
 import type { ReferenceData } from "../db/reference-data";
-import { CURRENT_PERSONAL_SCHEMA_VERSION, DEFAULT_PROFILE_ID } from "../db/schema";
+import { CURRENT_PERSONAL_SCHEMA_VERSION } from "../db/schema";
 import {
   FORM_PERSONAL_BOOLEAN_FIELDS,
   type Form,
@@ -318,14 +318,14 @@ export function createInMemoryRepository(
   }
 
   function applyMedalProgress(medalSlug: string, currentRank: number, currentCount: number): void {
-    const updated: MedalProgressPersonal = { medalSlug, profileId: DEFAULT_PROFILE_ID, currentRank, currentCount, updatedAt: Date.now() };
+    const updated: MedalProgressPersonal = { medalSlug, profileId: state.profile.id, currentRank, currentCount, updatedAt: Date.now() };
     state.medalProgress[medalSlug] = updated;
     hooks.onMedalProgressChanged(medalSlug, updated);
   }
 
   function applyPlayerProgress(currentLevel: number | null, totalXp: number | null): void {
     const now = Date.now();
-    const updated: PlayerProgressPersonal = { profileId: DEFAULT_PROFILE_ID, currentLevel, totalXp, updatedAt: now };
+    const updated: PlayerProgressPersonal = { profileId: state.profile.id, currentLevel, totalXp, updatedAt: now };
     state.playerProgress = updated;
     hooks.onPlayerProgressChanged(updated);
 
@@ -333,7 +333,7 @@ export function createInMemoryRepository(
     // real backend assigns its own AUTOINCREMENT id on insert (see
     // sqlite-repository.ts's onPlayerProgressLogAppended), which is what
     // actually lands in the DB. Nothing reads this value back afterward.
-    const logEntry: PlayerProgressLogEntry = { id: state.playerProgressLog.length + 1, profileId: DEFAULT_PROFILE_ID, recordedAt: now, currentLevel, totalXp };
+    const logEntry: PlayerProgressLogEntry = { id: state.playerProgressLog.length + 1, profileId: state.profile.id, recordedAt: now, currentLevel, totalXp };
     state.playerProgressLog.push(logEntry);
     hooks.onPlayerProgressLogAppended(logEntry);
   }
@@ -549,7 +549,7 @@ export function createInMemoryRepository(
       return referenceData.medals.map((medal) => ({
         medal,
         tiers: medalTiersByMedalSlug.get(medal.slug) ?? [],
-        progress: state.medalProgress[medal.slug] ?? emptyMedalProgress(medal.slug, DEFAULT_PROFILE_ID),
+        progress: state.medalProgress[medal.slug] ?? emptyMedalProgress(medal.slug, state.profile.id),
       }));
     },
 
