@@ -133,3 +133,40 @@ test("bootstrapping a real v5 device (missing player_progress_log) does not cras
   const migrationRows = db.prepare("SELECT COUNT(*) as c FROM __drizzle_migrations").get() as { c: number };
   assert.equal(migrationRows.c, 2);
 });
+
+// A prior review flagged a schema-parity gap: the old hand-rolled migration
+// system's `ALTER TABLE ... ADD COLUMN profile_id` (pre-Drizzle) couldn't add
+// a REFERENCES clause (SQLite disallows adding a foreign key via ALTER TABLE
+// with a non-null default) — the v6 fixture above accurately reproduces that
+// real, unenforced state (see test/fixtures/v6-personal-schema.sql's
+// `profile_id INTEGER NOT NULL DEFAULT 1` columns, no REFERENCES anywhere).
+// Migration 0001's table-rebuild (see its own header comment) recreates
+// every one of those columns with a real `REFERENCES profile(id)` clause, as
+// part of the same rebuild that does the TEXT->INTEGER timestamp conversion
+// — this test confirms that rebuild actually lands enforced FK behavior for
+// a device coming from that unenforced v6 state, not just a textually
+// present but inert constraint.
+test("bootstrapping a real v6 device (unenforced profile_id FK) results in a real, enforced FK", async () => {
+  const db = v6FixtureDb();
+  const conn = nodeSqliteConnection(db);
+  await runPersonalMigrations(conn);
+
+  // player_progress_log, not player_progress_personal: player_progress_personal's
+  // current_level column carries its own separate FK into player_level (a
+  // reference table syncReferenceData() creates, out of scope for this
+  // migration-only test) — SQLite validates a REFERENCES target's table
+  // existence at INSERT-time regardless of the bound value, so any insert
+  // there fails for an unrelated reason. player_progress_log's profile_id is
+  // the only FK on that table, so it isolates the check this test cares about.
+  const fkList = db.prepare("PRAGMA foreign_key_list(player_progress_log)").all() as { table: string }[];
+  assert.ok(
+    fkList.some((fk) => fk.table === "profile"),
+    "expected player_progress_log to declare a foreign key into profile after migration",
+  );
+
+  assert.throws(
+    () => db.prepare("INSERT INTO player_progress_log (profile_id, recorded_at, current_level, total_xp) VALUES (999, 0, NULL, 100)").run(),
+    /FOREIGN KEY constraint failed/,
+    "a profile_id with no matching profile row should now be rejected",
+  );
+});
