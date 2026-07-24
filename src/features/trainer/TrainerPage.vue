@@ -92,28 +92,28 @@ function updateCount(medalSlug: string, tiers: { rank: number; target: number | 
 
   <fieldset>
     <legend>Medals ({{ sortedMedals.filter((m) => m.progress.currentCount > 0).length }} / {{ sortedMedals.length }} started)</legend>
-    <div v-for="entry in sortedMedals" :key="entry.medal.slug" class="medal-row">
-      <div class="medal-head">
-        <strong>{{ entry.medal.name }}</strong>
+    <div class="medal-grid">
+      <div v-for="entry in sortedMedals" :key="entry.medal.slug" class="medal-tile">
+        <strong class="medal-tile-name">{{ entry.medal.name }}</strong>
         <span class="gap-note">{{ entry.medal.description }}</span>
-      </div>
-      <div class="medal-progress">
-        <label>
-          Count
-          <input
-            type="number"
-            min="0"
-            :value="entry.progress.currentCount"
-            @change="updateCount(entry.medal.slug, entry.tiers, entry.progress.currentRank, Number(($event.target as HTMLInputElement).value))"
-          />
-        </label>
-        <span class="gap-note" v-if="nextTarget(entry.tiers, entry.progress.currentRank) !== null">
+        <div class="medal-progress">
+          <label>
+            Count
+            <input
+              type="number"
+              min="0"
+              :value="entry.progress.currentCount"
+              @change="updateCount(entry.medal.slug, entry.tiers, entry.progress.currentRank, Number(($event.target as HTMLInputElement).value))"
+            />
+          </label>
+        </div>
+        <span class="medal-tile-tier" v-if="nextTarget(entry.tiers, entry.progress.currentRank) !== null">
           Tier {{ entry.progress.currentRank }} → next at {{ nextTarget(entry.tiers, entry.progress.currentRank) }}
         </span>
-        <span class="gap-note" v-else-if="entry.progress.currentRank > 0"> Tier {{ entry.progress.currentRank }} (max) </span>
+        <span class="medal-tile-tier" v-else-if="entry.progress.currentRank > 0"> Tier {{ entry.progress.currentRank }} (max) </span>
       </div>
     </div>
   </fieldset>
 </template>
 
-<!-- .medal-row/.medal-head/.medal-progress are styled globally in src/style.css. -->
+<!-- .medal-grid/.medal-tile/.medal-progress are styled globally in src/style.css. -->

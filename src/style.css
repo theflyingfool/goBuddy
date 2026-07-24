@@ -2011,20 +2011,30 @@ label.field select {
 
 /* ---- Trainer page: medals ---- */
 
-.medal-row {
-  padding: 0.7rem 0;
-  border-top: 1px solid var(--line);
+.medal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
 }
 
-.medal-row:first-of-type {
-  border-top: none;
-}
-
-.medal-head {
+.medal-tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-tag);
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  margin-bottom: 0.4rem;
+  gap: 6px;
+}
+
+.medal-tile .medal-tile-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.medal-tile .medal-tile-tier {
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .medal-progress {
