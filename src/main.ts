@@ -6,8 +6,9 @@ import { applyTheme, getThemePreference } from "./app-shell/theme";
 import { mountWriteFailureBanner, reportWriteFailure } from "./app-shell/write-failure-banner";
 import { createSqliteRepository } from "./data/sqlite-repository";
 import type { Repository, GridFilterField } from "./data/repository";
-import { renderSpeciesGrid, renderFilterSheetContent, countActiveFilters, type GridState, type GridCallbacks } from "./features/data-entry/species-grid";
+import { renderFilterSheetContent, countActiveFilters, type GridState, type GridCallbacks } from "./features/data-entry/species-grid";
 import SpeciesDetailPage from "./features/data-entry/SpeciesDetailPage.vue";
+import DexGridPage from "./features/data-entry/DexGridPage.vue";
 import CoverageReportPage from "./features/coverage-report/CoverageReportPage.vue";
 import SettingsPage from "./features/settings/SettingsPage.vue";
 import TrainerPage from "./features/trainer/TrainerPage.vue";
@@ -111,7 +112,7 @@ function bootstrap(repo: Repository) {
 
     if (route.name === "data-entry-grid") {
       const renderGrid = () => {
-        renderSpeciesGrid(contentEl, repo, gridState, gridCallbacks);
+        mountVueRoute(contentEl, DexGridPage, { repo, state: gridState, callbacks: gridCallbacks });
         renderFilterSheetContent(filterSheetEl, repo, gridState, gridCallbacks);
         updateFilterBadge(headerEl, countActiveFilters(gridState));
       };
