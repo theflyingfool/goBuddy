@@ -2060,3 +2060,42 @@ label.field select {
   background: var(--bg);
   color: var(--ink);
 }
+
+.iv-component-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.iv-component-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.iv-component-desktop {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+.iv-component-desktop input[type="range"] {
+  flex: 1;
+}
+.iv-component-desktop input[type="number"] {
+  width: 56px;
+}
+.iv-component-mobile {
+  display: block;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: var(--radius-sm, 8px);
+  padding: 8px 10px;
+  font-size: 0.92rem;
+}
+@media (min-width: 720px) {
+  .iv-component-desktop {
+    display: flex;
+  }
+  .iv-component-mobile {
+    display: none;
+  }
+}

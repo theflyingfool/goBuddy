@@ -7,8 +7,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { NewPokemonInstanceBatch, Repository } from "../../data/repository";
-import type { Form, PokemonInstance, Species } from "../../db/types";
+import { computeIvPercent, type Form, type PokemonInstance, type Species } from "../../db/types";
 import { speciesSpritePath } from "../../ui/sprites";
+import IvComponentInput from "./IvComponentInput.vue";
 
 // prefillSpeciesSlug: deep-link from the species detail page's Log-a-catch
 // FAB (/#/log-catch?species=<slug>, see SpeciesDetailPage.vue and
@@ -58,7 +59,10 @@ function setQuantity(n: number) {
 }
 
 const cp = ref<number | null>(null);
-const ivPercent = ref<number | null>(null);
+const ivAttack = ref<number | null>(null);
+const ivDefense = ref<number | null>(null);
+const ivStamina = ref<number | null>(null);
+const livePreviewIv = computed(() => computeIvPercent(ivAttack.value, ivDefense.value, ivStamina.value));
 const nickname = ref("");
 // YYYY-MM-DD, bound to <input type="date"> — a UI-only string, converted to
 // epoch-ms at save time (dateInputToEpochMs). Built from local date parts
@@ -125,7 +129,9 @@ async function save() {
       shadow: shadow.value,
       purified: purified.value,
       cp: mode.value === "full" ? cp.value : null,
-      ivPercent: mode.value === "full" ? ivPercent.value : null,
+      ivAttack: mode.value === "full" ? ivAttack.value : null,
+      ivDefense: mode.value === "full" ? ivDefense.value : null,
+      ivStamina: mode.value === "full" ? ivStamina.value : null,
       nickname: mode.value === "full" ? nickname.value || null : null,
       caughtAt: mode.value === "full" ? dateInputToEpochMs(caughtAt.value) : null,
       tagIds: mode.value === "full" ? [...selectedTagIds.value] : [],
@@ -205,7 +211,13 @@ async function quickAction(id: number, status: "traded" | "evolved" | "released"
     <legend>Details</legend>
     <div class="input-grid">
       <label class="field">CP<input type="number" v-model.number="cp" /></label>
-      <label class="field">IV %<input type="number" v-model.number="ivPercent" /></label>
+      <IvComponentInput v-model="ivAttack" label="Attack IV" />
+      <IvComponentInput v-model="ivDefense" label="Defense IV" />
+      <IvComponentInput v-model="ivStamina" label="Stamina IV" />
+      <div class="field" v-if="livePreviewIv !== null">
+        <span class="iv-component-label">IV %</span>
+        <span class="tabular">{{ livePreviewIv }}%</span>
+      </div>
       <label class="field">Nickname<input type="text" v-model="nickname" /></label>
       <label class="field">Caught on<input type="date" v-model="caughtAt" /></label>
     </div>
