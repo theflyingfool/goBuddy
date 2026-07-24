@@ -8,7 +8,7 @@ import { createSqliteRepository } from "./data/sqlite-repository";
 import type { Repository, GridFilterField } from "./data/repository";
 import { renderSpeciesDetail } from "./features/data-entry/species-detail";
 import { renderSpeciesGrid, renderFilterSheetContent, countActiveFilters, type GridState, type GridCallbacks } from "./features/data-entry/species-grid";
-import { renderCoverageReportPage } from "./features/coverage-report/coverage-report-page";
+import CoverageReportPage from "./features/coverage-report/CoverageReportPage.vue";
 import SettingsPage from "./features/settings/SettingsPage.vue";
 import TrainerPage from "./features/trainer/TrainerPage.vue";
 import CollectionPage from "./features/collection/CollectionPage.vue";
@@ -207,7 +207,7 @@ function bootstrap(repo: Repository) {
           renderSearchToolsPage(contentEl);
           break;
         case "coverage-report":
-          renderCoverageReportPage(contentEl);
+          mountVueRoute(contentEl, CoverageReportPage, {});
           break;
         case "settings":
           mountVueRoute(contentEl, SettingsPage, { repo });

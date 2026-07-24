@@ -225,6 +225,7 @@ deleted, not deprecated-and-kept.
       specimens-by-state and top-tags (`getSpecimenStateCounts`/
       `getTopTagCounts`).
 - [x] Help (src/features/help/HelpPage.vue) — static content, direct port.
+- [x] Coverage Report (src/features/coverage-report/CoverageReportPage.vue) — direct port, same per-fieldset CSV export behavior.
 
 **Known gap, not addressed this pass:** `PersonalDataExport`/`importPersonalData`
 now export `pokemonInstances`/`tags` for completeness (so a rescue export or
