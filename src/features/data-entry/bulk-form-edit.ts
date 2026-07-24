@@ -5,8 +5,8 @@
 // Reuses, rather than reinventing:
 //   - repo.listSpeciesSummaries(filter) for region/search/caught/field
 //     filtering (same SpeciesFilter the grid uses),
-//   - groupForms() from species-detail for the identical gender-collapsed
-//     grouping (one checkbox per form/costume),
+//   - groupForms() from species-detail-shared for the identical
+//     gender-collapsed grouping (one checkbox per form/costume),
 //   - FORM_FIELD_GROUPS for the section-grouped target-field picker and its
 //     availableWhen availability gating,
 //   - repo.bulkSetFormPersonalField for the batched, single-flush write.
@@ -17,7 +17,7 @@ import { clear, el } from "../../ui/dom";
 import { formSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS } from "./field-groups";
 import { gridFilterFieldLabel, MORE_FILTER_FIELDS, renderFilterLegend } from "./indicator-labels";
-import { groupForms } from "./species-detail";
+import { groupForms } from "./species-detail-shared";
 
 type FieldFilterState = "include" | "exclude";
 

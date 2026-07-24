@@ -16,24 +16,13 @@
 import { computed, ref, watch } from "vue";
 import { navigate, speciesDetailPath } from "../../app-shell/router";
 import { fuzzyMatches, parseSearchQuery, type PokemonInstanceWithSpecies, type Repository } from "../../data/repository";
-import type { FormPersonal, FormPersonalBooleanField, MegaPersonal, MegaVariant, MegaVariantKind } from "../../db/types";
+import type { FormPersonal, FormPersonalBooleanField, MegaPersonal, MegaVariant } from "../../db/types";
 import { formSpritePath, megaSpritePath, speciesSpritePath } from "../../ui/sprites";
 import { FORM_FIELD_GROUPS, SPECIES_FIELDS } from "./field-groups";
 import { INDICATOR_LABELS, getFormGridSecondField } from "./indicator-labels";
-import { groupForms, type FormGroup } from "./species-detail";
+import { COLLAPSE_GENDER_FORMS_SETTING_KEY, groupForms, megaVariantLabel, type FormGroup } from "./species-detail-shared";
 
 const props = defineProps<{ repo: Repository; speciesSlug: string; onBack: () => void }>();
-
-// "Mega" for the single-variant case (null), "Mega X"/"Mega Y" for
-// Charizard/Mewtwo-style dual variants, "Primal" as-is (that's the real
-// in-game name — not "Mega Primal"). Mirrors species-detail.ts's private
-// helper of the same name (not exported there, so duplicated here rather
-// than widening that file's export surface for a 1-line function).
-function megaVariantLabel(variant: MegaVariantKind): string {
-  return variant === null ? "Mega" : variant === "Primal" ? "Primal" : `Mega ${variant}`;
-}
-
-const COLLAPSE_SETTING_KEY = "collapse_gender_forms";
 
 // Same per-species, survives-navigation-back UI state as species-detail.ts's
 // module-level maps (expand-in-place, filter text, missing-only, shiny view,
@@ -48,7 +37,7 @@ const infoViewBySpecies = new Map<string, boolean>();
 
 const detail = ref(props.repo.getSpeciesWithForms(props.speciesSlug));
 const megaVariants = ref(props.repo.getMegaVariantsForSpecies(props.speciesSlug));
-const collapseGender = computed(() => props.repo.getAppSetting(COLLAPSE_SETTING_KEY) === "1");
+const collapseGender = computed(() => props.repo.getAppSetting(COLLAPSE_GENDER_FORMS_SETTING_KEY) === "1");
 const adjacent = computed(() => props.repo.getAdjacentSpecies(props.speciesSlug));
 const secondField = computed<FormPersonalBooleanField>(() => getFormGridSecondField(props.repo));
 
@@ -127,6 +116,16 @@ const region = computed(() => props.repo.listRegions().find((r) => r.slug === de
 const representativeFormSlug = computed(() => detail.value.forms[0]?.form.slug);
 const types = computed(() => (representativeFormSlug.value ? props.repo.getFormTypes(representativeFormSlug.value) : []));
 
+// Info tab — CP calculator and Pokédex flavor text are deliberately NOT here:
+// neither base stats nor flavor text exist anywhere in the ingested reference
+// data (confirmed while scoping the Vue migration — see
+// docs/vue-migration-plan.md), and fabricating either would be inventing real
+// Pokémon GO facts rather than showing real data. Type matchups ARE real
+// (type_effectiveness), so those are shown.
+const matchups = computed(() => (representativeFormSlug.value ? props.repo.getTypeMatchups(representativeFormSlug.value) : []));
+const weakTo = computed(() => matchups.value.filter((m) => m.multiplier > 1).sort((a, b) => b.multiplier - a.multiplier));
+const resists = computed(() => matchups.value.filter((m) => m.multiplier < 1).sort((a, b) => a.multiplier - b.multiplier));
+
 // Individuals ("specimens") logged for this species via Log a catch —
 // Repository has no species-scoped instance query, so this reuses the same
 // listPokemonInstances() the Collection page calls and filters client-side,
@@ -196,8 +195,26 @@ function goToLogCatch() {
   </div>
 
   <div v-if="infoView" class="species-info-panel">
-    <!-- Placeholder — Task 5 ports the Info tab (type matchups, Pokédex entry
-         gap-note, CP calculator gap-note) from species-detail.ts. -->
+    <fieldset>
+      <legend>Type matchups</legend>
+      <div class="matchup-grid">
+        <span v-if="weakTo.length === 0 && resists.length === 0" class="gap-note">No type data for this form.</span>
+        <span v-for="m in weakTo" :key="`weak-${m.attackingType.slug}`" class="matchup-chip matchup-weak">
+          Weak: {{ m.attackingType.name }} ×{{ m.multiplier }}
+        </span>
+        <span v-for="m in resists" :key="`resist-${m.attackingType.slug}`" class="matchup-chip matchup-resist">
+          Resists: {{ m.attackingType.name }} ×{{ m.multiplier }}
+        </span>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Pokédex entry</legend>
+      <p class="gap-note">Not available yet — flavor text isn't in the current reference data.</p>
+    </fieldset>
+    <fieldset>
+      <legend>CP calculator</legend>
+      <p class="gap-note">Not available yet — base stats aren't in the current reference data (see docs/vue-migration-plan.md).</p>
+    </fieldset>
   </div>
 
   <template v-else>

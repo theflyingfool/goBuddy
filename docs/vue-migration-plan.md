@@ -201,14 +201,17 @@ deleted, not deprecated-and-kept.
       rather than being the whole page. Database/schema work is explicitly
       out of scope for this pass (Drizzle migration + DB cleanup planned
       next).
-- [x] Species detail — Tracking tab unchanged; Info tab added
-      (`species-detail.ts`, additive, not a Vue rewrite) with real type
-      matchups. CP calculator and flavor text show an honest "not available
-      yet" message rather than fabricated numbers — confirmed while building
-      this that base stats and flavor text aren't in the ingested reference
-      data at all (`v2-schema-design.md`'s base-stat columns were sketched but
-      never actually added). A real fix needs an ingestion pipeline change,
-      out of scope here.
+- [x] Species detail (src/features/data-entry/SpeciesDetailPage.vue) — Tracking + Info tabs, full Vue rewrite (supersedes the earlier "additive, not a Vue rewrite" note).
+      Info tab shows real type matchups. CP calculator and flavor text show an
+      honest "not available yet" message rather than fabricated numbers —
+      confirmed while building this that base stats and flavor text aren't in
+      the ingested reference data at all (`v2-schema-design.md`'s base-stat
+      columns were sketched but never actually added). A real fix needs an
+      ingestion pipeline change, out of scope here. `groupForms`/`FormGroup`/
+      `megaVariantLabel`/the `collapse_gender_forms` setting key moved to
+      `src/features/data-entry/species-detail-shared.ts`, shared with
+      `bulk-form-edit.ts`, since the old `species-detail.ts` they lived in is
+      now deleted.
 - [x] Collection (`src/features/collection/CollectionPage.vue`) — filters/sorts
       over the in-memory cache, same as every other screen today. The plan's
       "needs real paginated SQL for 12,000+ specimens" concern is **not**
