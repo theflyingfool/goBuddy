@@ -12,6 +12,23 @@
   write re-fetches fresh state from the repo and Vue's reactivity does the
   rest, which sees the same cascaded facts the vanilla patches were chasing.
 -->
+<script lang="ts">
+// Real module scope (a plain, non-`setup` <script> block) rather than a
+// `const` at the top of <script setup> — <script setup> compiles into the
+// component's setup(), which reruns on every mount, so a `const` declared
+// there is per-instance, not shared. Every route navigation fully remounts
+// this component (mountVueRoute always unmounts+recreates, per main.ts), so
+// a real module-level singleton is required to preserve this per-species UI
+// state (expand-in-place, filter text, missing-only, shiny view, tab) across
+// a round trip to a different species and back — same reasoning, and same
+// fix, as BulkFormEditPanel.vue's module-level bulkFormEditState.
+export const expandedGroupKeysBySpecies = new Map<string, Set<string>>();
+export const formFilterBySpecies = new Map<string, string>();
+export const missingOnlyBySpecies = new Map<string, boolean>();
+export const shinyViewBySpecies = new Map<string, boolean>();
+export const infoViewBySpecies = new Map<string, boolean>();
+</script>
+
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { navigate, speciesDetailPath } from "../../app-shell/router";
@@ -23,17 +40,6 @@ import { INDICATOR_LABELS, getFormGridSecondField } from "./indicator-labels";
 import { COLLAPSE_GENDER_FORMS_SETTING_KEY, groupForms, megaVariantLabel, type FormGroup } from "./species-detail-shared";
 
 const props = defineProps<{ repo: Repository; speciesSlug: string; onBack: () => void }>();
-
-// Same per-species, survives-navigation-back UI state as species-detail.ts's
-// module-level maps (expand-in-place, filter text, missing-only, shiny view,
-// tab). Every route navigation fully remounts this component (mountVueRoute
-// always unmounts+recreates), so this state has to live above the component
-// instance to survive a round trip to a different species and back.
-const expandedGroupKeysBySpecies = new Map<string, Set<string>>();
-const formFilterBySpecies = new Map<string, string>();
-const missingOnlyBySpecies = new Map<string, boolean>();
-const shinyViewBySpecies = new Map<string, boolean>();
-const infoViewBySpecies = new Map<string, boolean>();
 
 const detail = ref(props.repo.getSpeciesWithForms(props.speciesSlug));
 const megaVariants = ref(props.repo.getMegaVariantsForSpecies(props.speciesSlug));
