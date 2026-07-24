@@ -117,9 +117,12 @@ export const weatherBoost = sqliteTable(
   (table) => ({ pk: primaryKey({ columns: [table.weather, table.typeSlug] }) }),
 );
 
+// cumulativeXp is nullable: see src/db/schema.ts's player_level DDL comment
+// -- levels 51-80 are real but have no published XP-requirement figure
+// from any currently-integrated ingestion source.
 export const playerLevel = sqliteTable("player_level", {
   level: integer("level").primaryKey(),
-  cumulativeXp: integer("cumulative_xp").notNull(),
+  cumulativeXp: integer("cumulative_xp"),
 });
 
 export const playerLevelReward = sqliteTable(

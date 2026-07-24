@@ -287,9 +287,26 @@ function buildTypeEffectivenessAndWeather(): { typeEffectiveness: TypeEffectiven
   return { typeEffectiveness, weatherBoosts };
 }
 
+// The real in-game level cap (owner-confirmed 2026-07-23) -- no currently
+// integrated ingestion source publishes XP requirements this high (verified
+// via a live fetch of pogoapi.net's player_xp_requirements.json, which still
+// tops out at 50, and a search of the vendored pokemon-go-api submodule,
+// which has no player-XP data at all). Levels above what player_xp_requirements
+// covers are seeded with a null cumulative_xp (see schema.ts's player_level
+// DDL comment) rather than a fabricated figure, purely so a real trainer's
+// current_level can be recorded at all -- player_progress_personal.current_level
+// is a real FK into player_level(level).
+const MAX_TRAINER_LEVEL = 80;
+
 function buildPlayerProgression(): { playerLevels: PlayerLevel[]; playerLevelRewards: PlayerLevelReward[]; medals: Medal[]; medalTiers: MedalTier[]; friendshipLevels: FriendshipLevel[] } {
   const xpReq = loadPogoapi<Record<string, number>>("player_xp_requirements");
-  const playerLevels = Object.entries(xpReq).map(([level, xp]) => ({ level: Number(level), cumulativeXp: xp }));
+  const playerLevels: PlayerLevel[] = Object.entries(xpReq).map(([level, xp]) => ({ level: Number(level), cumulativeXp: xp }));
+
+  const knownXpLevels = new Set(playerLevels.map((l) => l.level));
+  for (let level = 1; level <= MAX_TRAINER_LEVEL; level++) {
+    if (!knownXpLevels.has(level)) playerLevels.push({ level, cumulativeXp: null });
+  }
+  playerLevels.sort((a, b) => a.level - b.level);
 
   const knownLevels = new Set(playerLevels.map((l) => l.level));
 
@@ -298,13 +315,9 @@ function buildPlayerProgression(): { playerLevels: PlayerLevel[]; playerLevelRew
   const playerLevelRewards: PlayerLevelReward[] = [];
   const nextSortOrderByLevel = new Map<number, number>();
   for (const r of rewards) {
-    // pogoapi.net's levelup_rewards.json lists reward levels up to 70, but
-    // player_xp_requirements.json (playerLevels above) only covers 1-50 --
-    // player_level_reward.level is a real FK to player_level(level), and we
-    // don't have (and won't invent) the real cumulative-XP figures for
-    // levels 53-70 to seed those player_level rows ourselves. Skipping
-    // reward rows past level 50 for now rather than fabricating an XP curve
-    // -- revisit once a source actually publishes XP requirements that far.
+    // player_level_reward.level is a real FK to player_level(level) -- every
+    // level up to MAX_TRAINER_LEVEL now has a row (see above), so this only
+    // guards against a future source listing a reward past the level cap.
     if (!knownLevels.has(r.level)) continue;
     // A handful of levels (10, 20, 25, 30, 35, 40, 43, 45, 47, 50) have TWO
     // separate source records -- the normal level-up bundle plus a one-time

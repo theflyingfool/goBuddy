@@ -123,7 +123,8 @@ export interface WeatherBoost {
 
 export interface PlayerLevel {
   level: number;
-  cumulativeXp: number;
+  /** Null for levels beyond what any ingestion source publishes (currently 51-80) -- see schema.ts's player_level DDL comment. */
+  cumulativeXp: number | null;
 }
 
 export interface PlayerLevelReward {
