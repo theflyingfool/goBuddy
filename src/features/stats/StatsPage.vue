@@ -8,7 +8,7 @@
 -->
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import type { Repository } from "../../data/repository";
+import type { CompletionLens, Repository } from "../../data/repository";
 import type { PlayerProgressLogEntry } from "../../db/types";
 import { renderStatsPage } from "./stats-page";
 
@@ -64,6 +64,22 @@ const xpPath = computed(() => {
     .join(" ");
 });
 
+const LENS_LIST: { lens: CompletionLens; label: string }[] = [
+  { lens: { kind: "registered" }, label: "Registered" },
+  { lens: { kind: "formComplete" }, label: "Form-complete" },
+  { lens: { kind: "costumeComplete" }, label: "Costume-complete" },
+  { lens: { kind: "gigantamaxComplete" }, label: "Gigantamax-complete" },
+  { lens: { kind: "megaComplete" }, label: "Mega-complete" },
+];
+const lensResults = ref<{ label: string; complete: number; total: number }[]>([]);
+onMounted(async () => {
+  const results = await props.repo.getCompletionStats(
+    { kind: "global" },
+    LENS_LIST.map((l) => l.lens),
+  );
+  lensResults.value = results.map((r, i) => ({ label: LENS_LIST[i].label, complete: r.complete, total: r.total }));
+});
+
 const stateCounts = props.repo.getSpecimenStateCounts();
 const topTags = props.repo.getTopTagCounts();
 const maxTagCount = Math.max(1, ...topTags.map((t) => t.count));
@@ -83,6 +99,15 @@ const maxStateCount = Math.max(1, stateCounts.shiny, stateCounts.lucky, stateCou
     <div class="stats-kpi-card">
       <div class="stats-kpi-label">Medals started</div>
       <div class="stats-kpi-value">{{ medalsStarted }} / {{ medals.length }}</div>
+    </div>
+  </div>
+
+  <div class="chart-card" v-if="lensResults.length">
+    <div class="ctitle">Completion by lens</div>
+    <div class="hbar-row" v-for="entry in lensResults" :key="entry.label">
+      <span>{{ entry.label }}</span>
+      <div class="hbar-track"><div class="hbar-fill" :style="{ width: (entry.total ? (entry.complete / entry.total) * 100 : 0) + '%' }"></div></div>
+      <span class="hbar-val">{{ entry.complete }} / {{ entry.total }}</span>
     </div>
   </div>
 
