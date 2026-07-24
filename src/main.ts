@@ -15,7 +15,7 @@ import CollectionPage from "./features/collection/CollectionPage.vue";
 import LogCatchPage from "./features/log-catch/LogCatchPage.vue";
 import StatsPage from "./features/stats/StatsPage.vue";
 import { mountVueRoute, unmountCurrentVueRoute } from "./app-shell/mount-vue";
-import { renderHelpPage } from "./features/help/help-page";
+import HelpPage from "./features/help/HelpPage.vue";
 import { renderAchievementsPage, renderSearchToolsPage, renderXpAssistantPage } from "./features/stubs";
 import { createOverlayPanel, bindEscapeToClose } from "./ui/overlay-panel";
 import { el } from "./ui/dom";
@@ -222,7 +222,7 @@ function bootstrap(repo: Repository) {
           mountVueRoute(contentEl, LogCatchPage, { repo });
           break;
         case "help":
-          renderHelpPage(contentEl);
+          mountVueRoute(contentEl, HelpPage, {});
           break;
         case "achievements":
           renderAchievementsPage(contentEl);

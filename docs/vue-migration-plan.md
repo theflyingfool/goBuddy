@@ -224,6 +224,7 @@ deleted, not deprecated-and-kept.
       not rewritten — same reasoning as Species detail) plus two new charts:
       specimens-by-state and top-tags (`getSpecimenStateCounts`/
       `getTopTagCounts`).
+- [x] Help (src/features/help/HelpPage.vue) — static content, direct port.
 
 **Known gap, not addressed this pass:** `PersonalDataExport`/`importPersonalData`
 now export `pokemonInstances`/`tags` for completeness (so a rescue export or
