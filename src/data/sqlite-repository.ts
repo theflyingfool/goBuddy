@@ -29,6 +29,7 @@ import {
   type Profile,
   type SpeciesPersonal,
   type Tag,
+  computeIvPercent,
 } from "../db/types";
 import { getDb, persistDb } from "../db/sqlite-client";
 import { runPersonalMigrations } from "../db/migrations";
@@ -131,6 +132,9 @@ async function loadPersonalState(db: Awaited<ReturnType<typeof getDb>>): Promise
       caughtAt: row.caught_at ?? null,
       updatedAt: row.updated_at,
       cp: row.cp ?? null,
+      ivAttack: row.iv_attack ?? null,
+      ivDefense: row.iv_defense ?? null,
+      ivStamina: row.iv_stamina ?? null,
       ivPercent: row.iv_percent ?? null,
       shiny: !!row.shiny,
       lucky: !!row.lucky,
@@ -428,8 +432,8 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
         await db.beginTransaction();
         for (let i = 0; i < batch.count; i++) {
           await db.run(
-            `INSERT INTO pokemon_instance (form_slug, profile_id, status, recorded_at, caught_at, updated_at, cp, iv_percent, shiny, lucky, shadow, purified, nickname, background_slug)
-             VALUES (?, ?, 'kept', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO pokemon_instance (form_slug, profile_id, status, recorded_at, caught_at, updated_at, cp, iv_attack, iv_defense, iv_stamina, shiny, lucky, shadow, purified, nickname, background_slug)
+             VALUES (?, ?, 'kept', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               batch.formSlug,
               state.profile.id,
@@ -437,7 +441,9 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
               batch.caughtAt ?? null,
               now,
               batch.cp ?? null,
-              batch.ivPercent ?? null,
+              batch.ivAttack ?? null,
+              batch.ivDefense ?? null,
+              batch.ivStamina ?? null,
               batch.shiny ? 1 : 0,
               batch.lucky ? 1 : 0,
               batch.shadow ? 1 : 0,
@@ -458,7 +464,10 @@ export async function createSqliteRepository(onWriteFailure?: (message: string, 
             caughtAt: batch.caughtAt ?? null,
             updatedAt: now,
             cp: batch.cp ?? null,
-            ivPercent: batch.ivPercent ?? null,
+            ivAttack: batch.ivAttack ?? null,
+            ivDefense: batch.ivDefense ?? null,
+            ivStamina: batch.ivStamina ?? null,
+            ivPercent: computeIvPercent(batch.ivAttack ?? null, batch.ivDefense ?? null, batch.ivStamina ?? null),
             shiny: !!batch.shiny,
             lucky: !!batch.lucky,
             shadow: !!batch.shadow,
