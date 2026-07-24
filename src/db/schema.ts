@@ -235,7 +235,13 @@ CREATE TABLE IF NOT EXISTS community_day_event_move (
 // it's only compared against PersonalDataExport.schemaVersion on import, so
 // an export from a pre-7 (ISO-string) build is detected rather than merged
 // in silently corrupted (see personal-data-transfer.ts's readPersonalDataFile).
-export const CURRENT_PERSONAL_SCHEMA_VERSION = 7;
+// Bumped 7 -> 8: pokemon_instance.iv_percent changed from a writable REAL
+// column to a SQL GENERATED column derived from new iv_attack/iv_defense/
+// iv_stamina columns (see docs/superpowers/specs/2026-07-24-sub-project-4-iv-entry-rework-design.md).
+// A pre-8 export's ivPercent field is not carried forward on import -- the
+// imported instance's IV fields land null until re-entered, since the
+// export never had real component data to derive from either.
+export const CURRENT_PERSONAL_SCHEMA_VERSION = 8;
 
 // id=1 is the implicit single profile every table's profile_id column
 // defaults to today — every fresh install and every migrated existing

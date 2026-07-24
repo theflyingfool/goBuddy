@@ -160,7 +160,19 @@ export const pokemonInstance = sqliteTable(
     caughtAt: integer("caught_at", { mode: "timestamp_ms" }),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
     cp: integer("cp"),
-    ivPercent: real("iv_percent"),
+    ivAttack: integer("iv_attack"),
+    ivDefense: integer("iv_defense"),
+    ivStamina: integer("iv_stamina"),
+    // Generated, not written directly -- SQLite rejects an explicit INSERT
+    // into a GENERATED column. Rounds to 1 decimal place; NULL unless all
+    // three components are present. See src/db/types.ts's computeIvPercent
+    // for the JS-side mirror of this exact formula (used for the in-memory
+    // cache and the Log-a-catch live preview, both of which need a value
+    // before a DB round-trip is possible).
+    ivPercent: real("iv_percent").generatedAlwaysAs(
+      sql`CASE WHEN iv_attack IS NOT NULL AND iv_defense IS NOT NULL AND iv_stamina IS NOT NULL THEN ROUND((iv_attack + iv_defense + iv_stamina) * 100.0 / 45, 1) ELSE NULL END`,
+      { mode: "virtual" },
+    ),
     shiny: integer("shiny", { mode: "boolean" }).notNull().default(false),
     lucky: integer("lucky", { mode: "boolean" }).notNull().default(false),
     shadow: integer("shadow", { mode: "boolean" }).notNull().default(false),
@@ -173,6 +185,9 @@ export const pokemonInstance = sqliteTable(
   (table) => ({
     ...boolChecks("pokemon_instance", { shiny: table.shiny, lucky: table.lucky, shadow: table.shadow, purified: table.purified }),
     statusCheck: check("pokemon_instance_status_enum", sql`${table.status} IN ('kept', 'traded', 'released', 'evolved')`),
+    ivAttackCheck: check("pokemon_instance_iv_attack_range", sql`${table.ivAttack} IS NULL OR (${table.ivAttack} >= 0 AND ${table.ivAttack} <= 15)`),
+    ivDefenseCheck: check("pokemon_instance_iv_defense_range", sql`${table.ivDefense} IS NULL OR (${table.ivDefense} >= 0 AND ${table.ivDefense} <= 15)`),
+    ivStaminaCheck: check("pokemon_instance_iv_stamina_range", sql`${table.ivStamina} IS NULL OR (${table.ivStamina} >= 0 AND ${table.ivStamina} <= 15)`),
   }),
 );
 

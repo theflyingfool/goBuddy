@@ -379,6 +379,10 @@ export interface PokemonInstance {
   caughtAt: number | null;
   updatedAt: number;
   cp: number | null;
+  ivAttack: number | null;
+  ivDefense: number | null;
+  ivStamina: number | null;
+  /** Derived from ivAttack/ivDefense/ivStamina by a SQL GENERATED column -- never write this directly. See computeIvPercent below for the JS-side mirror used before a DB round-trip is possible. */
   ivPercent: number | null;
   shiny: boolean;
   lucky: boolean;
@@ -389,6 +393,12 @@ export interface PokemonInstance {
   currentMegaLevel: number | null;
   nickname: string | null;
   backgroundSlug: string | null;
+}
+
+/** Mirrors pokemon_instance.iv_percent's SQL GENERATED expression exactly (schema/personal.ts) -- used wherever a value is needed before an actual DB round-trip (the in-memory cache after an insert, and the Log-a-catch live preview). */
+export function computeIvPercent(ivAttack: number | null, ivDefense: number | null, ivStamina: number | null): number | null {
+  if (ivAttack === null || ivDefense === null || ivStamina === null) return null;
+  return Math.round(((ivAttack + ivDefense + ivStamina) * 100) / 45 * 10) / 10;
 }
 
 export interface Tag {
