@@ -87,14 +87,14 @@ test("syncReferenceData populates reference tables from scratch", async () => {
 test("syncReferenceData is a no-op when reference.json content hasn't changed", async () => {
   const db = await freshlyMigratedDb();
   const data = fixture(["bulbasaur"]);
-  await syncReferenceData(nodeSqliteConnection(db), data);
+  await syncReferenceData(nodeSqliteConnection(db), data, "v1");
 
   // Mark a personal fact so we can prove a no-op sync doesn't touch it.
   db.prepare(
     "INSERT INTO species_personal (species_slug, registered, xxl, xxs, purified) VALUES ('bulbasaur', 1, 0, 0, 0)",
   ).run();
 
-  await syncReferenceData(nodeSqliteConnection(db), data);
+  await syncReferenceData(nodeSqliteConnection(db), data, "v1");
 
   const row = db.prepare("SELECT registered FROM species_personal WHERE species_slug = 'bulbasaur'").get() as { registered: number };
   assert.equal(row.registered, 1, "unchanged content shouldn't re-sync (and definitely shouldn't touch personal data)");
@@ -102,7 +102,7 @@ test("syncReferenceData is a no-op when reference.json content hasn't changed", 
 
 test("syncReferenceData quarantines personal rows whose slug no longer exists in the new reference data", async () => {
   const db = await freshlyMigratedDb();
-  await syncReferenceData(nodeSqliteConnection(db), fixture(["bulbasaur", "charmander"]));
+  await syncReferenceData(nodeSqliteConnection(db), fixture(["bulbasaur", "charmander"]), "v1");
   db.prepare(
     "INSERT INTO species_personal (species_slug, registered, xxl, xxs, purified) VALUES ('charmander', 1, 0, 0, 0)",
   ).run();
@@ -113,7 +113,7 @@ test("syncReferenceData quarantines personal rows whose slug no longer exists in
   // A new reference.json content that drops charmander entirely (e.g. a
   // slug correction gone wrong, or a real removal) — content differs from
   // before, so this triggers a real re-sync.
-  await syncReferenceData(nodeSqliteConnection(db), fixture(["bulbasaur"]));
+  await syncReferenceData(nodeSqliteConnection(db), fixture(["bulbasaur"]), "v2");
 
   const remaining = db.prepare("SELECT species_slug FROM species_personal").all() as { species_slug: string }[];
   assert.deepEqual(remaining, [], "orphaned species_personal row should have been quarantined, not left dangling");

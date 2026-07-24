@@ -6,12 +6,20 @@
 //
 // Runs after runPersonalMigrations() — it depends on app_settings existing to
 // store the last-synced version marker.
+//
+// The "has it changed" check compares against REFERENCE_DATA_VERSION, a hash
+// baked into src/data/reference-version.ts at build time (see
+// scripts/ingest/build-reference.ts) rather than computed here — a runtime
+// JSON.stringify + hash of the full multi-thousand-row reference dataset ran
+// on every single boot even when nothing had changed, purely to answer a
+// question the build already knows the answer to.
 
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { REFERENCE_SCHEMA_SQL } from "./schema";
 import type { ReferenceData } from "./reference-data";
 import { SLUG_RENAMES } from "./slug-renames";
 import { getDrizzleDb } from "./drizzle-client";
+import { REFERENCE_DATA_VERSION } from "../data/reference-version";
 import {
   backgrounds,
   communityDay,
@@ -41,17 +49,6 @@ import {
 } from "./schema/reference";
 
 const VERSION_SETTING_KEY = "reference_data_version";
-
-// Not cryptographic — just needs to change whenever reference.json's content
-// does, so a plain string hash (FNV-1a) is plenty.
-function hashContent(content: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < content.length; i++) {
-    hash ^= content.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16);
-}
 
 async function getStoredReferenceVersion(db: SQLiteDBConnection): Promise<string | null> {
   const result = await db.query("SELECT value FROM app_settings WHERE key = ?", [VERSION_SETTING_KEY]);
@@ -117,11 +114,15 @@ function chunk<T>(rows: T[], size: number): T[][] {
   return chunks;
 }
 
-export async function syncReferenceData(db: SQLiteDBConnection, referenceData: ReferenceData): Promise<void> {
+// `version` defaults to the build-time-baked REFERENCE_DATA_VERSION (the
+// real app never passes this explicitly) — tests override it with their own
+// fixture-specific version strings so they can exercise real change
+// detection between two different in-memory ReferenceData objects, which a
+// single fixed build-time constant can't distinguish on its own.
+export async function syncReferenceData(db: SQLiteDBConnection, referenceData: ReferenceData, version: string = REFERENCE_DATA_VERSION): Promise<void> {
   await db.execute(REFERENCE_SCHEMA_SQL);
 
-  const content = JSON.stringify(referenceData);
-  const newVersion = hashContent(content);
+  const newVersion = version;
   const storedVersion = await getStoredReferenceVersion(db);
   if (storedVersion === newVersion) return;
 

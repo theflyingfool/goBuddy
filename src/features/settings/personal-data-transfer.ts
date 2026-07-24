@@ -1,5 +1,5 @@
-// Manual cross-device transfer of personal data (see TODO.md / the plan that
-// added this) — deliberately not a live sync. Export writes a file the user
+// Manual cross-device transfer of personal data — deliberately not a live
+// sync. Export writes a file the user
 // places wherever they like (Drive, email, USB — the app never talks to any
 // cloud service directly); import reads one back in. The platform-specific
 // file I/O is shared (src/shared/file-download.ts); the format itself comes

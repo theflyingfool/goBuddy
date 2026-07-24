@@ -28,6 +28,36 @@ focused data-entry change, then the largest and most novel piece
 (multi-account) last, since it benefits from the Vue migration already
 being finished and from every other loose end being tied off first.
 
+## Open, not-yet-sequenced: Capacitor → Tauri
+
+Owner decision (2026-07-23, not yet brainstormed/spec'd): move the app's
+native shell from Capacitor to Tauri — real desktop builds, a genuine
+on-disk SQLite file on every platform (enabling Drizzle Studio access to
+real data, not just `dummy.sqlite`), while still building for Android.
+Where this lands in the sequence above is explicitly undecided; noting the
+interaction that matters most rather than guessing a slot:
+
+- **Sub-project 5 (multi-account) is the most storage-sensitive piece.**
+  Today's web storage (`jeep-sqlite`/sql.js writing into IndexedDB, no real
+  filesystem access) is exactly why the "reference/personal DB file split"
+  and "DB-file-per-profile vs. single-file-with-profile_id" questions
+  (`docs/roadmap.md` §4 V2 Watchlist, §3 Phase 2 "Not yet committed") were
+  left open rather than decided — a real on-disk file on every platform
+  (Tauri's model) removes that constraint and could make a
+  file-per-profile design the obviously simpler answer instead of a
+  deferred-as-too-hard one. Deciding Sub-project 5's storage design before
+  knowing whether Tauri lands first would risk designing around a
+  constraint that's about to disappear.
+- Everything else in this doc (bug fixes, Vue/visual work, IV-entry rework)
+  is UI/data-layer work that doesn't depend on which native shell hosts it,
+  so there's no strong reason to block those sub-projects on this decision.
+
+This needs its own brainstorm (migration scope, Android build-path parity
+checks, what happens to the existing `@capacitor-community/sqlite`/
+`jeep-sqlite` code paths, timing relative to Sub-project 5) before it gets
+a real slot in the sequence — flagging the dependency now so Sub-project
+5's design isn't started blind to it.
+
 ---
 
 ## 1. Git restructure
