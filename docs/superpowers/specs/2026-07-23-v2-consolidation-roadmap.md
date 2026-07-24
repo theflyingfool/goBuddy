@@ -58,6 +58,39 @@ checks, what happens to the existing `@capacitor-community/sqlite`/
 a real slot in the sequence — flagging the dependency now so Sub-project
 5's design isn't started blind to it.
 
+**Recommendation:** land Tauri before Sub-project 5, specifically before
+its *storage/file-layout* half (file-per-profile vs. single-file). Split
+Sub-project 5 into two independent halves when its turn comes: the
+*identity scheme* (stable UUIDs for `pokemon_instance`/`tag`, replacing
+local autoincrement ids) is shell-independent and can be designed/built
+regardless of Tauri's status; only the file-layout decision genuinely
+benefits from waiting on real per-platform filesystem access.
+
+## Carried forward from Sub-project 2 (not yet closed out)
+
+- **Trainer-level FK fix needs live confirmation.** The fix (read the real
+  `profile.id` instead of hardcoding `DEFAULT_PROFILE_ID`) is correct and
+  low-risk either way, but the owner never confirmed it actually resolves
+  the original error on their real device — work got reprioritized to the
+  Tauri decision before that round-trip happened. If it turns out
+  `profile.id` was already 1 on that device, the real cause is something
+  else (a missing/malformed profile row) and needs a fresh look.
+- **Possible latent profile_id mismatch on existing rows.** If that
+  device's real `profile.id` isn't 1, its `species_personal`/`form_personal`
+  rows still carry `profile_id=1` (backfilled by the old hand-rolled
+  migration's `ALTER TABLE ... DEFAULT 1`, before `DEFAULT_PROFILE_ID` as a
+  concept existed) — harmless today since no read path filters by
+  `profile_id`, but **Sub-project 5 introduces profile_id-scoped reads**,
+  at which point any row with a stale/wrong `profile_id` would silently
+  vanish from view. A one-time `profile_id` reconciliation pass (bring
+  every personal-table row in line with the real profile id) needs to be a
+  required step inside Sub-project 5, not an afterthought.
+- **Unused-files sweep**: covered opportunistically during Sub-project 1's
+  git restructure (`Refs/`, `Reports/`, `verify-gobuddy.mjs`, stale
+  branches/worktrees) rather than as an exhaustive standalone pass.
+  Treating that as sufficient for now; a dedicated sweep stays available
+  as a small pickup item later if more turns up.
+
 ---
 
 ## 1. Git restructure
