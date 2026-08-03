@@ -11,7 +11,7 @@ GAME_MASTER (`alexelgt/game_masters`), pokemon-go-api's pokedex/types/mega
 files, and the pokemongo-shiny sheet, transformed in
 `scripts/ingest/transform/*.ts` — with querying the vendored
 [GoRefs](https://github.com/theflyingfool/GoRefs) project
-(`vendor/reference/GoRefs` submodule) instead. GoRefs consolidates its own 7
+(`vendor/reference/GoRefs`, a git subtree) instead. GoRefs consolidates its own 7
 upstream sources into a single queryable database and is meant to
 eventually be a real, independently-hosted service; this swap is built
 against that target shape from day one — local `--serve` today, a published
@@ -83,9 +83,9 @@ new step:
    unchanged, consuming the same `ReferenceData` value as today.
 
 Refreshing GoRefs' own upstream data (`uv run go_refs.py --build` inside the
-submodule) is **not** triggered automatically by `npm run ingest` — that
-stays GoRefs' own deliberate, occasional act (analogous to bumping the
-submodule pointer), documented as a manual pre-step, not orchestrated from
+vendored subtree) is **not** triggered automatically by `npm run ingest` —
+that stays GoRefs' own deliberate, occasional act (analogous to re-pulling
+the subtree), documented as a manual pre-step, not orchestrated from
 GoBuddy. `npm run ingest` only ever re-derives `reference.json` from
 whatever GoRefs' database currently contains.
 
@@ -114,7 +114,7 @@ extraction only. Species/forms/moves/etc. no longer come from parsing it.
 | `speciesEvolutions` | `refjson_species_evolutions` | total gap in canonical schema |
 | `pvpRankRewards`, `pvpRankRequirements` | `refjson_pvp_rank_rewards` / `refjson_pvp_rank_requirements` | total/near-total gap in canonical schema |
 | `regions`, `types` | unchanged — derived in TS from other domains, as today | trivial static mapping, not real sourced data either way |
-| `backgrounds` | unchanged — hardcoded literal in `build()`, as today | 2 static rows, never had a real upstream source |
+| `backgrounds` | **dropped — ships empty** (`refjson_backgrounds`/canonical both unused) | the 2 rows GoBuddy currently hardcodes (`spring-2024`, `anniversary-2016`) aren't real sourced data — stop faking them, same treatment as `raidBosses`/`communityDays`'s prior empty state. The `Background` type, table, and `FormBackgroundPersonal`'s FK relationship all stay intact for whenever a real source exists — this only removes the fake literal from `build()`. |
 
 Every `refjson_*` row above is a documented, revisit-later decision: once
 GoRefs' own team promotes a domain into its canonical schema (tracked in
@@ -136,13 +136,30 @@ GoRefs.
 ## Manifest / freshness checking
 
 Today's `ingest:check` diffs upstream fetch fingerprints (GAME_MASTER commit
-SHA, file hashes) against a committed manifest. There's no longer a single
-upstream URL to fingerprint. Short-term: replace those manifest entries with
-a content hash of the assembled `ReferenceData` itself (the same mechanism
-`reference-version.ts` already computes) — exact wiring left to the
-implementation plan. Flagged separately in GoRefs' own `TODO.md`: GoRefs
-should expose a last-built/updated timestamp so a freshness check doesn't
-need to pull or query the whole database just to know "has this changed."
+SHA, file hashes for the pokemon-go-api files and shiny sheet) against a
+committed manifest, to answer "has anything upstream changed" without a
+full rebuild. This plan deletes the code that does that fingerprinting
+(`sources/game-master.ts` etc., per "Removed entirely" above) — but the
+*capability* itself doesn't just disappear: it needs to move to GoRefs,
+which is now the thing actually touching those upstream sources. Concretely,
+this plan requires (and has flagged in GoRefs' own `TODO.md`, 2026-08-03):
+
+- GoRefs gains its own upstream-change detection — `--fetch`/`--build`
+  should skip re-fetching a source whose upstream hasn't changed, instead of
+  always fetching fresh (this is also what keeps `raw_dumps/`'s committed
+  snapshot growth in check, see the retention-policy TODO already there).
+- GoRefs exposes a last-built/updated signal (timestamp or similar) cheaply
+  — without downloading/querying the whole database — so a downstream
+  consumer's freshness check stays cheap.
+
+On GoBuddy's side, `ingest:check`'s replacement becomes: query that
+GoRefs-exposed signal (once it exists) instead of re-deriving fingerprints
+for sources GoBuddy no longer touches directly. Until GoRefs ships that,
+GoBuddy's own manifest can fall back to a content hash of the assembled
+`ReferenceData` (the same mechanism `reference-version.ts` already computes)
+as an interim measure — exact wiring left to the implementation plan, but
+the GoRefs-side signal is the real target, not a permanent GoBuddy-side
+workaround.
 
 ## Unverified assumption (verify first in implementation)
 
