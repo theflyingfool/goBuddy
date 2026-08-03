@@ -5,6 +5,7 @@
 A local-only Web/Android Pokémon GO companion app that runs fully offline. All personal collection data is saved in a local SQLite database that resides entirely on the device. It provides living-dex progress tracking, completion lens analytics, and fast mobile-optimized checklist interfaces.
 
 Core principles:
+
 - Local-first
 - User owns their data
 - Simple, maintainable architecture
@@ -30,6 +31,21 @@ These should almost never change.
 - Prefer modifying existing systems over creating parallel ones.
 - Ask for clarification when requirements are ambiguous.
 - Keep changes scoped to the requested task.
+- Do not show diffs unless requested; they are often overwhelming and distracting.
+
+### Development Phase: Rapid / Pre-Release
+
+This project is still in rapid development. Optimize for iteration speed, not
+polish:
+
+- Don't add or expand test coverage unless asked — no reflexive tests for every
+  change.
+- It's fine to commit code that's incomplete or known-broken; this is not yet
+  a stability-guaranteed codebase.
+- Don't block progress on hardening, edge-case handling, or comprehensive
+  verification unless the task specifically calls for it.
+- This posture applies until the user signals a shift toward stabilization
+  (e.g. approaching a real release, or saying so explicitly).
 
 ---
 
@@ -114,6 +130,7 @@ Examples:
 Stop and ask.
 
 Do not invent:
+
 - project goals
 - future features
 - architecture decisions
