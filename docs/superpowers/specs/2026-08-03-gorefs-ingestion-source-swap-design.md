@@ -148,9 +148,15 @@ this plan requires (and has flagged in GoRefs' own `TODO.md`, 2026-08-03):
   should skip re-fetching a source whose upstream hasn't changed, instead of
   always fetching fresh (this is also what keeps `raw_dumps/`'s committed
   snapshot growth in check, see the retention-policy TODO already there).
-- GoRefs exposes a last-built/updated signal (timestamp or similar) cheaply
-  — without downloading/querying the whole database — so a downstream
-  consumer's freshness check stays cheap.
+- GoRefs exposes a last-built/updated signal cheaply — without
+  downloading/querying the whole database — so a downstream consumer's
+  freshness check stays cheap. Confirmed small: every
+  `raw_dumps/<source>/<timestamp>/.meta.json` already records
+  `{source, etag, timestamp}` per fetch, and `builder.py` already computes a
+  build timestamp (`src/builder.py:1380`) — a new small table (e.g. `_meta`:
+  one row per source with its last-pulled-at, plus one row for
+  last-built-at) is mostly just persisting data that already exists on disk.
+  Flagged concretely in GoRefs' `TODO.md`.
 
 On GoBuddy's side, `ingest:check`'s replacement becomes: query that
 GoRefs-exposed signal (once it exists) instead of re-deriving fingerprints
@@ -172,6 +178,21 @@ attach from Node, run one real query) before any script code is written
 against it — if it doesn't work as expected, the architecture above needs
 revisiting (e.g. falling back to reading Parquet exports instead of the
 monolithic file, or a different client library).
+
+**Considered and rejected: a FastAPI (or similar) REST/JSON layer instead**,
+which would remove this assumption entirely (plain `fetch()` + `JSON.parse()`
+in GoBuddy, no DuckDB client, nothing to spike). Rejected because GoRefs'
+actual end goal is being served statically from GitHub Pages (per its own
+README's "Git as a Database" philosophy) — GitHub Pages cannot run a server
+process at all, so anything built on FastAPI would have to be thrown away
+before real deployment. The `httpfs`/`ATTACH`-over-static-file approach is
+the only one of the two that survives unchanged from local `--serve` today
+to real static hosting later, which is the whole point of building against
+the target shape from day one. (Separately, real deployment will likely need
+to serve the `.duckdb`/Parquet files from `raw.githubusercontent.com` or a
+Release asset rather than Pages itself — Pages has a documented bug
+mishandling range requests on binary files — but that doesn't change this
+plan's local `--serve` target.)
 
 ## Error handling
 
