@@ -32,6 +32,7 @@ These should almost never change.
 - Ask for clarification when requirements are ambiguous.
 - Keep changes scoped to the requested task.
 - Do not show diffs unless requested; they are often overwhelming and distracting.
+- When executing a multi-task implementation plan (`docs/superpowers/plans/*.md`), leave a resumable trail: check off each step's `- [ ]` box in the plan file itself as it's completed (not just tracked mentally), and commit that alongside the task's code so a fresh session/agent can tell exactly what's done from `git log` + the plan file's checkbox state alone, with no other context. Never batch multiple tasks' checkbox updates into one commit.
 
 ### Development Phase: Rapid / Pre-Release
 
