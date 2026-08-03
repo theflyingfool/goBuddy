@@ -89,11 +89,40 @@ the subtree), documented as a manual pre-step, not orchestrated from
 GoBuddy. `npm run ingest` only ever re-derives `reference.json` from
 whatever GoRefs' database currently contains.
 
-**Sprites stay carved out.** GoRefs doesn't model sprite assets at all.
-`fetchSprites()`/`buildSprites()` still need pokemon-go-api's raw
-`pokedex.json` for sprite-source URLs — that one raw fetch
-(`sources/pokemon-go-api.ts`'s `PGAPI_FILES`) stays, narrowed to sprite-URL
-extraction only. Species/forms/moves/etc. no longer come from parsing it.
+**Sprites stay carved out, and need a new standalone piece.** GoRefs doesn't
+model sprite assets at all (see the `assets` TODO logged in GoRefs' own
+`TODO.md` — only 20 placeholder icons exist there today, not usable). GoBuddy
+still fetches pokemon-go-api's raw `pokedex.json` directly for sprite URLs —
+`fetch-sprites.ts` already does this with its own inline types, independent
+of `sources/pokemon-go-api.ts` entirely, so nothing changes there.
+
+What *does* need new code: `write/sprite-manifest.ts` needs a
+`slug -> AssetPair` mapping (which sprite URL belongs to which of GoBuddy's
+own slugs) to hand to `build-sprites.ts`. Today that mapping is a byproduct
+of `buildSpecies()` (removed from the default pipeline, see above) — it's
+built by re-deriving each entry's slug via `slugFor()`/`formTokenFromFormId()`
+(the same functions GoBuddy's own slugs have always come from — see
+[v2-schema-design.md](v2-schema-design.md)) and pairing it with that pokedex
+entry's asset URLs. This slice never actually depended on GAME_MASTER or the
+shiny sheet, so it should be extracted into its own pure function —
+`buildSpriteManifest(pokedex: PokedexSource): Record<string, AssetPair>` —
+called from the new default pipeline, independent of the now-dormant
+`buildSpecies`.
+
+**This creates two independent slug-generation paths that can silently
+drift**: the frozen `refjson_forms.slug` values (baked into GoRefs) and the
+live `slugFor()` re-derivation over a freshly-fetched `pokedex.json`. They
+agree today only because `refjson_*` was built by this exact pipeline. The
+moment pokemon-go-api renames or adds an id, sprites silently go missing (a
+form exists in `refjson_forms` but has no sprite-manifest entry — falls back
+to species-level art) or orphan `.webp` files accumulate — the existing
+slug-stability check won't catch this, since it only diffs `reference.json`
+against itself. This plan adds a new check: after assembling `ReferenceData`
+and building the sprite manifest, assert every species/form slug in
+`ReferenceData` has a sprite-manifest entry (or explicitly document the
+species-level-art fallback as acceptable) and log a warning for any
+sprite-manifest key that doesn't correspond to a real slug — loud enough to
+notice, not necessarily a hard failure on day one.
 
 ## Domain mapping
 
@@ -133,15 +162,35 @@ its own old output through an extra hop. This plan intentionally accepts
 that circularity for now — the win here is the *plumbing* (querying GoRefs
 over HTTP instead of direct fetches), not a data-quality upgrade on day one.
 
-## Removed entirely
+## Frozen-data consequence, and why nothing is deleted
 
-`sources/game-master.ts`, `sources/shiny-sheet.ts`, `sources/pogoapi-badges.ts`
-(its vendored badge-name snapshot is already baked into whatever
-`reference.json` GoRefs' shim last mirrored), and the GAME_MASTER-derived
-logic in `transform/species.ts`, `transform/moves.ts`, `transform/evolutions.ts`,
-`transform/player-progression.ts`, `transform/pvp.ts`. GoBuddy loses its
-direct GAME_MASTER dependency entirely — that responsibility moves fully to
-GoRefs.
+Tracing the loop: after this swap, every domain GoBuddy ingests comes from
+`refjson_*` — a committed snapshot of a *past* GoBuddy build, frozen inside
+GoRefs. The only process that could ever produce a newer `reference.json` is
+the GAME_MASTER/pokemon-go-api/shiny-sheet pipeline this plan would otherwise
+delete. So this isn't just "no data-quality upgrade on day one" — it's a real
+functional regression: **no new species, forms, moves, or medals can enter
+the dataset** until GoRefs promotes each domain to an independently-correct
+canonical table. `npm run ingest` would go from "picks up a real game update"
+to "produces byte-identical output forever," and `ingest:check` becomes
+vacuous.
+
+**Decision: accept this trade-off, but don't delete the old pipeline —
+leave it dormant and unwired instead.** `sources/game-master.ts`,
+`sources/shiny-sheet.ts`, `sources/pogoapi-badges.ts`,
+`sources/pokemon-go-api.ts`, and `transform/species.ts`, `transform/moves.ts`,
+`transform/evolutions.ts`, `transform/player-progression.ts`, `transform/pvp.ts`
+all stay in the repo, completely unchanged, along with their existing tests.
+Only `scripts/ingest/ingest.ts`'s default pipeline changes: its `fetchAll`/
+`build` steps are renamed (e.g. `fetchAllFromGameMaster`/`buildFromGameMaster`)
+and no longer wired into the default `PipelineStep[]` list — replaced by new
+`fetchAndAttachGoRefs`/`buildFromGoRefs`-style steps. The old functions stay
+exported and callable, as a manual reactivation path per-domain if the freeze
+becomes a real problem before GoRefs' promotion catches up. This keeps the
+implementation diff far smaller (no test-file surgery, no need to
+carefully split `transform/species.ts`'s comparative-gap constants away from
+its GAME_MASTER-parsing logic) and keeps the door open without committing to
+using it.
 
 ## Manifest / freshness checking
 
@@ -182,12 +231,35 @@ workaround.
 This design assumes a Node DuckDB client's `httpfs` extension can `ATTACH`
 a remote `.duckdb` file over plain HTTP against `go_refs.py --serve`'s
 custom range-request handler, the same way DuckDB-WASM does in a browser.
-This has not been empirically tested. First implementation step should be a
-throwaway spike confirming this actually works end-to-end (spawn `--serve`,
-attach from Node, run one real query) before any script code is written
-against it — if it doesn't work as expected, the architecture above needs
-revisiting (e.g. falling back to reading Parquet exports instead of the
-monolithic file, or a different client library).
+This has not been empirically tested. First implementation step is a
+throwaway spike that must verify three things, not just "a query runs":
+
+1. `ATTACH` over HTTP against `--serve` actually works.
+2. **BigInt handling end-to-end.** DuckDB's Node bindings return `BIGINT`
+   columns (and nearly every `refjson_*` table has them — `dexNumber`,
+   `level`, `rank`, `sortOrder`, `amount`, `target`, ...) as JS `BigInt`, but
+   `write/reference-json.ts` calls `JSON.stringify(referenceData)`, which
+   throws `TypeError: Do not know how to serialize a BigInt` on any `BigInt`
+   value. The spike must round-trip one real domain's query result all the
+   way through `JSON.stringify` so the casting strategy (e.g. `Number()` on
+   read, with an explicit overflow check) lands in the query layer by design,
+   not as a mid-implementation surprise.
+3. **Real-world latency**, not just correctness. Time a `SELECT *` across
+   several tables, including `refjson_form_moves` (11,131 rows) — that's a
+   meaningful slice of a 109MB file read over HTTP range requests. If
+   `httpfs` ends up pulling large byte ranges per query, `npm run ingest`
+   could go from seconds to minutes even though the spike "passed"
+   correctness-wise.
+
+If any of these fail, the fallback isn't Parquet or a different client
+library first — it's simpler than that: **`fetchToCache` the `.duckdb` file
+itself over plain HTTP (a plain GET, no `httpfs` needed) and `ATTACH` the
+local copy.** This is still just a static-file GET against `--serve` today
+and a `raw.githubusercontent.com`/Release URL later — it preserves the exact
+"survives to real hosting unchanged" property that ruled out FastAPI, needs
+no `httpfs` extension at all, and reuses `http-cache.ts`'s existing fetch
+machinery. Reading Parquet exports instead is a further fallback only if
+even that doesn't work out.
 
 **Considered and rejected: a FastAPI (or similar) REST/JSON layer instead**,
 which would remove this assumption entirely (plain `fetch()` + `JSON.parse()`
