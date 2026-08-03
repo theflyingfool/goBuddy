@@ -123,3 +123,32 @@ continuity insurance against its hosted API going stale) was removed once
 GoRefs started committing its own `raw_dumps/` upstream snapshots — GoRefs
 is now the single source of that continuity insurance instead of
 maintaining two vendored copies for overlapping purposes.
+
+### Editing GoRefs itself: no separate clone exists
+
+There is no standalone local clone of GoRefs (`~/Repos/GoRefs` was removed
+2026-08-03, once it had a GitHub remote and everything was confirmed pushed).
+**`vendor/reference/GoRefs` inside this checkout is the only working copy —
+any edit to GoRefs' own source (not just GoBuddy's ingestion code) happens
+here.** The two projects are tightly coupled right now and are being built
+together deliberately, but GoRefs still has to end up as a normal, healthy
+commit history on its own remote, not just changes buried inside GoBuddy's
+history. That makes committing in GoBuddy alone insufficient — a GoRefs-side
+edit isn't done until it's also pushed to GoRefs' own remote:
+
+1. Edit files under `vendor/reference/GoRefs/` as needed.
+2. Commit normally in GoBuddy (this captures the change in GoBuddy's
+   history, same as any other file).
+3. Push that same change to GoRefs' own remote:
+   ```sh
+   git subtree push --prefix=vendor/reference/GoRefs https://github.com/theflyingfool/GoRefs.git main
+   ```
+
+Step 3 is required, not optional — it's what keeps GoRefs' own repo a real,
+independently-pushable project rather than content that only exists inside
+GoBuddy. Do this every time `vendor/reference/GoRefs/` changes, not as a
+periodic batch cleanup (a change sitting committed in GoBuddy but never
+subtree-pushed is effectively lost from GoRefs' own perspective — nothing
+else can pull it). `git subtree pull` (see above) is the reverse direction,
+for picking up changes made directly on GoRefs' GitHub remote (e.g. a PR
+merged there without going through this checkout).
