@@ -96,30 +96,30 @@ regressions from your own change.
 
 For release publishing steps and app deployment workflows, refer to the canonical [docs/release-checklist.md](release-checklist.md).
 
-## `pokemon-go-api` submodule is reference-only
+## `GoRefs` vendored as a git subtree
 
-`vendor/reference/pokemon-go-api` is a git submodule vendoring
-that project's own source (PHP/Composer, branch `main`). It is **not**
-read by any `ingest:*` script, not part of the build, and not a dependency
-of anything in this repo — it exists purely as continuity insurance:
+`vendor/reference/GoRefs` vendors
+[theflyingfool/GoRefs](https://github.com/theflyingfool/GoRefs), the
+author's own standalone DuckDB-based Pokémon GO reference pipeline, as a
+**git subtree** (not a submodule — its files are directly part of this
+repo's history; a normal `git clone`/`git pull` is all that's needed, no
+separate `git submodule update --init` step).
 
-- `pokemon-go-api` builds its data from `alexelgt/game_masters`' raw
-  `GAME_MASTER.json` via a PHP pipeline (`composer run-script api-build`),
-  rebuilt on a schedule (`cron: '7 6,8,9,10,18,20,21,22 * * *'` in its own
-  `.github/workflows/page.yml`) and redeployed to GitHub Pages only on
-  detected changes.
-- If that hosted API ever goes stale or the project stops being
-  maintained, this vendored copy is the fallback starting point: either
-  run its PHP/Composer build ourselves as a one-off against a fresh pull of
-  `alexelgt/game_masters`, or use its source as a spec while writing our
-  own TypeScript parser directly against the raw GameMaster file.
-- No SPDX license is present on the `pokemon-go-api` repo — only a README
-  disclaimer ("educational use only," copyright remains Niantic/The
-  Pokémon Company). Fine for a private vendored reference copy inside this
-  repo; reconsider before ever redistributing or publicly forking its code.
-- `alexelgt/game_masters` itself (the raw upstream data, not the parsing
-  logic) is deliberately not vendored the same way — it's large, churns
-  almost daily, and isn't the thing at continuity risk here.
+It was evaluated 2026-07-30 as a candidate for wholesale-replacing this
+project's own ingestion pipeline and rejected at that time — costume/gender
+data was unpopulated, `raid_bosses`/`quests` tables were empty, and it
+produced no JSON output matching this project's shape. A follow-up parity
+pass (2026-08-02, from the GoRefs side) found those gaps closeable via
+GoRefs' own `refjson_*` shim tables. **As of the design in
+[docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md](superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md),
+GoBuddy's ingestion pipeline is planned to query this vendored copy's data
+directly (over HTTP, via GoRefs' own `--serve`) instead of GAME_MASTER/
+pokemon-go-api/shiny-sheet fetches — see that doc for the full design.**
+Until that implementation lands, this section still describes the
+pre-swap pipeline below; treat this note as the pointer to what's coming.
 
-Clone/update it with `git submodule update --init --recursive`. It is
-never required for a normal `npm install` / build / `ingest:*` run.
+The previously-separate `pokemon-go-api` submodule (vendored purely as
+continuity insurance against its hosted API going stale) was removed once
+GoRefs started committing its own `raw_dumps/` upstream snapshots — GoRefs
+is now the single source of that continuity insurance instead of
+maintaining two vendored copies for overlapping purposes.
