@@ -99,11 +99,11 @@ extraction only. Species/forms/moves/etc. no longer come from parsing it.
 
 | `ReferenceData` domain | GoRefs source | Why |
 |---|---|---|
-| `species` | canonical `species` | full parity confirmed (spot-checked) |
-| `typeEffectiveness` | canonical `type_effectiveness` | exact count + value match |
-| `weatherBoosts` | canonical `weather_boosts` (unnest `boosted_types`) | denormalized differently, not missing data |
-| `raidBosses`, `raidBossWeatherBoosts` | canonical `raid_bosses` | GoRefs is ahead — GoBuddy's own copies are empty today by omission (dropped ingestion, not a product decision), not because the data shouldn't exist |
-| `communityDays` (+ 3 sub-tables) | canonical `community_days` | same as above — GoRefs has real data, GoBuddy's is empty |
+| `species` | `refjson_species` | canonical `species` was re-checked at implementation-planning time and rejected: its `slug` format (`"1-bulbasaur"`) doesn't match GoBuddy's own (`"bulbasaur"`), and it's missing `familySlug`/`rarity`/`regionSlug`/`hasMale`/`hasFemale` entirely. The coverage report's "full parity" verdict only spot-checked field *values* (dex, gen, base stats), not slug format or full shape. |
+| `typeEffectiveness` | `refjson_type_effectiveness` | canonical `type_effectiveness` is independently-verified correct too, but needs a `LOWER()` transform (capitalized type names) for no real benefit over the shim right now — using the shim keeps every domain on one uniform query pattern for this first cut. Revisit as a one-line swap to canonical later, same as every other shim-fallback row below. |
+| `weatherBoosts` | `refjson_weather_boosts` | same reasoning as `typeEffectiveness` — canonical needs an unnest + `LOWER()` for no current benefit |
+| `raidBosses`, `raidBossWeatherBoosts` | **dropped — ships empty**, same as before this plan | re-checked at implementation-planning time: canonical `raid_bosses.form` uses GAME_MASTER-style identifiers (`"AGGRON_MEGA"`, `"KYUREM"`); verified against GoBuddy's actual `forms.slug` values — **0 of 17 rows match**. Populating `formSlug` from this would create dangling FKs. The "GoRefs is ahead" framing no longer holds; needs a real species/form crosswalk before this can be revisited, out of scope here. |
+| `communityDays` (+ 3 sub-tables) | **dropped — ships empty**, same as before this plan | re-checked at implementation-planning time: all 80 rows are empty placeholders (`event_id: "cd-None"` — a single non-unique value across every row, blank `date`, null `featured_pokemon`). Row *count* looked ahead of GoBuddy's empty tables; row *content* is unusable. |
 | `forms`, `formTypes` | `refjson_forms` / `refjson_form_types` | canonical `forms` collapses gender (89% `"unknown"`) — real regression vs. today; use the shim until GoRefs fixes it |
 | `megaVariants` | `refjson_mega_variants` | canonical `mega_species` is missing Mewtwo X/Y (confirmed real gap) |
 | `moves` | `refjson_moves` | canonical `moves` is missing ~9-11 real moves + has naming/duplicate issues |
@@ -122,6 +122,16 @@ GoRefs' own `TODO.md`/`KNOWN_ISSUES.md`), GoBuddy's query for that domain
 switches from the shim table to the canonical one — a one-line change per
 domain, no shape change, since `refjson_*` and canonical tables should
 converge in row shape once fixed.
+
+Worth naming plainly: right now `refjson_*` is circular — GoBuddy processed
+all its own sources to produce `reference.json`, and GoRefs is just
+re-serving that same processed output back. The real target (flagged in
+GoRefs' `TODO.md`, 2026-08-03: "Port GoBuddy's transform logic into GoRefs'
+own canonical processing") is GoRefs independently achieving the same
+processing quality on its own 7 sources, not GoBuddy perpetually consuming
+its own old output through an extra hop. This plan intentionally accepts
+that circularity for now — the win here is the *plumbing* (querying GoRefs
+over HTTP instead of direct fetches), not a data-quality upgrade on day one.
 
 ## Removed entirely
 
