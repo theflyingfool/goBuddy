@@ -127,7 +127,7 @@ This is required, not optional — per `docs/ingestion-runbook.md`'s "Editing Go
 **Interfaces:**
 - Produces: a decision — which of the two access patterns (design doc's "Unverified assumption" section) Task 3 implements: (A) `httpfs` `ATTACH` directly over HTTP, or (B) `fetchToCache` the `.duckdb` file, then `ATTACH` the local copy.
 
-- [ ] **Step 1: Add a Node DuckDB client dependency**
+- [x] **Step 1: Add a Node DuckDB client dependency**
 
 ```bash
 npm install --save-dev duckdb
@@ -135,7 +135,7 @@ npm install --save-dev duckdb
 
 (If installation fails on this platform — native bindings can be finicky — try `@duckdb/node-api` instead and adjust the import in the steps below accordingly. Record whichever one actually works; that's the dependency Task 3 uses.)
 
-- [ ] **Step 2: Start GoRefs' server manually in a separate terminal**
+- [x] **Step 2: Start GoRefs' server manually in a separate terminal**
 
 ```bash
 cd vendor/reference/GoRefs && uv run go_refs.py --serve --port 8000
@@ -143,7 +143,7 @@ cd vendor/reference/GoRefs && uv run go_refs.py --serve --port 8000
 
 Confirm `curl http://localhost:8000/output/GoRefs_Master.duckdb -I` returns `200` with `Accept-Ranges: bytes` before continuing.
 
-- [ ] **Step 3: Write the spike script — try `httpfs` ATTACH over HTTP first**
+- [x] **Step 3: Write the spike script — try `httpfs` ATTACH over HTTP first**
 
 ```typescript
 // scripts/ingest/gorefs/_spike.ts — throwaway, delete after this task.
@@ -190,7 +190,7 @@ main().catch((err) => {
 
 Run: `npx tsx scripts/ingest/gorefs/_spike.ts`
 
-- [ ] **Step 4: Record the result**
+- [x] **Step 4: Record the result**
 
 One of two outcomes:
 
@@ -208,7 +208,7 @@ await run(`ATTACH '${localPath}' AS gorefs (READ_ONLY);`);
 
 Re-run and confirm this works. This is the fallback named in the design doc — it needs no `httpfs` extension and is still a plain GET against static hosting, so it survives unchanged to real hosting later.
 
-- [ ] **Step 5: Delete the spike file, stop the manual server**
+- [x] **Step 5: Delete the spike file, stop the manual server**
 
 ```bash
 rm scripts/ingest/gorefs/_spike.ts
@@ -216,7 +216,9 @@ rm scripts/ingest/gorefs/_spike.ts
 
 Stop the `--serve` process in the other terminal (Ctrl+C).
 
-- [ ] **Step 6: No commit for this task** — it produced a decision (recorded in your own notes / the next task's implementation), not code. Proceed to Task 3 with pattern A or B as determined by Step 4.
+- [x] **Step 6: No commit for this task** — it produced a decision (recorded in your own notes / the next task's implementation), not code. Proceed to Task 3 with pattern A or B as determined by Step 4.
+
+**Result: Pattern B.** Pattern A (`httpfs` `ATTACH` over HTTP) crashes this platform's locally-built `duckdb` npm package outright — `INSTALL httpfs; LOAD httpfs;` alone throws `*** stack smashing detected ***`, before ever reaching `ATTACH`. Not a slowness or correctness issue, a hard native crash (likely an ABI mismatch from node-gyp building from source rather than using a prebuilt binary matched to this DuckDB extension). Pattern B (`fetchToCache` the `.duckdb` file, then `ATTACH` the local copy) works cleanly: ~1s to fetch the 33MB file, `refjson_form_moves` (11,131 rows, the largest table) queries in ~117ms, and `Number()`-casting `BIGINT` columns before `JSON.stringify` round-trips with no errors. **Task 3 must implement `query.ts` using pattern B — see Task 2 Step 4's fallback code block above, not the pattern-A `query.ts` shown in Task 3 Step 7.**
 
 ---
 
