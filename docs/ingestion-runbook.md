@@ -9,50 +9,69 @@ does*, see [architecture.md](architecture.md)'s "Scripts" table — this doc is
 ## Order
 
 ```sh
-npm run ingest   # fetch, build, slug-check, sprites, sqlite, manifest -- runs everything in order, in one shot
+npm run ingest   # build, slug-check, sprites, sqlite, manifest -- runs everything in order, in one shot
 ```
 
 `scripts/ingest/ingest.ts` is the only ingestion entry point — there is no
 step-by-step equivalent of the old per-script npm commands any more. Its
 internal steps, in order:
 
-1. **fetch** — pulls fresh GAME_MASTER (`alexelgt/game_masters`),
-   `pokemon-go-api.github.io`'s pokedex/types/mega files, and the
-   pokemongo-shiny community sheet into `scripts/ingest/.cache-v2/`
-   (`raidboss.json` is deliberately not fetched — raid-boss ingestion was
-   dropped and nothing consumes it, so fetching/hashing it would only feed
-   `ingest:check` false positives on raid-rotation churn). Always
-   re-fetches (no live pogoapi.net dependency any more — the one thing it
-   used to supply that GAME_MASTER doesn't, medal display names, comes from
-   the committed `vendor/pogoapi-snapshot/badges.json` snapshot instead).
-2. **build** — runs the `scripts/ingest/transform/*.ts` modules over that
-   cache and writes `src/data/reference.json`, `src/data/reference-gaps.json`,
-   `src/data/reference-version.ts`, and the sprite manifest
-   (`scripts/ingest/write/*.ts`).
-3. **slug-check** — inline port of the old `check-slug-stability.ts`: fails
+1. **build** — queries the vendored GoRefs project (`vendor/reference/GoRefs`,
+   over HTTP via GoRefs' own `--serve`) for every `ReferenceData` domain, no
+   separate fetch step (`buildFromGoRefs` in `ingest.ts` probes for an
+   already-running GoRefs server, or spawns and later tears down its own —
+   see `scripts/ingest/gorefs/`). Also fetches `pokemon-go-api.github.io`'s
+   `pokedex.json` for sprite URLs (GoRefs doesn't model sprite assets) and
+   builds the sprite manifest from it. Writes `src/data/reference.json`,
+   `src/data/reference-gaps.json`, `src/data/reference-version.ts`, and the
+   sprite manifest (`scripts/ingest/write/*.ts`).
+2. **slug-check** — inline port of the old `check-slug-stability.ts`: fails
    loudly if a species/form/mega-variant/medal slug the last *committed*
    `reference.json` had has vanished, unaccounted for.
-4. **sprites** — `fetch-sprites.ts` downloads sprite art referenced by the
+3. **sprites** — `fetch-sprites.ts` downloads sprite art referenced by the
    cache (skip-if-cached), then `build-sprites.ts` converts it to WebP into
    `public/sprites/`. Skip with `npm run ingest -- --skip-sprites` (the extra
    `--` is required for npm to forward the flag instead of swallowing it).
-5. **sqlite** — materializes `reference.sqlite` from the same in-memory
+4. **sqlite** — materializes `reference.sqlite` from the same in-memory
    `ReferenceData` the build step produced. Skip with
    `npm run ingest -- --skip-sqlite`.
-6. **manifest** — writes `scripts/ingest/.cache-v2/ingestion-manifest.json`
-   (per-source fetch fingerprints: GAME_MASTER's latest commit SHA, content
-   hashes for the pokemon-go-api files and the shiny sheet). This one file is
-   committed (see `.gitignore`), unlike the rest of `.cache-v2/`.
+5. **manifest** — writes `scripts/ingest/.cache-v2/ingestion-manifest.json`.
+   Default field is `gorefs.lastBuiltAt` (GoRefs' `_meta` table's `__build__`
+   row); `gameMaster`/`pokemonGoApi`/`shinySheet` stay empty-string
+   placeholders now (see below). This one file is committed (see
+   `.gitignore`), unlike the rest of `.cache-v2/`.
+
+The old GAME_MASTER/pokemon-go-api/shiny-sheet direct-fetch pipeline
+(`sources/game-master.ts`, `sources/shiny-sheet.ts`, `sources/pogoapi-badges.ts`,
+`transform/species.ts`'s `buildSpecies` and the other `transform/*.ts`
+modules) is **not deleted, just unwired** from the default pipeline —
+`fetchAllFromGameMaster`/`buildFromGameMaster` (renamed from `fetchAll`/
+`build`) stay exported in `ingest.ts` as a manual reactivation path per
+domain, should the `refjson_*` freeze (see below) become a real problem
+before GoRefs promotes a domain to its own canonical schema. See
+[docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md](superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md)
+for the full rationale, including the accepted frozen-data trade-off: every
+domain today comes from GoRefs' `refjson_*` shim, a snapshot of GoBuddy's own
+last pre-swap `reference.json` — no new species/forms/moves/medals enter the
+dataset until GoRefs promotes each domain to an independently-correct
+canonical table.
 
 ```sh
-npm run ingest:check   # fetch + build an in-memory manifest (never written to disk)
-                        # + diff against the last committed manifest only -- skips
-                        # build/sprites/slug-check entirely, exits non-zero if any
-                        # upstream source changed
+npm run ingest:check   # builds an in-memory manifest (never written to disk)
+                        # + diffs against the last committed manifest only --
+                        # skips build/sprites/slug-check entirely, exits
+                        # non-zero if GoRefs' database changed
 ```
 
-Use `ingest:check` to answer "has anything upstream changed since the
+Use `ingest:check` to answer "has GoRefs' database changed since the
 reference data currently shipped was built" without paying for a full build.
+It stays cheap deliberately: it only *probes* whether a GoRefs server is
+already reachable and reports an empty signal if not, rather than spawning
+one — see `scripts/ingest/write/manifest.ts`'s `fetchGoRefsLastBuiltAt` doc
+comment for the known consequence (a plain `npm run ingest` on a machine
+with no persistent GoRefs `--serve` already running usually gets an empty
+`gorefs.lastBuiltAt` in the *manifest* step too, since the *build* step's
+own spawned server is already torn down by then).
 
 There is no manual-CSV-correction workflow any more — `ingest:csv:export/
 template/import` (`scripts/ingest/csv-authoring.ts`) was removed along with
@@ -110,13 +129,14 @@ project's own ingestion pipeline and rejected at that time — costume/gender
 data was unpopulated, `raid_bosses`/`quests` tables were empty, and it
 produced no JSON output matching this project's shape. A follow-up parity
 pass (2026-08-02, from the GoRefs side) found those gaps closeable via
-GoRefs' own `refjson_*` shim tables. **As of the design in
-[docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md](superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md),
-GoBuddy's ingestion pipeline is planned to query this vendored copy's data
-directly (over HTTP, via GoRefs' own `--serve`) instead of GAME_MASTER/
-pokemon-go-api/shiny-sheet fetches — see that doc for the full design.**
-Until that implementation lands, this section still describes the
-pre-swap pipeline below; treat this note as the pointer to what's coming.
+GoRefs' own `refjson_*` shim tables. **Implemented 2026-08-04**, per
+[docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md](superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md)
+and [docs/superpowers/plans/2026-08-03-gorefs-ingestion-source-swap.md](superpowers/plans/2026-08-03-gorefs-ingestion-source-swap.md):
+GoBuddy's default ingestion pipeline now queries this vendored copy's data
+directly (over HTTP, via GoRefs' own `--serve`) instead of fetching
+GAME_MASTER/pokemon-go-api/the shiny sheet — see the "Order" section above
+for the current pipeline, and the design doc for the full rationale
+(including the accepted frozen-data trade-off).
 
 The previously-separate `pokemon-go-api` submodule (vendored purely as
 continuity insurance against its hosted API going stale) was removed once

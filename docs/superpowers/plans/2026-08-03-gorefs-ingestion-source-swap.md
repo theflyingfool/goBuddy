@@ -974,19 +974,19 @@ git commit -m "Rework manifest freshness check to use GoRefs' _meta.last_built_a
 - Modify: `docs/ingestion-runbook.md` (update the pipeline-order description to reflect the GoRefs-backed default; the existing GoRefs-subtree section already references this plan, update it to say "implemented" instead of "planned")
 - Modify: `docs/roadmap.md` (Phase 0 entry: note the GoRefs-sourced pipeline as shipped)
 
-- [ ] **Step 1: Update `docs/architecture.md`**
+- [x] **Step 1: Update `docs/architecture.md`**
 
 In the Scripts table, update the `ingest/ingest.ts` row to describe the new default (GoRefs-backed) pipeline. Add a note next to `sources/game-master.ts`, `sources/shiny-sheet.ts`, `sources/pogoapi-badges.ts`, `sources/pokemon-go-api.ts`, and the `transform/*.ts` files still present but dormant: "not called by the default `npm run ingest` pipeline as of the GoRefs swap — kept as a manual reactivation path, see the design doc."
 
-- [ ] **Step 2: Update `docs/ingestion-runbook.md`**
+- [x] **Step 2: Update `docs/ingestion-runbook.md`**
 
 Rewrite the "Order" section's numbered steps to describe: build (queries GoRefs, no separate fetch step), slug-check, sprites, sqlite, manifest — matching Task 6's actual final `steps` array. Update the `GoRefs` subtree section (added earlier this project) to say the swap described there is now implemented, linking to this plan file.
 
-- [ ] **Step 3: Update `docs/roadmap.md`**
+- [x] **Step 3: Update `docs/roadmap.md`**
 
 In Phase 0's entry, add a note that the GoRefs-sourced pipeline swap has shipped, linking to `docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md` and this plan.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/architecture.md docs/ingestion-runbook.md docs/roadmap.md
