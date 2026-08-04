@@ -82,14 +82,14 @@ is explicitly **out of scope** for this plan — track it as follow-up (Task
   the wrong thing (`latest`/`history` sort after ISO timestamp dirnames), which is
   exactly the bug class this spec exists to kill. This is why Task 1 relocates the
   data, not just the code.
-- **pogoapi_net discovery:** verified during planning that `pokemon-go-api/pokemon-go-api`
-  (branch `gh-pages`, path `api/`) and `https://pokeapi.co/api/v2/` both support the
-  GitHub-contents / root-index discovery pattern the spec describes. No public GitHub
-  source repo for `pogoapi.net` itself was found during this planning session (a
-  `gh api search/repositories?q=pogoapi` turned up unrelated projects). `pogoapi_net`
-  therefore uses the spec's explicit default no-op discovery (`discover_endpoints()`
-  prints "no discovery available for this source") rather than a guessed override —
-  revisit if a real listing endpoint for pogoapi.net is confirmed later.
+- **All three overridable sources have verified live discovery mechanisms** (confirmed
+  via `curl` during planning, not guessed): `pokemon-go-api/pokemon-go-api` (branch
+  `gh-pages`, path `api/`) via GitHub's contents API; `https://pokeapi.co/api/v2/`'s
+  root resource index; and `pogoapi_net`'s own `https://pogoapi.net/api/v1/api_hashes.json`
+  — a native listing endpoint (47 files total, filename → content hashes), simpler than
+  a GitHub-contents lookup and requires no repo-name guessing. As of 2026-08-04 it lists
+  28 files not in the current 19-endpoint `active` seed (e.g. `pokemon_evolutions.json`,
+  `raid_bosses.json`, `pvp_charged_moves.json`) — real discovery value, not a stub.
 
 ---
 
@@ -735,10 +735,9 @@ git commit -m "Seed config/source_templates/*_endpoints.yml for all 7 sources"
 """discover_endpoints() hooks + staleness gate (spec section 3).
 
 Default is an explicit no-op ("no discovery available for this source") --
-used by alexelgt_game_masters, pvpoke, rplus_shiny, local_authoring, and
-pogoapi_net (no verified public listing endpoint found; see plan Global
-Constraints). pokemon_go_api and pokeapi have real overrides below,
-verified live during planning.
+used by alexelgt_game_masters, pvpoke, rplus_shiny, local_authoring (no
+listable "other endpoints" concept). pokemon_go_api, pokeapi, and
+pogoapi_net have real overrides below, all verified live during planning.
 """
 
 import datetime
@@ -801,9 +800,32 @@ def _discover_pokeapi(config: Dict[str, Any], registry: Dict[str, Any]) -> List[
     return found
 
 
+def _discover_pogoapi_net(config: Dict[str, Any], registry: Dict[str, Any]) -> List[Dict[str, str]]:
+    """pogoapi.net exposes its own file listing at /api_hashes.json -- a dict
+    keyed by filename (e.g. "raid_bosses.json") with per-file content hashes.
+    No GitHub lookup needed; verified live during planning (47 files total
+    as of 2026-08-04, vs. 19 in the current active seed)."""
+    base_url = config.get("base_url", "https://pogoapi.net/api/v1")
+    hashes_url = base_url.rstrip("/") + "/api_hashes.json"
+    res = requests.get(hashes_url, timeout=15)
+    res.raise_for_status()
+    file_map = res.json()
+    known = _known_names(registry)
+    found = []
+    for filename in sorted(file_map.keys()):
+        if not filename.endswith(".json") or filename == "api_hashes.json":
+            continue
+        name = filename[:-5]
+        if name in known:
+            continue
+        found.append({"name": name, "path": f"/{filename}"})
+    return found
+
+
 _DISCOVERERS = {
     "pokemon_go_api": _discover_pokemon_go_api,
     "pokeapi": _discover_pokeapi,
+    "pogoapi_net": _discover_pogoapi_net,
 }
 
 
@@ -840,7 +862,7 @@ Expected: `ok`
 Run: `uv run python3 -c "from src.discovery import discover_endpoints; print(discover_endpoints('pvpoke', {}, {'active': [], 'candidates': [], 'ignored': []}))"`
 Expected: prints `[pvpoke] No discovery available for this source.` then `[]`
 
-- [ ] **Step 4: Live-verify the two real overrides (requires network)**
+- [ ] **Step 4: Live-verify the three real overrides (requires network)**
 
 Run:
 ```bash
@@ -848,16 +870,22 @@ uv run python3 -c "
 from src.discovery import discover_endpoints
 from src.endpoint_registry import load_endpoint_registry
 
-for source_key in ['pokemon_go_api', 'pokeapi']:
+configs = {
+    'pokemon_go_api': {},
+    'pokeapi': {'base_url': 'https://pokeapi.co/api/v2'},
+    'pogoapi_net': {'base_url': 'https://pogoapi.net/api/v1'},
+}
+for source_key, cfg in configs.items():
     reg = load_endpoint_registry(source_key)
-    found = discover_endpoints(source_key, {'base_url': 'https://pokeapi.co/api/v2'} if source_key == 'pokeapi' else {}, reg)
-    print(source_key, 'new candidates:', [f['name'] for f in found])
+    found = discover_endpoints(source_key, cfg, reg)
+    print(source_key, 'new candidates:', len(found), [f['name'] for f in found][:5], '...')
 "
 ```
-Expected: no traceback; `pokemon_go_api` prints an empty or small list (everything in
+Expected: no traceback. `pokemon_go_api` prints an empty or small list (everything in
 its seed is already `active`, so genuinely new names would only appear if upstream
-added files since 2026-08-04); `pokeapi` likely lists many names (only 4 of ~50+
-PokeAPI resource types are seeded active) — that's correct, expected behavior, not a bug.
+added files since 2026-08-04). `pokeapi` lists many names (only 4 of ~50+ PokeAPI
+resource types are seeded active). `pogoapi_net` lists roughly 28 names (47 upstream
+files vs. 19 seeded active) — all three are correct, expected behavior, not a bug.
 
 - [ ] **Step 5: Commit**
 
@@ -1677,9 +1705,6 @@ not a `go_refs.py` flag).
   run enough real cycles to have its own history? archive outside the repo?
   keep indefinitely as a historical record?) -- open question for whoever
   does the reader migration above.
-- **`pogoapi_net` discovery** has no real override (default no-op) -- no
-  public GitHub source repo was found during planning. Revisit if one
-  surfaces.
 - **Sprite/asset fetching** (`src/fetchers_legacy/pokemon_go_api.py`'s
   `download_assets()`) was not ported to the per-endpoint model -- assets
   aren't a JSON endpoint and the spec doesn't cover them. Still only
@@ -1714,3 +1739,8 @@ git commit -m "Add handoff note for fetch-verification-pipeline CLI wiring + rea
   out explicitly rather than silently picking one interpretation.
 - **CLI wiring:** confirmed absent from every task via the "No CLI wiring" Global
   Constraint and Task 14's explicit follow-up note.
+- **pogoapi_net discovery:** originally planned as a GitHub-contents lookup with no
+  confirmed repo (would have shipped as the default no-op). User pointed out
+  `pogoapi.net/api/v1/api_hashes.json` — a native listing endpoint, verified live
+  (47 files vs. 19 seeded active) — corrected Task 6 and the Global Constraints note
+  to use it instead of guessing at a GitHub repo.
