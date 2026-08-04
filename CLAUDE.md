@@ -10,6 +10,8 @@ Core principles:
 - Simple, maintainable architecture
 - Long-term extensibility over short-term hacks
 
+Operating priority: minimizing token usage is the top-priority constraint on how work gets done in this repo. The Working Guidelines below exist in service of that.
+
 ---
 
 ## Project Invariants
@@ -30,6 +32,12 @@ These should almost never change.
 - Prefer modifying existing systems over creating parallel ones.
 - Ask for clarification when requirements are ambiguous.
 - Keep changes scoped to the requested task.
+- Prefer targeted edits over full-file rewrites when modifying existing files.
+- Don't narrate routine actions (file reads, searches, standard edits, routine command runs, progress updates). Only surface non-routine findings, decisions, or blockers.
+- In background/job sessions, keep narration to near-zero. In interactive sessions, ask clarifying questions rather than guess on ambiguous requirements.
+- Prefer bulleted lists over prose in responses where it fits.
+- Plans/specs (`docs/superpowers/plans/*.md`, specs) are authored and committed on `master`; execution happens in an isolated worktree/branch.
+- Any task touching 5+ files must leave a handoff/log file under `docs/todo/` recording assumptions, so another agent/session can pick it up (matches the existing pattern, e.g. `docs/todo/gorefs-ingestion-swap-pre-merge-testing.md`).
 
 ---
 
@@ -65,6 +73,9 @@ Operational runbooks:
 Trackers & Logs:
 → docs/issues.md
 → docs/costume-lookup-verification.md
+
+Decision rationale:
+→ docs/decisions.md
 
 Version history:
 → CHANGELOG.md
