@@ -7,18 +7,24 @@
 per-endpoint fetch tracking with cross-source retry, an endpoint registry
 separate from `sources.yml`, best-effort discovery of new endpoints, a
 `latest/`+`history/` snapshot layout that fixes the empty-snapshot bug, a
-central fetch-attempt log, and a Fetch+Discovery Markdown report — as new,
-self-contained modules that don't yet touch `go_refs.py`'s CLI dispatch.
+central fetch-attempt log, and a Fetch+Discovery Markdown report — as new
+code on a fresh branch, with the old `src/fetchers/` deleted outright
+rather than preserved.
 
 **Architecture:** All new code lives in new files (`src/fetchers/` rebuilt
 fresh, `src/endpoint_registry.py`, `src/discovery.py`,
 `src/snapshot_store.py`, `src/fetch_history.py`, `src/fetch_orchestrator.py`,
-`src/fetch_report.py`). The *existing* fetcher implementations and the raw
-data they've already collected move to holding locations
-(`src/fetchers_legacy/`, `raw_dumps_legacy/`) untouched and still fully
-functional — `go_refs.py`'s current `--fetch`/`--build` keep working exactly
-as today, just reading/writing the legacy locations. Nothing in this plan
-calls the new orchestrator from `go_refs.py`.
+`src/fetch_report.py`). The old `src/fetchers/` package is deleted, not
+relocated — this is a new branch, git history is the holding pen, and
+merge friction later is accepted. `go_refs.py` is not modified at all.
+`src/builder.py`, `src/engine.py`, `src/profiler.py`, `src/build_tables.py`,
+`src/models.py`, `src/reference_shim.py`, `src/paranoid_check.py`, and
+`src/ingest_community_submissions.py` are confirmed (via Serena symbol
+inspection, see Task 1) to be downstream build/test tooling, not fetch
+code — left untouched, and will raise `ImportError` on `from src.fetchers
+import FetcherRegistry` (only `src/builder.py` has this import) until
+someone rebuilds that call site later. That breakage is accepted, not
+fixed here.
 
 **Tech Stack:** Python 3.11+, `requests`, `pyyaml` — no new dependencies.
 
@@ -33,152 +39,121 @@ happens; that plan's own Task 9 addendum says new flags this spec needs
 lands. Editing `go_refs.py`'s CLI now would conflict with that plan and get
 overwritten. Confirmed via `git log`: the typer plan exists on this branch
 but has not been executed yet (`go_refs.py` is still `argparse` as of this
-writing). Wiring `--fetch`/`--reexplore`/`--no-report` to this new pipeline
-is explicitly **out of scope** for this plan — track it as follow-up (Task
-14 records this).
+writing). Wiring `--fetch`/`--reexplore`/`--no-report` to this new pipeline,
+and the auto-render/auto-open-on-close report behavior described below, are
+explicitly **out of scope** for this plan — Task 14 records both as
+follow-up.
 
 ## Global Constraints
 
 - **Scope:** `vendor/reference/GoRefs` only, per the spec. All paths below
   are relative to that directory — `cd vendor/reference/GoRefs` before
   running any command in this plan.
-- **No CLI wiring.** Do not modify `go_refs.py`'s `main()`/argparse, `run_fetching()`,
-  `run_freshness_check()`, or add any new CLI flags. The only edits this plan makes
-  to `go_refs.py` are the two import-line fixes in Task 1 (needed so the *existing*
-  CLI keeps working after fetchers move to a holding package — not new functionality).
-- **Tests deliberately deferred.** Per explicit user instruction (2026-08-04, token
-  budget), this plan does not add new `pytest` files. Every task's verification step
-  is a runnable command (`python -c "..."` or `pytest -q`) with the exact expected
-  output stated, so a fresh executor can tell done from broken without a test suite.
-  Adding real coverage for this subsystem is tracked as follow-up in Task 14's
-  handoff note.
-- **Baseline (capture before Task 1, recheck after every task):** `uv run pytest -q`
-  at the start of this plan reports **134 passed, 1 skipped, 7 failed**. The 7
-  pre-existing failures (unrelated to this plan, do not fix them here):
-  - `tests/test_local_authoring_costume_display_name_join.py::test_curated_costume_token_reaches_forms_table`
-  - `tests/test_local_authoring_costume_display_name_join.py::test_uncurated_costume_token_leaves_display_name_none`
-  - `tests/test_master_engine.py::test_costumes_gender_and_raid_bosses_fixes`
-  - `tests/test_pokemon_go_api_frillish_cutover.py::test_frillish_produces_exactly_two_correctly_identified_form_rows`
-  - `tests/test_pokemon_go_api_single_source_domains.py::test_raidboss_template_injects_tier_via_key_becomes_field`
-  - `tests/test_pokemon_go_api_single_source_domains.py::test_raidboss_composite_identity_distinguishes_same_pokemon_across_tiers`
-  - `tests/test_species_claims.py::test_species_build_emits_base_stat_claims`
-
-  After every task in this plan, `uv run pytest -q` must report the exact same 7
-  names failing and the same 134/1 pass/skip counts — never more, never different
-  names. If a count changes, stop and investigate before continuing.
-- **`reexplore_interval_days = 7`**, stored in a new top-level `settings:` block in
-  `config/sources.yml` (not per-source).
-- **Retry policy:** exactly 3 total attempts per endpoint, no backoff delay between
-  attempts (spec's own stated default when nothing else is specified).
-- **Two `FetcherRegistry` classes exist after Task 1** — `src.fetchers_legacy.base.FetcherRegistry`
-  (old, still used by `go_refs.py` + `src/builder.py`) and `src.fetchers.base.FetcherRegistry`
-  (new, built by this plan, not imported by anything outside its own modules + the Task 12
-  smoke script). Never import both unaliased in the same file.
-- **Raw data layout:** the pre-existing timestamped-snapshot data in `raw_dumps/` moves to
-  `raw_dumps_legacy/` in Task 1 (read/written only by the legacy fetchers, unchanged
-  behavior). All new-pipeline data lands in a fresh `raw_dumps/<source>/latest/` +
-  `raw_dumps/<source>/history/`. The two layouts must never coexist in one source's
-  directory — `sorted(iterdir())[-1]`-style legacy readers would silently pick up
-  the wrong thing (`latest`/`history` sort after ISO timestamp dirnames), which is
-  exactly the bug class this spec exists to kill. This is why Task 1 relocates the
-  data, not just the code.
-- **All three overridable sources have verified live discovery mechanisms** (confirmed
-  via `curl` during planning, not guessed): `pokemon-go-api/pokemon-go-api` (branch
-  `gh-pages`, path `api/`) via GitHub's contents API; `https://pokeapi.co/api/v2/`'s
-  root resource index; and `pogoapi_net`'s own `https://pogoapi.net/api/v1/api_hashes.json`
-  — a native listing endpoint (47 files total, filename → content hashes), simpler than
-  a GitHub-contents lookup and requires no repo-name guessing. As of 2026-08-04 it lists
-  28 files not in the current 19-endpoint `active` seed (e.g. `pokemon_evolutions.json`,
-  `raid_bosses.json`, `pvp_charged_moves.json`) — real discovery value, not a stub.
+- **No CLI wiring, no test writing or running.** Do not modify `go_refs.py`
+  at all. Do not create `pytest` files and do not run the existing
+  `pytest` suite as a checkpoint — per explicit user instruction
+  (2026-08-04, token budget), verification in every task below is a
+  runnable `python -c "..."` command with expected output stated, meant to
+  be read and eyeballed, not asserted against a test runner.
+- **Old `src/fetchers/` is deleted outright**, not relocated to a legacy
+  package. New branch — git history holds the old code if it's ever
+  needed. This is why there's only one `FetcherRegistry` class in this
+  plan (`src.fetchers.base.FetcherRegistry`, built fresh in Task 2), not
+  two.
+- **Downstream files are confirmed untouched.** Task 1 uses Serena to
+  confirm exactly what `src/builder.py`, `src/engine.py`, `src/profiler.py`,
+  and `src/build_tables.py` do before anything is deleted, so "is this part
+  of the fetch process" isn't guessed at.
+- **Raw data:** no `raw_dumps/` migration in this plan. The new pipeline
+  writes `raw_dumps/<source>/latest/` + `history/` directly; any
+  pre-existing timestamped snapshot directories from the old fetchers are
+  left alone, unread by anything (the only code that read them,
+  `src.fetchers`, no longer exists in its old form). Cleanup of old
+  snapshot dirs is a later decision, not this plan's.
+- **`reexplore_interval_days = 7`**, stored in a new top-level `settings:`
+  block in `config/sources.yml` (not per-source).
+- **Retry policy:** exactly 3 total attempts per endpoint, no backoff delay
+  between attempts (spec's own stated default when nothing else is
+  specified).
+- **Report system — this plan starts it, doesn't finish it.** Per user
+  clarification (2026-08-04): every `go_refs.py` task (fetch, build, serve,
+  docs, test-paranoid, ...) is meant to write a timestamped JSON state file,
+  which `go_refs.py` parses into one Markdown report and auto-opens before
+  it exits, unless a future `--no-report` flag is passed. This plan builds
+  the underlying **logging/state mechanism** in full (Task 8's
+  `fetch_history.jsonl`, Task 10's `report_state/*.json` + `render_report()`)
+  and the **Fetch + Discovery** sections' real rendering, matching the
+  spec's stated scope for this round. The auto-render-on-exit / auto-open /
+  `--no-report` behavior itself is CLI wiring (`go_refs.py` calling
+  `render_report()` at the end of every invocation) and is deferred with
+  the rest of the CLI wiring — Task 14 records it explicitly so it isn't
+  lost. **New this round, from the same clarification:** endpoints that
+  fetched successfully but have no matching schema-mapping template raise
+  a MAJOR ISSUE in the Fetch section ("un-assigned endpoints") — see Task 9
+  Step 1 and Task 10.
 
 ---
 
-### Task 1: Relocate legacy fetchers + raw data to holding locations
+### Task 1: Confirm scope with Serena, then delete old `src/fetchers/`
 
 **Files:**
-- Move: `src/fetchers/` → `src/fetchers_legacy/`
-- Move: `raw_dumps/` → `raw_dumps_legacy/`
-- Modify: `go_refs.py:34`, `src/builder.py:17-18`, `tests/test_fetcher_freshness.py:2-3`
-- Modify: `src/fetchers_legacy/base.py` (default dump dir)
+- Delete: `src/fetchers/` (entire old package)
 
-**Interfaces:**
-- Produces: `src.fetchers_legacy.base.FetcherRegistry`, `src.fetchers_legacy.base.BaseFetcher`
-  (same API as before the move — only the import path and default dump directory change).
+**Interfaces:** none — this task removes code, adds none.
 
-- [ ] **Step 1: Move the fetchers package**
+Before deleting anything, confirm via Serena (not grep) which files in `src/`
+are actually part of the fetch process (get deleted) versus downstream
+build/test tooling (stay untouched). This step's findings are recorded here
+so Task 14's handoff doesn't have to re-derive them.
 
-```bash
-git mv src/fetchers src/fetchers_legacy
-```
+- [ ] **Step 1: Get a symbol overview of every other file in `src/`**
 
-- [ ] **Step 2: Move the raw data**
+Using Serena's `get_symbols_overview` (not grep) on each of: `src/builder.py`,
+`src/engine.py`, `src/profiler.py`, `src/build_tables.py`, `src/models.py`,
+`src/reference_shim.py`, `src/paranoid_check.py`, `src/ingest_community_submissions.py`.
 
-```bash
-git mv raw_dumps raw_dumps_legacy
-```
+Findings from this planning session (re-verify if the codebase has changed
+since 2026-08-04):
 
-- [ ] **Step 3: Repoint the legacy fetchers' default dump directory**
+| File | Role | Part of fetch process? |
+|---|---|---|
+| `src/builder.py` | `GoRefsMasterEngine` — collects/resolves claims from already-fetched raw dumps, writes the master DuckDB, exports Parquet. Reads raw data via `FetcherRegistry.get_fetcher_class(...).load_latest_raw(...)` as a convenience, but its own job is building, not fetching. | No — downstream consumer |
+| `src/engine.py` | Generic template-driven extraction engine (`run_source`, `extract_transformed_records`, `_load_template_and_records`) reading `config/source_templates/*.yml` + raw snapshots. | No — downstream consumer |
+| `src/profiler.py` | `SourceProfiler` — inspects a raw snapshot to generate/update `config/source_templates/*.yml` (the `--deep-dive` CLI flag). | No — downstream consumer |
+| `src/build_tables.py` | `build_exploration_tables()` — explicitly the spec's own non-goal (possible head start for the deferred exploration-DuckDB sub-project). | No — unrelated, deferred elsewhere |
+| `src/models.py` | Pydantic models (`SpeciesModel`, `FormModel`, `MoveModel`, `DiscrepancyModel`). | No |
+| `src/reference_shim.py` | `load_reference_json_shim()` — loads `reference.json` into `refjson_*` tables. | No |
+| `src/paranoid_check.py` | `run_paranoid_check()` / `--test-paranoid` dual-method field-coverage check. Already has its own "endpoint not mapped by any template" logic (`find_templates_for_source`, `mapped_source_fields`, `classify_endpoint_fields`) — the closest existing precedent for this plan's new "un-assigned endpoints" MAJOR ISSUE (Task 9/10), reused only as a reference pattern, not imported. | No |
+| `src/ingest_community_submissions.py` | `ingest_submission_csv()` — CSV ingestion for community submissions, unrelated to upstream fetching. | No |
 
-In `src/fetchers_legacy/base.py`, find `BaseFetcher.__init__`:
+Only `src/fetchers/` (the old per-source `fetch()` implementations) is the
+fetch process. Everything else stays.
 
-```python
-    def __init__(self, source_key: str, config: Dict[str, Any], base_dump_dir: Path = Path("raw_dumps")):
-```
+- [ ] **Step 2: Note the one call site that will break**
 
-Change the default to:
+`src/builder.py` has `import src.fetchers` and `from src.fetchers import FetcherRegistry`
+(used to call `.load_latest_raw(...)` when reading raw dumps for the build).
+Once Task 2/3 replace `src/fetchers/` with the new per-endpoint API (no
+`load_latest_raw`), this import will still resolve (the module exists) but
+calls to the old methods will raise `AttributeError` at runtime — `--build`
+breaks. This is accepted, not fixed in this plan (`src/builder.py` is
+"the other scripts" the user will rebuild separately).
 
-```python
-    def __init__(self, source_key: str, config: Dict[str, Any], base_dump_dir: Path = Path("raw_dumps_legacy")):
-```
-
-Also add a short note at the top of the module docstring:
-
-```python
-"""Base fetcher module for Pokémon GO reference data source fetchers.
-
-LEGACY as of the fetch-verification-pipeline plan (2026-08-04) -- kept
-functionally intact so go_refs.py's current --fetch/--build keep working
-unchanged. New fetch work lives in src/fetchers/ (per-endpoint model). See
-docs/superpowers/plans/2026-08-04-fetch-verification-pipeline-plan.md.
-
-Handles timestamped snapshot storage, pre-flight commit/ETag checks, raw payload storage.
-"""
-```
-
-- [ ] **Step 4: Fix the three import sites**
-
-`go_refs.py:34`:
-```python
-from src.fetchers_legacy import FetcherRegistry
-```
-
-`src/builder.py:17-18`:
-```python
-import src.fetchers_legacy
-from src.fetchers_legacy import FetcherRegistry
-```
-
-`tests/test_fetcher_freshness.py:2-3`:
-```python
-from src.fetchers_legacy.pogoapi_net import PogoApiFetcher
-from src.fetchers_legacy.pokeapi import PokeApiFetcher
-```
-
-- [ ] **Step 5: Verify nothing else references the old path**
-
-Run: `grep -rn "src\.fetchers\b" --include="*.py" . | grep -v fetchers_legacy | grep -v "^\./src/fetchers/"`
-Expected: no output (the new `src/fetchers/` package doesn't exist yet — Task 2 creates it).
-
-- [ ] **Step 6: Verify the baseline is unchanged**
-
-Run: `uv run pytest -q`
-Expected: `134 passed, 1 skipped, 7 failed` — the same 7 names listed in Global Constraints.
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 3: Delete the old package**
 
 ```bash
-git add -A -- src/fetchers_legacy src/fetchers raw_dumps_legacy raw_dumps go_refs.py src/builder.py tests/test_fetcher_freshness.py
-git commit -m "Relocate legacy fetchers and raw_dumps to holding locations for the fetch-verification rebuild"
+git rm -r src/fetchers
+```
+
+- [ ] **Step 4: Verify it's gone**
+
+Run: `ls src/ | grep fetchers`
+Expected: no output (nothing left).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git commit -m "Delete legacy src/fetchers/ (per-source fetch() model) ahead of the per-endpoint rebuild"
 ```
 
 ---
@@ -200,12 +175,11 @@ git commit -m "Relocate legacy fetchers and raw_dumps to holding locations for t
 
 `src/fetchers/__init__.py`:
 ```python
-"""New per-endpoint fetcher package (fetch-verification-pipeline spec, 2026-08-03).
+"""Per-endpoint fetcher package (fetch-verification-pipeline spec, 2026-08-03).
 
 Every source normalizes to a flat list of named endpoints, defined in
 config/source_templates/<source>_endpoints.yml (see src/endpoint_registry.py),
-not here. See src/fetchers_legacy/ for the pre-migration whole-source fetch()
-model this replaces.
+not here. Replaces the deleted whole-source fetch() model.
 """
 from .base import BaseFetcher, EndpointFetchResult, FetcherRegistry
 
@@ -257,8 +231,8 @@ class EndpointFetchResult:
 class BaseFetcher:
     """Per-endpoint fetcher. Subclasses normally need no overrides -- build_url()
     combines config's base_url/url with an endpoint's path, and fetch_endpoint()
-    does a generic HTTP GET + JSON-agnostic byte hash. Override fetch_endpoint()
-    directly for non-HTTP sources (see LocalAuthoringFetcher)."""
+    does a generic HTTP GET + byte hash. Override fetch_endpoint() directly for
+    non-HTTP sources (see LocalAuthoringFetcher)."""
 
     def __init__(self, source_key: str, config: Dict[str, Any]):
         self.source_key = source_key
@@ -291,9 +265,7 @@ class BaseFetcher:
 
 
 class FetcherRegistry:
-    """Registry for the NEW per-endpoint fetchers. Distinct from
-    src.fetchers_legacy.base.FetcherRegistry -- never import both unaliased
-    in the same module."""
+    """Registry for per-endpoint fetchers."""
 
     _registry: Dict[str, Type[BaseFetcher]] = {}
 
@@ -370,10 +342,10 @@ from .base import BaseFetcher, FetcherRegistry
 class PokemonGoApiFetcher(BaseFetcher):
     """Endpoints from pokemon-go-api.github.io. Generic fetch_endpoint().
 
-    Sprite asset download (src/fetchers_legacy/pokemon_go_api.py's
-    download_assets()) is not part of the per-endpoint model and isn't
-    ported here -- assets aren't a JSON endpoint. Left on the legacy
-    fetcher; revisit if/when assets need their own tracked pipeline.
+    Sprite asset download (the deleted legacy fetcher's download_assets())
+    is not part of the per-endpoint model and isn't ported here -- assets
+    aren't a JSON endpoint. Revisit if/when assets need their own tracked
+    pipeline.
     """
 ```
 
@@ -728,6 +700,15 @@ git commit -m "Seed config/source_templates/*_endpoints.yml for all 7 sources"
   (list of `{"name", "path"}` not already known); `needs_reexplore(registry, interval_days) -> bool`.
   Consumed by Task 9's `run_discovery_pass`.
 
+All three sources with a real listing mechanism get a verified-live override
+(confirmed via `curl` during planning, not guessed): `pokemon_go_api` via
+GitHub's contents API (`pokemon-go-api/pokemon-go-api`, branch `gh-pages`,
+path `api/`); `pokeapi` via its own `/api/v2/` root resource index;
+`pogoapi_net` via its own `https://pogoapi.net/api/v1/api_hashes.json`
+listing (47 files total as of 2026-08-04, vs. 19 in the current `active`
+seed — genuine discovery value, e.g. `pokemon_evolutions.json`,
+`raid_bosses.json`, `pvp_charged_moves.json` all show up as candidates).
+
 - [ ] **Step 1: Write the module**
 
 `src/discovery.py`:
@@ -1053,6 +1034,13 @@ git commit -m "Add snapshot_store.py: latest/+history/ layout with the empty-sna
 - Produces: `append_fetch_attempt(source, endpoint, timestamp, outcome, error=None, history_path=...)`.
   Consumed by Task 9's orchestrator.
 
+This is the "logging aspect" of the new report system, per user clarification: a
+durable, timestamped, append-only record `go_refs.py` will eventually parse into
+the Fetch report section (Task 10 renders it via `run_fetch_pass()`'s summary
+today; a future CLI-wiring task could additionally read this raw log directly for
+a "how flaky is this endpoint over time" view — not built this round, but the log
+itself is durable and complete from day one).
+
 - [ ] **Step 1: Write the module**
 
 `src/fetch_history.py`:
@@ -1114,7 +1102,7 @@ git commit -m "Add fetch_history.py: central .fetch_history.jsonl attempt log"
 
 ---
 
-### Task 9: `src/fetch_orchestrator.py` — worklist + retry sweep + discovery pass
+### Task 9: `src/fetch_orchestrator.py` — worklist + retry sweep + discovery pass + unassigned-endpoint check
 
 **Files:**
 - Create: `src/fetch_orchestrator.py`
@@ -1123,7 +1111,7 @@ git commit -m "Add fetch_history.py: central .fetch_history.jsonl attempt log"
 - Consumes: `FetcherRegistry` (Task 2), `endpoint_registry` (Task 4), `discovery` (Task 6),
   `snapshot_store` (Task 7), `fetch_history` (Task 8).
 - Produces: `build_worklist(sources_config) -> List[dict]`; `run_fetch_pass(sources_config) -> dict`
-  (`{"succeeded": [...], "failed": [...]}`, keys formatted `"{source_key}:{endpoint_name}"`);
+  (`{"succeeded": [...], "failed": [...], "unassigned": [...]}`, keys formatted `"{source_key}:{endpoint_name}"`);
   `run_discovery_pass(sources_config, interval_days, force=False) -> dict` (`{source_key: [new candidate names]}`).
   Consumed by Task 10 (report) and Task 12 (smoke test).
 
@@ -1138,15 +1126,24 @@ source, attempts each once in source order, then re-queues only the
 failures and retries the queue after the FULL first pass completes -- up to
 MAX_ATTEMPTS total attempts per endpoint. A source's failures never block
 later sources; retries never happen inline within one source's own loop.
+
+Also flags "un-assigned" endpoints: fetched successfully but with no
+matching config/source_templates/*.yml schema-mapping template, so nothing
+downstream can use the data yet. Best-effort heuristic (exact filename
+match) -- src/paranoid_check.py's find_templates_for_source()/
+mapped_source_fields() do the thorough, field-level version; reuse that
+later if this heuristic proves too noisy.
 """
 
 import datetime
+from pathlib import Path
 from typing import Any, Dict, List
 
 from src import discovery, endpoint_registry, fetch_history, snapshot_store
 from src.fetchers.base import FetcherRegistry
 
 MAX_ATTEMPTS = 3
+TEMPLATES_DIR = Path("config/source_templates")
 
 
 def _now_iso() -> str:
@@ -1195,6 +1192,21 @@ def _attempt_one(item: Dict[str, Any]) -> bool:
     return True
 
 
+def find_unassigned_endpoints(succeeded_keys: List[str], templates_dir: Path = TEMPLATES_DIR) -> List[str]:
+    """An endpoint is 'unassigned' if neither <source>.yml nor
+    <source>_<endpoint>.yml exists under templates_dir. Heuristic only --
+    doesn't follow a template's own source_key: override (e.g.
+    alexelgt_game_masters' templates are named game_master_*.yml)."""
+    unassigned = []
+    for key in succeeded_keys:
+        source_key, endpoint_name = key.split(":", 1)
+        whole_source = templates_dir / f"{source_key}.yml"
+        per_endpoint = templates_dir / f"{source_key}_{endpoint_name}.yml"
+        if not whole_source.exists() and not per_endpoint.exists():
+            unassigned.append(key)
+    return unassigned
+
+
 def run_fetch_pass(sources_config: Dict[str, Any]) -> Dict[str, Any]:
     worklist = build_worklist(sources_config)
     pending = list(worklist)
@@ -1218,7 +1230,8 @@ def run_fetch_pass(sources_config: Dict[str, Any]) -> Dict[str, Any]:
                 snapshot_store.mark_endpoint_failed(item["source_key"], item["name"], "exhausted retries")
         pending = next_pending
 
-    return {"succeeded": sorted(succeeded), "failed": sorted(failed)}
+    unassigned = find_unassigned_endpoints(sorted(succeeded))
+    return {"succeeded": sorted(succeeded), "failed": sorted(failed), "unassigned": unassigned}
 
 
 def run_discovery_pass(sources_config: Dict[str, Any], interval_days: int, force: bool = False) -> Dict[str, List[str]]:
@@ -1288,15 +1301,17 @@ assert data is not None
 print('ok')
 "
 ```
-Expected: `{'succeeded': [...], 'failed': []}` then `ok`. Inspect
+Expected: `{'succeeded': [...], 'failed': [], 'unassigned': [...]}` then `ok`. Inspect
 `raw_dumps/local_authoring/latest/.manifest.json` afterward — should show
-`costume_lookup` and `community_submissions` with `status: ok`.
+`costume_lookup` and `community_submissions` with `status: ok`. `unassigned` will
+likely list both (no `local_authoring*.yml` template exists under this exact naming
+today) — expected, not a bug; this is the new signal working as designed.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add src/fetch_orchestrator.py
-git commit -m "Add fetch_orchestrator.py: worklist + cross-source retry sweep + discovery pass"
+git commit -m "Add fetch_orchestrator.py: worklist + cross-source retry sweep + discovery pass + unassigned-endpoint check"
 ```
 
 ---
@@ -1311,7 +1326,11 @@ git commit -m "Add fetch_orchestrator.py: worklist + cross-source retry sweep + 
   (writes `output/fetch_report.md`, also returns the Markdown). Only `fetch` and `discovery`
   sections render in detail this round — `serve`, `docs`, `test_paranoid` render as
   `_Not yet run._` placeholders per the spec's non-goals (their shell exists so headers
-  never move later; full implementation is out of scope).
+  never move later; full implementation is out of scope). Per user clarification, EVERY
+  `go_refs.py` task is meant to eventually write its own section here with a timestamp —
+  this module's shape (one JSON state file per section, pure-function render) already
+  supports that; only the CLI call sites that would write `serve`/`docs`/`test_paranoid`
+  state are the deferred part (Task 14).
 
 - [ ] **Step 1: Write the module**
 
@@ -1363,13 +1382,17 @@ def _render_fetch_section(data: Dict[str, Any]) -> str:
     lines = ["## Fetch", ""]
     succeeded = data.get("succeeded", [])
     failed = data.get("failed", [])
+    unassigned = data.get("unassigned", [])
     lines.append(f"- Succeeded: {len(succeeded)}")
     lines.append(f"- Failed: {len(failed)}")
-    if failed:
+    lines.append(f"- Unassigned (no template): {len(unassigned)}")
+    if failed or unassigned:
         lines.append("")
         lines.append("**MAJOR ISSUES**")
         for key in failed:
             lines.append(f"- `{key}` failed all attempts")
+        for key in unassigned:
+            lines.append(f"- `{key}` fetched but has no schema-mapping template")
     return "\n".join(lines)
 
 
@@ -1410,7 +1433,7 @@ def render_report(sections_written_this_run: List[str]) -> str:
     return markdown
 ```
 
-- [ ] **Step 2: Verify collapsed-by-freshness rendering, using scratch state**
+- [ ] **Step 2: Verify collapsed-by-freshness rendering + the unassigned MAJOR ISSUE, using scratch state**
 
 Run:
 ```bash
@@ -1418,12 +1441,13 @@ uv run python3 -c "
 import src.fetch_report as fr
 fr.STATE_DIR.mkdir(parents=True, exist_ok=True)
 
-fr.write_section_state('fetch', {'succeeded': ['a:b'], 'failed': ['c:d']})
+fr.write_section_state('fetch', {'succeeded': ['a:b'], 'failed': ['c:d'], 'unassigned': ['a:b']})
 md = fr.render_report(['fetch'])
 assert '## Fetch' in md
 assert 'Succeeded: 1' in md
 assert 'MAJOR ISSUES' in md
 assert '\`c:d\` failed all attempts' in md
+assert '\`a:b\` fetched but has no schema-mapping template' in md
 assert '_Not yet run._' in md  # discovery/serve/docs/test_paranoid, untouched
 
 fr.write_section_state('discovery', {'new_candidates': {'pokeapi': ['ability']}})
@@ -1440,7 +1464,7 @@ Expected: `ok`. Inspect `output/fetch_report.md` afterward to eyeball the render
 
 ```bash
 git add src/fetch_report.py
-git commit -m "Add fetch_report.py: per-section JSON state + single render_report() step"
+git commit -m "Add fetch_report.py: per-section JSON state + render_report() + unassigned-endpoint MAJOR ISSUES"
 ```
 
 ---
@@ -1478,12 +1502,7 @@ print('ok')
 ```
 Expected: `ok`
 
-- [ ] **Step 3: Verify the legacy CLI still runs unaffected (`load_config()` doesn't care about unknown top-level keys)**
-
-Run: `uv run pytest -q`
-Expected: same `134 passed, 1 skipped, 7 failed` baseline as Task 1.
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add config/sources.yml
@@ -1538,7 +1557,7 @@ def main() -> None:
     print("Running fetch pass...")
     fetch_summary = run_fetch_pass(sources_config)
     write_section_state("fetch", fetch_summary)
-    print(f"  succeeded: {len(fetch_summary['succeeded'])}, failed: {len(fetch_summary['failed'])}")
+    print(f"  succeeded: {len(fetch_summary['succeeded'])}, failed: {len(fetch_summary['failed'])}, unassigned: {len(fetch_summary['unassigned'])}")
 
     print("Running discovery pass...")
     discovery_summary = run_discovery_pass(sources_config, interval_days)
@@ -1569,15 +1588,11 @@ cat output/fetch_report.md
 cat raw_dumps/local_authoring/latest/.manifest.json
 head -5 raw_dumps/.fetch_history.jsonl
 ```
-Expected: a readable Fetch + Discovery report; a manifest with real `status`/`content_hash`/`fetched_at`
+Expected: a readable Fetch + Discovery report (including an "Unassigned" count and
+any MAJOR ISSUES entries); a manifest with real `status`/`content_hash`/`fetched_at`
 entries; JSONL lines matching the schema from Task 8.
 
-- [ ] **Step 4: Verify the baseline test suite is still unaffected**
-
-Run: `uv run pytest -q`
-Expected: same `134 passed, 1 skipped, 7 failed` baseline.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add scripts/fetch_pipeline_smoke.py
@@ -1636,11 +1651,14 @@ Add at the end of the file:
 `raw_dumps/<source>/latest/`+`history/` layout (spec section 4,
 `src/snapshot_store.py`) only grows `history/` when an endpoint's content
 actually changes; unchanged endpoints never duplicate. Same caveat as
-`fetch-skip-unchanged.md` above: not yet reachable from `--fetch`. The
-pre-existing ~53MB of timestamped snapshots moved to `raw_dumps_legacy/`
-in this plan's Task 1 and still needs an explicit retention decision of
-its own (delete, archive elsewhere, or leave as historical record) --
-not decided by this plan, flagged in the Task 14 handoff note.
+`fetch-skip-unchanged.md` above: not yet reachable from `--fetch`. The old
+per-source `fetch()` implementations that produced the original ~53MB of
+timestamped snapshots were deleted outright (not migrated) in
+`docs/superpowers/plans/2026-08-04-fetch-verification-pipeline-plan.md`
+Task 1; the pre-existing timestamped snapshot directories themselves were
+left in place, unread by anything now, and still need an explicit
+retention decision (delete, archive elsewhere, or leave as historical
+record) -- not decided by this plan, flagged in the Task 14 handoff note.
 ```
 
 - [ ] **Step 3: Commit**
@@ -1675,46 +1693,70 @@ built the full new subsystem (`src/fetchers/`, `src/endpoint_registry.py`,
 `src/fetch_orchestrator.py`, `src/fetch_report.py`) implementing
 `docs/superpowers/specs/2026-08-03-fetch-verification-pipeline-design.md`.
 Verified working end-to-end via `scripts/fetch_pipeline_smoke.py` (manual,
-not a `go_refs.py` flag).
+not a `go_refs.py` flag). The old `src/fetchers/` (per-source `fetch()`
+model) was deleted outright, not preserved -- this is a new branch, git
+history holds it if needed.
 
 **What's deliberately NOT done yet:**
 
-- **CLI wiring.** `go_refs.py` still runs the legacy `--fetch`/`--build`
-  path unchanged (`src/fetchers_legacy/`). Wiring `--fetch` (and new
-  `--reexplore`/`--no-report` flags) to `src/fetch_orchestrator.py` was
-  explicitly deferred because `docs/superpowers/plans/2026-08-04-typer-flat-cli-migration.md`
-  is queued to rewrite `go_refs.py`'s entire CLI dispatch first (argparse
-  → Typer flat options) -- do the wiring as a Typer option, following that
-  plan's Task 9 addendum pattern, after it lands.
-- **Reader migration.** `src/builder.py`, `src/engine.py`
-  (`_get_latest_snapshot_dir`), `src/profiler.py`, and `src/build_tables.py`
-  all still read the legacy `raw_dumps_legacy/<source>/<timestamp>/` layout
-  via `src.fetchers_legacy`. None of them read the new
-  `raw_dumps/<source>/latest/` layout yet -- `src/snapshot_store.read_latest()`
-  exists for this but has no caller outside its own module and
-  `fetch_orchestrator`. This is real work for whenever the live build
-  pipeline cuts over to the new data.
-- **Tests.** No `pytest` coverage was added for any of the 7 new modules,
-  per explicit user instruction (2026-08-04, token budget) -- every task in
+- **CLI wiring.** `go_refs.py` was not touched at all. Wiring `--fetch`
+  (and new `--reexplore`/`--no-report` flags) to `src/fetch_orchestrator.py`
+  was explicitly deferred because
+  `docs/superpowers/plans/2026-08-04-typer-flat-cli-migration.md` is queued
+  to rewrite `go_refs.py`'s entire CLI dispatch first (argparse → Typer flat
+  options) -- do the wiring as a Typer option, following that plan's Task 9
+  addendum pattern, after it lands.
+- **Report auto-render/auto-open on exit.** Per 2026-08-04 clarification,
+  the intended end state is: every `go_refs.py` task writes a timestamped
+  JSON state file (Task 10's `report_state/<section>.json` mechanism
+  already supports this for any section), `go_refs.py` calls
+  `render_report()` once at the end of every invocation and auto-opens
+  `output/fetch_report.md` (`xdg-open`/`$EDITOR`, precedence still an open
+  spec question), and a future `--no-report` flag suppresses only the
+  auto-open, never the render. None of the `go_refs.py`-side behavior
+  exists yet -- `render_report()` itself is ready to be called from
+  wherever that CLI wiring lands.
+- **`serve`/`docs`/`test_paranoid` report sections** only render as
+  `_Not yet run._` placeholders (`src/fetch_report.py`'s `SECTION_ORDER`) --
+  no code anywhere writes their state files yet. Per spec non-goals, only
+  `fetch`+`discovery` got real implementations this round.
+- **`src/builder.py` is broken.** Its `from src.fetchers import
+  FetcherRegistry` (line ~18) now resolves to the NEW per-endpoint
+  `FetcherRegistry`, which has no `load_latest_raw()` method --
+  `--build` will raise `AttributeError` the first time it tries to read
+  raw data. `src/engine.py`, `src/profiler.py`, and `src/build_tables.py`
+  don't import `src.fetchers` directly but assume the OLD
+  `raw_dumps/<source>/<timestamp>/` layout via their own
+  `sorted(iterdir())[-1]`-style scanning -- none of them read the new
+  `raw_dumps/<source>/latest/` layout. `src/snapshot_store.read_latest()`
+  exists as the new reader but has no caller outside its own module and
+  `fetch_orchestrator`. Confirmed via Serena (Task 1) that all four files
+  are downstream build tooling, not fetch code -- rebuilding them to read
+  the new layout is real, separate work.
+- **`tests/test_fetcher_freshness.py`** imports the old `PogoApiFetcher`/
+  `PokeApiFetcher` classes and exercises their old `fetch(force=...)`
+  pre-flight-skip behavior, which no longer exists on the new classes
+  (same names, different API -- `fetch_endpoint(name, path)` now). This
+  test file was not touched (no test writing/running this round, per
+  explicit instruction) -- it will fail or error if run. Needs a rewrite
+  or deletion whenever tests are added back for this subsystem.
+- **No `pytest` coverage** exists for any of the 7 new modules, per
+  explicit user instruction (2026-08-04, token budget) -- every task in
   the plan instead has a runnable manual-verification command with stated
-  expected output. Add real test coverage before this subsystem becomes the
-  build pipeline's actual data source.
-- **`raw_dumps_legacy/` retention.** The plan's Task 1 relocated ~53MB of
-  pre-existing timestamped snapshots here unchanged. No decision was made
-  on what happens to this data long-term (delete once the new pipeline has
-  run enough real cycles to have its own history? archive outside the repo?
-  keep indefinitely as a historical record?) -- open question for whoever
-  does the reader migration above.
-- **Sprite/asset fetching** (`src/fetchers_legacy/pokemon_go_api.py`'s
+  expected output.
+- **Old timestamped `raw_dumps/<source>/<timestamp>/` directories** were
+  left in place (not deleted, not migrated). No decision was made on their
+  long-term retention -- open question for whoever rebuilds the readers
+  above.
+- **Sprite/asset fetching** (the deleted legacy fetcher's
   `download_assets()`) was not ported to the per-endpoint model -- assets
-  aren't a JSON endpoint and the spec doesn't cover them. Still only
-  reachable via the legacy fetcher.
+  aren't a JSON endpoint and the spec doesn't cover them.
 
 **Where to look first:** `src/fetch_orchestrator.py`'s `run_fetch_pass()`/
 `run_discovery_pass()` are the two functions a Typer `--fetch`/`--reexplore`
 handler would call; `src/fetch_report.py`'s `render_report()` is what
-`--no-report` would suppress the auto-open of (report generation itself
-always runs, per spec).
+`go_refs.py` should call once at the end of every invocation, with
+`--no-report` suppressing only the auto-open that would follow it.
 ```
 
 - [ ] **Step 2: Commit**
@@ -1740,7 +1782,15 @@ git commit -m "Add handoff note for fetch-verification-pipeline CLI wiring + rea
 - **CLI wiring:** confirmed absent from every task via the "No CLI wiring" Global
   Constraint and Task 14's explicit follow-up note.
 - **pogoapi_net discovery:** originally planned as a GitHub-contents lookup with no
-  confirmed repo (would have shipped as the default no-op). User pointed out
-  `pogoapi.net/api/v1/api_hashes.json` — a native listing endpoint, verified live
-  (47 files vs. 19 seeded active) — corrected Task 6 and the Global Constraints note
-  to use it instead of guessing at a GitHub repo.
+  confirmed repo. User pointed out `pogoapi.net/api/v1/api_hashes.json` — a native
+  listing endpoint, verified live (47 files vs. 19 seeded active) — Task 6 uses it.
+- **Scope correction (2026-08-04, second round):** user asked for old `src/fetchers/`
+  to be deleted outright rather than relocated to a legacy holding package (new
+  branch), confirmed via Serena that `builder.py`/`engine.py`/`profiler.py`/
+  `build_tables.py`/`models.py`/`reference_shim.py`/`paranoid_check.py`/
+  `ingest_community_submissions.py` are downstream tooling, not fetch code (Task 1),
+  and clarified the "new report system" is this spec's §6 report — this plan starts
+  its logging/state mechanism in full and adds an "unassigned endpoints" MAJOR ISSUE
+  (Task 9/10) but still defers the CLI-side auto-render/auto-open wiring, per the
+  "no CLI wiring yet" constraint. All `pytest`-running verification steps were also
+  removed per "don't write or run tests."
