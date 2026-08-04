@@ -41,7 +41,12 @@ in `config/sources.yml` yet.
 
 ## Non-goals (this round)
 
-- The exploration DuckDB (separate sub-project, follow-up spec).
+- The exploration DuckDB (separate sub-project, follow-up spec). Possible
+  head start found while scoping unrelated work: `src/build_tables.py`'s
+  `build_exploration_tables()` and `src/inventory_analysis.py`'s
+  `analyze_exploration_inventory()` look like they may already be partial
+  exploration-DB tooling — check what they actually do before designing
+  this sub-project from scratch.
 - Literal diff/patch storage format — `latest/` + per-file archive-on-change
   gets most of the benefit without needing a diff/patch representation.
 - Auto-adding discovered endpoints to the active fetch list — discovery only
@@ -135,6 +140,14 @@ Discovery report section on *every* run until a human moves it to `active`
 or `ignored`. It is never silently dropped and never expires on its own.
 
 ### 4. Snapshot layout: `latest/` + per-file archive-on-change
+
+Directly resolves two pre-existing GoRefs TODO items that describe this same
+problem from the GoBuddy-integration side: `todo/fetch-skip-unchanged.md`
+(`--fetch` should skip sources with no upstream change) and
+`todo/raw-dumps-retention.md` (`raw_dumps/` needs a retention policy before
+it grows unbounded — 53MB/~20 snapshot dirs already, most representing runs
+where nothing upstream actually changed). Both should be closed once this
+design lands, rather than tracked separately.
 
 Rejected an earlier version of this design (per-file dedup with
 "unchanged, see prior snapshot" pointers) because it would require
