@@ -733,11 +733,11 @@ git commit -m "Extract buildSpriteManifest from buildSpecies for the GoRefs-back
 - Consumes: `probeOrSpawnServer`/`stopServerIfOwned` (Task 3), `attachGoRefs` (Task 3), `buildReferenceDataFromGoRefs` (Task 4), `buildSpriteManifest` (Task 5).
 - Produces: the default `PipelineStep[]` in `main()` now calls new `fetchAndAttachGoRefs`/`buildFromGoRefs` steps; old `fetchAll`/`build` are renamed `fetchAllFromGameMaster`/`buildFromGameMaster`, exported, unused by the default steps list.
 
-- [ ] **Step 1: Rename the old functions**
+- [x] **Step 1: Rename the old functions**
 
 In `scripts/ingest/ingest.ts`, rename `fetchAll` → `fetchAllFromGameMaster` and `build` → `buildFromGameMaster` (the function declarations only — their bodies are unchanged). Keep them exported.
 
-- [ ] **Step 2: Write the new `buildFromGoRefs` step**
+- [x] **Step 2: Write the new `buildFromGoRefs` step**
 
 ```typescript
 // Default pipeline step, replacing fetchAllFromGameMaster + buildFromGameMaster.
@@ -811,11 +811,11 @@ async function buildFromGoRefs(): Promise<ReferenceData> {
 
 Note: `regions` is now derived from `mapped.species.map(s => s.regionSlug)` (present on `refjson_species` rows directly) rather than `GEN_TO_REGION` — since GoRefs' `refjson_species` already carries `regionSlug` per row, there's no need to re-derive it from `gen` via the `GEN_TO_REGION` map for this step (that map stays defined and used only by the still-dormant `buildFromGameMaster`).
 
-- [ ] **Step 2b: Add the missing imports**
+- [x] **Step 2b: Add the missing imports**
 
 At the top of `ingest.ts`, add imports for `probeOrSpawnServer`/`stopServerIfOwned`/`attachGoRefs`/`buildReferenceDataFromGoRefs`/`buildSpriteManifest` per Step 2's code, alongside the existing `createPokedexSource`/`PokedexEntry` imports (already present for the now-dormant path — reused here for sprites).
 
-- [ ] **Step 3: Rewire the default pipeline steps**
+- [x] **Step 3: Rewire the default pipeline steps**
 
 In `main()`'s `steps: PipelineStep[]` array, replace the `{ name: "fetch", run: fetchAllFromGameMaster }` and the `build` step's `run: async () => { referenceData = await buildFromGameMaster(); }` with:
 
@@ -841,14 +841,14 @@ const steps: PipelineStep[] = [
 
 (Drop the separate `"fetch"` step entirely — `buildFromGoRefs` now does its own fetching (GoRefs connection + the one pokedex.json fetch for sprites) inline, matching the design doc's "one new step replaces fetch and build" architecture. Drop the standalone `"sprites"` step too — sprite *manifest* building now happens inside `buildFromGoRefs`, but the actual sprite *download+convert* (`fetchSprites()`/`buildSprites()`) should still run as its own step afterward, unchanged; keep that step, just after `"build"`.)
 
-- [ ] **Step 4: Update `test/ingest-pipeline.test.ts` if needed**
+- [x] **Step 4: Update `test/ingest-pipeline.test.ts` if needed**
 
 Re-read the existing tests (shown earlier) — they operate on fake `PipelineStep[]` arrays passed directly to `runPipeline`, not on `main()`'s real steps list, so they should be unaffected. Run them to confirm:
 
 Run: `npx tsx --test test/ingest-pipeline.test.ts`
 Expected: PASS, unchanged.
 
-- [ ] **Step 5: Run a real end-to-end ingest**
+- [x] **Step 5: Run a real end-to-end ingest**
 
 ```bash
 cd vendor/reference/GoRefs && uv run go_refs.py --build && cd ../../..
@@ -857,12 +857,12 @@ npm run ingest -- --skip-sprites --skip-sqlite
 
 Expected: completes without error, `src/data/reference.json` is rewritten, console output shows species/form counts matching GoRefs' `refjson_species`/`refjson_forms` row counts (1024 species, 2716 forms).
 
-- [ ] **Step 6: Run the full test suite**
+- [x] **Step 6: Run the full test suite**
 
 Run: `npm run test`
 Expected: all tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add scripts/ingest/ingest.ts

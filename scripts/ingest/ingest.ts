@@ -28,11 +28,15 @@ import { PGAPI_FILES, createPokedexSource, type PokedexEntry } from "./sources/p
 import { SHINY_SHEET_CACHE_PATH, SHINY_SHEET_URL, createShinySheetSource, type ShinySheetRecord } from "./sources/shiny-sheet";
 import { loadVendorBadgeDisplayNames } from "./sources/pogoapi-badges";
 
-import { buildSpecies, GEN_TO_REGION } from "./transform/species";
+import { buildSpecies, buildSpriteManifest, GEN_TO_REGION } from "./transform/species";
 import { buildFormMoves, buildMoves, buildTypeEffectivenessAndWeather } from "./transform/moves";
 import { buildSpeciesEvolutions } from "./transform/evolutions";
 import { buildPlayerProgression } from "./transform/player-progression";
 import { buildPvp } from "./transform/pvp";
+
+import { probeOrSpawnServer, stopServerIfOwned } from "./gorefs/server";
+import { attachGoRefs } from "./gorefs/query";
+import { buildReferenceDataFromGoRefs } from "./gorefs/domains";
 
 import { writeReferenceJson } from "./write/reference-json";
 import { writeSpriteManifest } from "./write/sprite-manifest";
@@ -70,9 +74,14 @@ export function parseFlags(argv: string[]): Flags {
   };
 }
 
-// --- Fetch -------------------------------------------------------------
+// --- Fetch (dormant: GAME_MASTER/pokemon-go-api/shiny-sheet path) --------
+//
+// Not wired into the default pipeline (see buildFromGoRefs below) -- kept
+// as a manual reactivation path per-domain if the refjson_* freeze becomes
+// a real problem before GoRefs promotes domains to canonical. See
+// docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md.
 
-async function fetchAll(): Promise<void> {
+export async function fetchAllFromGameMaster(): Promise<void> {
   console.log("Fetching GAME_MASTER...");
   await fetchToCache(GAME_MASTER_URL, resolve(CACHE_V2_ROOT, GAME_MASTER_CACHE_PATH));
 
@@ -92,7 +101,7 @@ function loadJson<T>(cacheRelativePath: string): T {
   return JSON.parse(readFileSync(resolve(CACHE_V2_ROOT, cacheRelativePath), "utf-8")) as T;
 }
 
-async function build(): Promise<ReferenceData> {
+export async function buildFromGameMaster(): Promise<ReferenceData> {
   console.log("Loading cached data...");
   const gameMaster = createGameMasterIndex(loadJson<unknown[]>(GAME_MASTER_CACHE_PATH));
   const pokedex = createPokedexSource(loadJson<PokedexEntry[]>("pgapi/pokedex.json"));
@@ -183,6 +192,73 @@ async function build(): Promise<ReferenceData> {
   console.log(`PvP: ${referenceData.pvpRankRewards.length} rank rewards, ${referenceData.pvpRankRequirements.length} rank requirements.`);
   console.log(`Gaps: ${writeResult.staticGapsCount} stateless + ${writeResult.comparativeGapsCount} comparative -> ${writeResult.gapsOutPath}`);
   console.log(`Sprite manifest: ${Object.keys(speciesResult.spriteManifest).length} slugs -> ${spriteManifestPath}`);
+  console.log(`Reference data version: ${writeResult.referenceDataVersion}`);
+  console.log(`-> ${writeResult.outPath}`);
+
+  return referenceData;
+}
+
+// --- Build (default: GoRefs-backed) ---------------------------------------
+//
+// Default pipeline step, replacing fetchAllFromGameMaster + buildFromGameMaster.
+// See docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md
+// for the full rationale. fetchAllFromGameMaster/buildFromGameMaster stay
+// defined above, dormant -- a manual reactivation path per domain if the
+// refjson_* freeze becomes a real problem before GoRefs promotes domains to
+// canonical.
+
+const GOREFS_PORT = 8000;
+
+async function buildFromGoRefs(): Promise<ReferenceData> {
+  console.log("Connecting to GoRefs...");
+  const handle = await probeOrSpawnServer({ port: GOREFS_PORT, repoRoot: REPO_ROOT });
+  const conn = await attachGoRefs(handle.port);
+
+  let mapped: Awaited<ReturnType<typeof buildReferenceDataFromGoRefs>>;
+  try {
+    mapped = await buildReferenceDataFromGoRefs(conn);
+  } finally {
+    await conn.close();
+    await stopServerIfOwned(handle);
+  }
+
+  const allTypeSlugs = new Set([
+    ...mapped.formTypes.map((ft) => ft.typeSlug),
+    ...mapped.moves.map((m) => m.typeSlug),
+    ...mapped.typeEffectiveness.flatMap((te) => [te.attackingTypeSlug, te.defendingTypeSlug]),
+    ...mapped.weatherBoosts.map((wb) => wb.typeSlug),
+  ]);
+
+  const referenceData: ReferenceData = {
+    // refjson_species already carries regionSlug per row, so no need to
+    // re-derive it from gen via GEN_TO_REGION here (that map stays defined
+    // and used only by the still-dormant buildFromGameMaster).
+    regions: [...new Set(mapped.species.map((s) => s.regionSlug))].map((slug) => ({ slug, name: capitalize(slug) })),
+    types: [...allTypeSlugs].map((slug) => ({ slug, name: capitalize(slug) })),
+    // No fake hardcoded rows -- see the design doc's backgrounds row.
+    backgrounds: [],
+    ...mapped,
+  };
+
+  console.log("Fetching pokedex for sprite manifest...");
+  await fetchToCache(PGAPI_FILES["pgapi/pokedex.json"], resolve(CACHE_V2_ROOT, "pgapi/pokedex.json"));
+  const pokedex = createPokedexSource(loadJson<PokedexEntry[]>("pgapi/pokedex.json"));
+  const spriteManifest = buildSpriteManifest(pokedex);
+
+  const missingSpriteSlugs = [...referenceData.species.map((s) => s.slug), ...referenceData.forms.map((f) => f.slug)].filter(
+    (slug) => !(slug in spriteManifest),
+  );
+  if (missingSpriteSlugs.length > 0) {
+    console.warn(
+      `Warning: ${missingSpriteSlugs.length} slug(s) have no sprite-manifest entry (will fall back to species-level art or no art): ${missingSpriteSlugs.slice(0, 10).join(", ")}${missingSpriteSlugs.length > 10 ? "..." : ""}`,
+    );
+  }
+
+  const spriteManifestPath = writeSpriteManifest(spriteManifest);
+  const writeResult = writeReferenceJson(referenceData);
+
+  console.log(`Wrote ${referenceData.species.length} species, ${referenceData.forms.length} forms.`);
+  console.log(`Sprite manifest: ${Object.keys(spriteManifest).length} slugs -> ${spriteManifestPath}`);
   console.log(`Reference data version: ${writeResult.referenceDataVersion}`);
   console.log(`-> ${writeResult.outPath}`);
 
@@ -280,7 +356,7 @@ async function manifest(): Promise<void> {
 
 async function runCheckMode(): Promise<void> {
   console.log("=== check: fetch ===");
-  await fetchAll();
+  await fetchAllFromGameMaster();
 
   console.log("=== check: manifest ===");
   // Built in-memory only -- never written to disk. Writing here would stamp
@@ -344,11 +420,10 @@ async function main(): Promise<void> {
   let referenceData: ReferenceData | undefined;
 
   const steps: PipelineStep[] = [
-    { name: "fetch", run: fetchAll },
     {
       name: "build",
       run: async () => {
-        referenceData = await build();
+        referenceData = await buildFromGoRefs();
       },
     },
     {
