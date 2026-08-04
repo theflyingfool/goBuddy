@@ -102,14 +102,14 @@ Expected: all tests pass (141+ as of the last known-good count in `TODO.md`)
 
 Remove (or mark done, matching the file's existing "DONE" convention seen at the top of `TODO.md`) the "Add a `_meta` table" entry, in the same working copy (`vendor/reference/GoRefs/TODO.md`).
 
-- [ ] **Step 7: Commit in GoBuddy**
+- [x] **Step 7: Commit in GoBuddy**
 
 ```bash
 git add vendor/reference/GoRefs/src/builder.py vendor/reference/GoRefs/tests/test_meta_table.py vendor/reference/GoRefs/TODO.md
 git commit -m "GoRefs: add _meta table (last-pulled-per-source + last-built-at)"
 ```
 
-- [ ] **Step 8: Publish to GoRefs' own remote via subtree push**
+- [x] **Step 8: Publish to GoRefs' own remote via subtree push**
 
 ```bash
 git subtree push --prefix=vendor/reference/GoRefs https://github.com/theflyingfool/GoRefs.git main
