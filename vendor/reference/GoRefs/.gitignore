@@ -24,3 +24,8 @@ output/GoRefs_Master.duckdb
 # Personal, unverified investigation scratchpad -- local-only by design (2026-08-02)
 POSSIBLE_ISSUES.md
 
+# exploration/pull_and_explore.py's output -- large (raw/ ~20MB, .duckdb
+# ~155MB, past GitHub's 100MB blob limit), fully re-derivable via --fetch/--build
+exploration/raw/
+exploration/exploration.duckdb
+
