@@ -12,7 +12,8 @@ export interface ServerHandle {
   process?: ChildProcess;
 }
 
-async function isGoRefsReachable(port: number): Promise<boolean> {
+/** Exported for callers (e.g. write/manifest.ts's cheap freshness fallback) that need to know reachability without committing to probeOrSpawnServer's spawn-and-wait-up-to-15s behavior. */
+export async function isGoRefsReachable(port: number): Promise<boolean> {
   try {
     const res = await fetch(`http://localhost:${port}/output/GoRefs_Master.duckdb`, { method: "HEAD" });
     return res.ok;

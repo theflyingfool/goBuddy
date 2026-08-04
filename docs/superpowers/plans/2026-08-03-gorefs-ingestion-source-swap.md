@@ -880,7 +880,7 @@ git commit -m "Wire GoRefs-backed pipeline into ingest.ts's default steps; drop 
 **Interfaces:**
 - Produces: `IngestionManifest` gains a `gorefs: { lastBuiltAt: string; fetchedAt: string }` field. The old `gameMaster`/`pokemonGoApi`/`shinySheet` fields stay in the type (dormant path still uses them if reactivated) but the default `buildManifest()` populates `gorefs` and leaves the others as empty/placeholder values when GoRefs' `_meta` table is queried instead.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // Add to test/write-manifest.test.ts (read the existing file first to match its exact fixture/mocking conventions before adding this)
@@ -894,12 +894,12 @@ test("buildManifest reads GoRefs' _meta.last_built_at when available", async () 
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx tsx --test test/write-manifest.test.ts`
 Expected: FAIL — `manifest.gorefs` undefined.
 
-- [ ] **Step 3: Implement the manifest change**
+- [x] **Step 3: Implement the manifest change**
 
 In `scripts/ingest/write/manifest.ts`, add to `IngestionManifest`:
 
@@ -930,7 +930,7 @@ async function fetchGoRefsLastBuiltAt(): Promise<string> {
 
 Call this from `buildManifest()` and populate the new `gorefs` field; leave `gameMaster`/`pokemonGoApi`/`shinySheet` populated with empty-string placeholders (`{ commitSha: "", fetchedAt }`, etc.) rather than removing them, since the dormant `fetchAllFromGameMaster`/`buildFromGameMaster` path still expects the full shape if ever manually reactivated.
 
-- [ ] **Step 4: Update `diffManifests` to compare the new field**
+- [x] **Step 4: Update `diffManifests` to compare the new field**
 
 Add to `diffManifests`:
 
@@ -940,12 +940,12 @@ if (before.gorefs.lastBuiltAt !== after.gorefs.lastBuiltAt) {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npx tsx --test test/write-manifest.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Run `ingest:check` for real**
+- [x] **Step 6: Run `ingest:check` for real**
 
 ```bash
 npm run ingest:check
@@ -953,12 +953,12 @@ npm run ingest:check
 
 Expected: runs without error, reports whether GoRefs' `_meta.last_built_at` changed since the last committed manifest.
 
-- [ ] **Step 7: Run the full test suite**
+- [x] **Step 7: Run the full test suite**
 
 Run: `npm run test`
 Expected: all tests pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add scripts/ingest/write/manifest.ts test/write-manifest.test.ts

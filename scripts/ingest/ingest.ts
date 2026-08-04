@@ -355,9 +355,6 @@ async function manifest(): Promise<void> {
 // --- Check mode --------------------------------------------------------
 
 async function runCheckMode(): Promise<void> {
-  console.log("=== check: fetch ===");
-  await fetchAllFromGameMaster();
-
   console.log("=== check: manifest ===");
   // Built in-memory only -- never written to disk. Writing here would stamp
   // a fresh `fetchedAt` into ingestion-manifest.json on every --check run
