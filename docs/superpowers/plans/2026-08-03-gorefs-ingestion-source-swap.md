@@ -468,7 +468,7 @@ git commit -m "Add GoRefs server lifecycle + generic table-reader query layer"
 - Consumes: `GoRefsConnection.queryTable<T>(tableName)` from Task 3.
 - Produces: `buildReferenceDataFromGoRefs(conn: GoRefsConnection, gen ToRegion: Record<number, string>): Promise<Omit<ReferenceData, "backgrounds">>` — the full domain-mapped assembly, minus `backgrounds` (Task 6 handles that literal) and minus `regions`/`types` (Task 6 derives those the same way `ingest.ts`'s current `build()` already does, from the assembled type/region usage).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // test/gorefs-domains.test.ts
@@ -527,12 +527,12 @@ test("buildReferenceDataFromGoRefs assembles every mapped domain from its table"
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx tsx --test test/gorefs-domains.test.ts`
 Expected: FAIL — module doesn't exist yet.
 
-- [ ] **Step 3: Implement `scripts/ingest/gorefs/domains.ts`**
+- [x] **Step 3: Implement `scripts/ingest/gorefs/domains.ts`**
 
 ```typescript
 // Maps every ReferenceData domain to its GoRefs table and assembles the
@@ -590,12 +590,12 @@ export async function buildReferenceDataFromGoRefs(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx tsx --test test/gorefs-domains.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/ingest/gorefs/domains.ts test/gorefs-domains.test.ts
