@@ -21,11 +21,11 @@
 
 ### Task 1: GoRefs `_meta` table (last-pulled-per-source, last-built-at)
 
-**Repo:** `~/Repos/GoRefs` (separate Python repo, pushed to `github.com/theflyingfool/GoRefs`). Not a GoBuddy change.
+**Repo:** no standalone GoRefs clone exists (removed 2026-08-03, per `docs/ingestion-runbook.md`'s "Editing GoRefs itself: no separate clone exists"). `vendor/reference/GoRefs` inside this checkout is the only working copy — GoRefs-side edits are made here, committed in GoBuddy's own history, then published to GoRefs' own remote via `git subtree push`. That publish step is required every time, not optional/batched.
 
 **Files:**
-- Modify: `~/Repos/GoRefs/src/builder.py` (add a `_meta` table write, near the existing `datetime.datetime.now(datetime.timezone.utc).isoformat()` build-timestamp computation at `src/builder.py:1380`)
-- Test: `~/Repos/GoRefs/tests/test_meta_table.py` (new)
+- Modify: `vendor/reference/GoRefs/src/builder.py` (add a `_meta` table write, near the existing `datetime.datetime.now(datetime.timezone.utc).isoformat()` build-timestamp computation at `src/builder.py:1380`)
+- Test: `vendor/reference/GoRefs/tests/test_meta_table.py` (new)
 
 **Interfaces:**
 - Produces: a `_meta` table in `output/GoRefs_Master.duckdb` with columns `source VARCHAR, last_pulled_at VARCHAR` (one row per source, `source = '__build__'` reserved for the overall build timestamp) — later tasks in GoBuddy query this via `SELECT last_pulled_at FROM gorefs._meta WHERE source = '__build__'`.
@@ -56,7 +56,7 @@ Adjust the `GoRefsMasterEngine(...)`/`engine.build(...)` call shape to match `sr
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd ~/Repos/GoRefs && uv run pytest tests/test_meta_table.py -v`
+Run: `cd vendor/reference/GoRefs && uv run pytest tests/test_meta_table.py -v`
 Expected: FAIL — no `_meta` table exists yet.
 
 - [ ] **Step 3: Implement the `_meta` table write**
@@ -90,42 +90,32 @@ Call `self._write_meta_table(con, self.raw_dumps_dir, build_timestamp)` at the p
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd ~/Repos/GoRefs && uv run pytest tests/test_meta_table.py -v`
+Run: `cd vendor/reference/GoRefs && uv run pytest tests/test_meta_table.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Run the full GoRefs test suite to check for regressions**
 
-Run: `cd ~/Repos/GoRefs && uv run pytest -v`
+Run: `cd vendor/reference/GoRefs && uv run pytest -v`
 Expected: all tests pass (141+ as of the last known-good count in `TODO.md`)
 
-- [ ] **Step 6: Commit and push**
+- [ ] **Step 6: Update GoRefs' TODO.md to mark this done**
+
+Remove (or mark done, matching the file's existing "DONE" convention seen at the top of `TODO.md`) the "Add a `_meta` table" entry, in the same working copy (`vendor/reference/GoRefs/TODO.md`).
+
+- [ ] **Step 7: Commit in GoBuddy**
 
 ```bash
-cd ~/Repos/GoRefs
-git add src/builder.py tests/test_meta_table.py
-git commit -m "Add _meta table: last-pulled-per-source + last-built-at"
-git push origin main
+git add vendor/reference/GoRefs/src/builder.py vendor/reference/GoRefs/tests/test_meta_table.py vendor/reference/GoRefs/TODO.md
+git commit -m "GoRefs: add _meta table (last-pulled-per-source + last-built-at)"
 ```
 
-- [ ] **Step 7: Update GoRefs' TODO.md to mark this done**
-
-Remove (or mark done, matching the file's existing "DONE" convention seen at the top of `TODO.md`) the "Add a `_meta` table" entry.
+- [ ] **Step 8: Publish to GoRefs' own remote via subtree push**
 
 ```bash
-git add TODO.md
-git commit -m "Mark _meta table TODO done"
-git push origin main
+git subtree push --prefix=vendor/reference/GoRefs https://github.com/theflyingfool/GoRefs.git main
 ```
 
-- [ ] **Step 8: Pull the update into GoBuddy's vendored subtree**
-
-Back in `/home/nick/Repos/GoBuddy`:
-
-```bash
-git subtree pull --prefix=vendor/reference/GoRefs https://github.com/theflyingfool/GoRefs.git main --squash
-```
-
-**If this produces files outside `vendor/reference/GoRefs/` (GoBuddy's own files leaking in) — a known `git subtree pull` failure mode — do not proceed.** Instead: `git reset --hard` back to the commit before the pull, then re-fetch cleanly via `git rm -rf vendor/reference/GoRefs && git commit -m "Remove vendor/reference/GoRefs before re-adding fresh" && git subtree add --prefix=vendor/reference/GoRefs https://github.com/theflyingfool/GoRefs.git main --squash`. Verify with `diff -rq vendor/reference/GoRefs <fresh-clone-of-GoRefs> --exclude=.git` before trusting the result.
+This is required, not optional — per `docs/ingestion-runbook.md`'s "Editing GoRefs itself" section, a change committed in GoBuddy but never subtree-pushed is effectively lost from GoRefs' own repo's perspective. No `git subtree pull` is needed afterward — the edit was already made directly in the subtree, there's nothing to pull back.
 
 ---
 
