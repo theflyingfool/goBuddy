@@ -169,8 +169,11 @@ def fetch_all() -> None:
 # ---------------------------------------------------------------------------
 
 def _load_file_as_table(con: duckdb.DuckDBPyConnection, table_name: str, path: Path) -> int:
+    """sample_size=-1 makes DuckDB scan every record (not just a leading
+    sample) when inferring each column's type -- matters for files where a
+    field's type only varies in records past the default sample window."""
     con.execute(f'DROP TABLE IF EXISTS "{table_name}"')
-    con.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM read_json_auto(\'{path.as_posix()}\')')
+    con.execute(f"CREATE TABLE \"{table_name}\" AS SELECT * FROM read_json_auto('{path.as_posix()}', sample_size=-1)")
     count = con.execute(f'SELECT count(*) FROM "{table_name}"').fetchone()[0]
     return count
 
@@ -214,6 +217,20 @@ def build_flat_source(con: duckdb.DuckDBPyConnection, source_key: str) -> None:
         table_name = f"{source_key}_{path.stem}"
         count = _load_file_as_table(con, table_name, path)
         print(f"  {table_name}: {count} rows")
+
+
+def build_alexelgt_game_masters_single(con: duckdb.DuckDBPyConnection) -> None:
+    """The whole GAME_MASTER.json array as ONE table (agm_all), in addition
+    to the per-shape-key split below -- DuckDB's read_json_auto with
+    sample_size=-1 unifies all 202 `data` shapes into one wide, sparse
+    struct column (most fields NULL per row). Useful for whole-dump
+    text/field search without picking a shape-key table first."""
+    path = RAW_DIR / "alexelgt_game_masters" / "GAME_MASTER.json"
+    if not path.exists():
+        print("[alexelgt_game_masters] no raw data, skipping (run --fetch first)")
+        return
+    count = _load_file_as_table(con, "agm_all", path)
+    print(f"  agm_all: {count} rows (single table, all shapes unified)")
 
 
 def build_alexelgt_game_masters(con: duckdb.DuckDBPyConnection) -> None:
@@ -319,6 +336,7 @@ def build_all() -> None:
     print("pokeapi:")
     build_flat_source(con, "pokeapi")
     print("alexelgt_game_masters:")
+    build_alexelgt_game_masters_single(con)
     build_alexelgt_game_masters(con)
     print("pvpoke:")
     build_pvpoke(con)
