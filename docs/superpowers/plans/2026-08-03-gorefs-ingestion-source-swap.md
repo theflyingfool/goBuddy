@@ -613,11 +613,11 @@ git commit -m "Add GoRefs domain-to-table mapping and ReferenceData assembly"
 - Produces: `buildSpriteManifest(pokedex: PokedexSource): Record<string, AssetPair>` in `transform/species.ts`, alongside (not replacing) the existing `buildSpecies`.
 - Consumes: `PokedexSource` (`sources/pokemon-go-api.ts`, already exists), `slugFor`/`formTokenFromFormId` (already exported from `transform/species.ts`), `formSlug`/`megaVariantSlug` (`../slug`, already exist).
 
-- [ ] **Step 1: Read the exact extraction source**
+- [x] **Step 1: Read the exact extraction source**
 
 Read `scripts/ingest/transform/species.ts` lines 296-450 (the full `buildSpecies` body) to find every place it writes into `spriteManifest[...]` — confirmed so far: line 407 (`if (entry.assets) spriteManifest[slug] = entry.assets;`, species-level) and further lines handling per-form `assetForms` entries and `megaEvolutions` assets (read the rest of the function body past line 450 to find these — they follow the same `spriteManifest[<slug>] = <AssetPair>` pattern).
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```typescript
 // test/build-sprite-manifest.test.ts
@@ -649,12 +649,12 @@ test("buildSpriteManifest maps a species-level slug to its asset URLs, independe
 
 (Confirm the expected slug string `"bulbasaur"` against what `slugFor("BULBASAUR")` actually returns — read `slugFor`'s implementation, `transform/species.ts:137`, and adjust the assertion to match its real output exactly rather than guessing.)
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npx tsx --test test/build-sprite-manifest.test.ts`
 Expected: FAIL — `buildSpriteManifest` not exported yet.
 
-- [ ] **Step 4: Extract `buildSpriteManifest` from `buildSpecies`**
+- [x] **Step 4: Extract `buildSpriteManifest` from `buildSpecies`**
 
 Add a new exported function to `transform/species.ts` (do not remove anything from `buildSpecies` — this is an addition, copying the sprite-manifest-building lines into a new standalone function):
 
@@ -688,12 +688,12 @@ export function buildSpriteManifest(pokedex: PokedexSource): Record<string, Asse
 
 Fill in the per-form and per-mega-variant loops by copying the real logic from `buildSpecies`'s existing body (found in Step 1) — this must be a faithful copy of the existing, working slug-matching logic, not a reimplementation from scratch.
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npx tsx --test test/build-sprite-manifest.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Add a species-level coverage test too**
+- [x] **Step 6: Add a species-level coverage test too**
 
 ```typescript
 test("buildSpriteManifest covers every species-level slug the pokedex provides assets for", () => {
@@ -708,12 +708,12 @@ test("buildSpriteManifest covers every species-level slug the pokedex provides a
 
 Run: `npx tsx --test test/build-sprite-manifest.test.ts` — expect PASS.
 
-- [ ] **Step 7: Run the full test suite to check for regressions**
+- [x] **Step 7: Run the full test suite to check for regressions**
 
 Run: `npm run test`
 Expected: all existing tests (including `transform-species.test.ts`, unaffected since nothing was removed) still pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add scripts/ingest/transform/species.ts test/build-sprite-manifest.test.ts

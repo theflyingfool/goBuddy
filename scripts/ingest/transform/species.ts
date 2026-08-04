@@ -293,6 +293,69 @@ export interface SpeciesBuildInput {
   shinySheet: ShinySheetSource;
 }
 
+/**
+ * Builds the slug -> sprite-source-URL manifest independent of building full
+ * Species/Form/MegaVariant rows. Extracted from buildSpecies (still present,
+ * dormant) so the default GoRefs-backed pipeline can get sprite URLs without
+ * needing GAME_MASTER or the shiny sheet at all -- this slice only ever read
+ * entry.assets/assetForms/regionForms/megaEvolutions, never gameMaster or
+ * shinySheet. Because there's no GAME_MASTER here, per-species hasMale/
+ * hasFemale can't be derived the way buildSpecies does it -- this uses the
+ * same both-genders fallback gendersForSpecies already falls back to when it
+ * has no genderSettings record, uniformly. For a genderless species this
+ * produces extra male/female sprite-manifest keys instead of the "unknown"
+ * key its real Form row will actually use; the missing "unknown" key falls
+ * back to species-level art (see the slug-drift check in ingest.ts), an
+ * accepted day-one gap, not a bug.
+ */
+export function buildSpriteManifest(pokedex: PokedexSource): Record<string, AssetPair> {
+  const spriteManifest: Record<string, AssetPair> = {};
+  const entries = pokedex.all();
+
+  for (const entry of entries) {
+    const slug = slugFor(entry.id);
+    if (entry.assets) spriteManifest[slug] = entry.assets;
+
+    for (const g of gendersFor(true, true)) {
+      const fSlug = formSlug(slug, null, g);
+      const genderedArt = entry.assetForms?.find((af) => !af.form && !af.costume && (g === "female" ? af.isFemale : !af.isFemale));
+      const art = genderedArt ?? entry.assets;
+      if (art) spriteManifest[fSlug] = art;
+    }
+
+    for (const af of entry.assetForms ?? []) {
+      if (!af.costume) continue;
+      const g: Gender = af.isFemale ? "female" : "male";
+      const fSlug = formSlug(slug, af.form, g, af.costume);
+      spriteManifest[fSlug] = af;
+    }
+
+    for (const region of Object.values(entry.regionForms ?? {})) {
+      const regionToken = formTokenFromFormId(region.formId, entry.id);
+      for (const g of gendersFor(true, true)) {
+        const fSlug = formSlug(slug, regionToken, g);
+        if (region.assets) spriteManifest[fSlug] = region.assets;
+      }
+    }
+
+    if (entry.hasGigantamaxEvolution) {
+      const gmaxArt = entry.assetForms?.find((af) => af.form === "GIGANTAMAX" && !af.costume);
+      for (const g of gendersFor(true, true)) {
+        const fSlug = formSlug(slug, "Gigantamax", g);
+        if (gmaxArt) spriteManifest[fSlug] = gmaxArt;
+      }
+    }
+
+    for (const [megaFormId, megaEntry] of Object.entries(entry.megaEvolutions ?? {})) {
+      const variant = megaVariantKindFromId(megaFormId);
+      const megaSlug = megaVariantSlug(slug, variant);
+      if (megaEntry.assets) spriteManifest[megaSlug] = megaEntry.assets;
+    }
+  }
+
+  return spriteManifest;
+}
+
 export function buildSpecies({ pokedex, gameMaster, shinySheet }: SpeciesBuildInput): SpeciesBuildResult {
   const entries = pokedex.all();
   const shiny = createShinyLookup(shinySheet);
