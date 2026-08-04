@@ -293,6 +293,88 @@ export interface SpeciesBuildInput {
   shinySheet: ShinySheetSource;
 }
 
+/**
+ * Builds the slug -> sprite-source-URL manifest independent of building full
+ * Species/Form/MegaVariant rows. Extracted from buildSpecies (still present,
+ * dormant) so the default GoRefs-backed pipeline can get sprite URLs without
+ * needing GAME_MASTER or the shiny sheet at all -- this slice only ever read
+ * entry.assets/assetForms/regionForms/megaEvolutions, never gameMaster or
+ * shinySheet.
+ *
+ * There's no GAME_MASTER here, so per-species hasMale/hasFemale can't be
+ * derived the way buildSpecies does it directly -- instead, the real gender
+ * set per species is read back off `forms` (the GoRefs-derived
+ * ReferenceData.forms this run is about to ship), which already carries the
+ * correct answer (GoRefs' refjson_forms is a frozen snapshot of a prior
+ * buildSpecies run, built with real GAME_MASTER data). This matters
+ * concretely, not just in theory: a first cut that assumed every species has
+ * both genders produced "-male"/"-female" sprite-manifest keys instead of
+ * "-unknown" for every genderless species -- 193 forms lost their dedicated
+ * art this way in testing, including several Arceus-style cases (18
+ * distinctly-illustrated type forms) where the species-level fallback is
+ * visibly wrong, not just a missing shortcut. Falls back to both-genders
+ * only for a species `forms` has no rows for at all (e.g. brand new,
+ * GoRefs hasn't picked it up yet), matching gendersForSpecies' own
+ * no-data fallback.
+ */
+export function buildSpriteManifest(pokedex: PokedexSource, forms: Form[]): Record<string, AssetPair> {
+  const spriteManifest: Record<string, AssetPair> = {};
+  const entries = pokedex.all();
+
+  const gendersBySpeciesSlug = new Map<string, Set<Gender>>();
+  for (const f of forms) {
+    if (!gendersBySpeciesSlug.has(f.speciesSlug)) gendersBySpeciesSlug.set(f.speciesSlug, new Set());
+    gendersBySpeciesSlug.get(f.speciesSlug)!.add(f.gender);
+  }
+
+  for (const entry of entries) {
+    const slug = slugFor(entry.id);
+    if (entry.assets) spriteManifest[slug] = entry.assets;
+
+    const realGenders = gendersBySpeciesSlug.get(slug);
+    const genders: Gender[] = realGenders && realGenders.size > 0 ? [...realGenders] : gendersFor(true, true);
+    const isGenderless = genders.length === 1 && genders[0] === "unknown";
+
+    for (const g of genders) {
+      const fSlug = formSlug(slug, null, g);
+      const genderedArt = entry.assetForms?.find((af) => !af.form && !af.costume && (g === "female" ? af.isFemale : !af.isFemale));
+      const art = genderedArt ?? entry.assets;
+      if (art) spriteManifest[fSlug] = art;
+    }
+
+    for (const af of entry.assetForms ?? []) {
+      if (!af.costume) continue;
+      const g: Gender = isGenderless ? "unknown" : af.isFemale ? "female" : "male";
+      const fSlug = formSlug(slug, af.form, g, af.costume);
+      spriteManifest[fSlug] = af;
+    }
+
+    for (const region of Object.values(entry.regionForms ?? {})) {
+      const regionToken = formTokenFromFormId(region.formId, entry.id);
+      for (const g of genders) {
+        const fSlug = formSlug(slug, regionToken, g);
+        if (region.assets) spriteManifest[fSlug] = region.assets;
+      }
+    }
+
+    if (entry.hasGigantamaxEvolution) {
+      const gmaxArt = entry.assetForms?.find((af) => af.form === "GIGANTAMAX" && !af.costume);
+      for (const g of genders) {
+        const fSlug = formSlug(slug, "Gigantamax", g);
+        if (gmaxArt) spriteManifest[fSlug] = gmaxArt;
+      }
+    }
+
+    for (const [megaFormId, megaEntry] of Object.entries(entry.megaEvolutions ?? {})) {
+      const variant = megaVariantKindFromId(megaFormId);
+      const megaSlug = megaVariantSlug(slug, variant);
+      if (megaEntry.assets) spriteManifest[megaSlug] = megaEntry.assets;
+    }
+  }
+
+  return spriteManifest;
+}
+
 export function buildSpecies({ pokedex, gameMaster, shinySheet }: SpeciesBuildInput): SpeciesBuildResult {
   const entries = pokedex.all();
   const shiny = createShinyLookup(shinySheet);

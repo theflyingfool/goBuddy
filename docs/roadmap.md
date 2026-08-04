@@ -105,6 +105,17 @@ name/description text `badgeSettings` doesn't carry). Runs first: richer
 backend data makes it easier to see which follow-on features are cheapest
 to build.
 
+**2026-08-04 update: the default pipeline itself changed again.**
+`npm run ingest` no longer fetches GAME_MASTER/pokemon-go-api/the shiny
+sheet directly — it queries the vendored GoRefs project
+(`vendor/reference/GoRefs`, over HTTP via GoRefs' own `--serve`) instead,
+per [docs/superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md](superpowers/specs/2026-08-03-gorefs-ingestion-source-swap-design.md).
+The GAME_MASTER-based pipeline described in the paragraph above still
+exists in the repo (unwired, not deleted — a manual reactivation path), but
+is no longer what a plain `npm run ingest` runs. See
+[ingestion-runbook.md](ingestion-runbook.md)'s "Order" section for the
+current pipeline.
+
 - Spike (historical — see outcome note above): pull data from
   [pogoapi.net](https://pogoapi.net/documentation/) and
   [pokemon-go-api/pokemon-go-api](https://github.com/pokemon-go-api/pokemon-go-api),

@@ -5,6 +5,7 @@
 A local-only Web/Android Pokémon GO companion app that runs fully offline. All personal collection data is saved in a local SQLite database that resides entirely on the device. It provides living-dex progress tracking, completion lens analytics, and fast mobile-optimized checklist interfaces.
 
 Core principles:
+
 - Local-first
 - User owns their data
 - Simple, maintainable architecture
@@ -32,12 +33,28 @@ These should almost never change.
 - Prefer modifying existing systems over creating parallel ones.
 - Ask for clarification when requirements are ambiguous.
 - Keep changes scoped to the requested task.
+- Do not show diffs unless requested; they are often overwhelming and distracting.
+- When executing a multi-task implementation plan (`docs/superpowers/plans/*.md`), leave a resumable trail: check off each step's `- [ ]` box in the plan file itself as it's completed (not just tracked mentally), and commit that alongside the task's code so a fresh session/agent can tell exactly what's done from `git log` + the plan file's checkbox state alone, with no other context. Never batch multiple tasks' checkbox updates into one commit.
 - Prefer targeted edits over full-file rewrites when modifying existing files.
 - Don't narrate routine actions (file reads, searches, standard edits, routine command runs, progress updates). Only surface non-routine findings, decisions, or blockers.
 - In background/job sessions, keep narration to near-zero. In interactive sessions, ask clarifying questions rather than guess on ambiguous requirements.
 - Prefer bulleted lists over prose in responses where it fits.
 - Plans/specs (`docs/superpowers/plans/*.md`, specs) are authored and committed on `master`; execution happens in an isolated worktree/branch.
 - Any task touching 5+ files must leave a handoff/log file under `docs/todo/` recording assumptions, so another agent/session can pick it up (matches the existing pattern, e.g. `docs/todo/gorefs-ingestion-swap-pre-merge-testing.md`).
+
+### Development Phase: Rapid / Pre-Release
+
+This project is still in rapid development. Optimize for iteration speed, not
+polish:
+
+- Don't add or expand test coverage unless asked — no reflexive tests for every
+  change.
+- It's fine to commit code that's incomplete or known-broken; this is not yet
+  a stability-guaranteed codebase.
+- Don't block progress on hardening, edge-case handling, or comprehensive
+  verification unless the task specifically calls for it.
+- This posture applies until the user signals a shift toward stabilization
+  (e.g. approaching a real release, or saying so explicitly).
 
 ---
 
@@ -125,6 +142,7 @@ Examples:
 Stop and ask.
 
 Do not invent:
+
 - project goals
 - future features
 - architecture decisions

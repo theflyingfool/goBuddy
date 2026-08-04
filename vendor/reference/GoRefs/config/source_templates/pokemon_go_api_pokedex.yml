@@ -1,0 +1,76 @@
+source_key: pokemon_go_api
+endpoint: pokedex
+generated_at: '2026-08-03T08:23:25.783542+00:00'
+source_fingerprint: sha256:2286577be4a9ebf5
+record_extraction:
+  unwrap_path: []
+  iterate_mode: top_level_list
+identity_field: id
+field_mappings:
+  id:
+    source_field: id
+    transform: direct
+  formId:
+    source_field: formId
+    transform: direct
+  dexNr:
+    source_field: dexNr
+    transform: direct
+  generation:
+    source_field: generation
+    transform: direct
+  names:
+    source_field: names
+    transform: direct
+  stats:
+    source_field: stats
+    transform: direct
+  primaryType:
+    source_field: primaryType
+    transform: direct
+  secondaryType:
+    source_field: secondaryType
+    transform: direct
+  pokemonClass:
+    source_field: pokemonClass
+    transform: direct
+  quickMoves:
+    source_field: quickMoves
+    transform: direct
+  cinematicMoves:
+    source_field: cinematicMoves
+    transform: direct
+  eliteQuickMoves:
+    source_field: eliteQuickMoves
+    transform: direct
+  eliteCinematicMoves:
+    source_field: eliteCinematicMoves
+    transform: direct
+  assets:
+    source_field: assets
+    transform: direct
+  regionForms:
+    source_field: regionForms
+    transform: direct
+  evolutions:
+    source_field: evolutions
+    transform: direct
+  hasMegaEvolution:
+    source_field: hasMegaEvolution
+    transform: direct
+  megaEvolutions:
+    source_field: megaEvolutions
+    transform: direct
+  hasGigantamaxEvolution:
+    source_field: hasGigantamaxEvolution
+    transform: direct
+  assetForms:
+    source_field: assetForms
+    transform: direct
+gender_signals:
+- signal_type: value_pattern
+  source_field: id
+  pattern: (?i)female
+  value: female
+overrides: {}
+needs_review: []
