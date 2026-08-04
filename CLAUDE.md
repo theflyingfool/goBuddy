@@ -11,6 +11,8 @@ Core principles:
 - Simple, maintainable architecture
 - Long-term extensibility over short-term hacks
 
+Operating priority: minimizing token usage is the top-priority constraint on how work gets done in this repo. The Working Guidelines below exist in service of that.
+
 ---
 
 ## Project Invariants
@@ -33,6 +35,12 @@ These should almost never change.
 - Keep changes scoped to the requested task.
 - Do not show diffs unless requested; they are often overwhelming and distracting.
 - When executing a multi-task implementation plan (`docs/superpowers/plans/*.md`), leave a resumable trail: check off each step's `- [ ]` box in the plan file itself as it's completed (not just tracked mentally), and commit that alongside the task's code so a fresh session/agent can tell exactly what's done from `git log` + the plan file's checkbox state alone, with no other context. Never batch multiple tasks' checkbox updates into one commit.
+- Prefer targeted edits over full-file rewrites when modifying existing files.
+- Don't narrate routine actions (file reads, searches, standard edits, routine command runs, progress updates). Only surface non-routine findings, decisions, or blockers.
+- In background/job sessions, keep narration to near-zero. In interactive sessions, ask clarifying questions rather than guess on ambiguous requirements.
+- Prefer bulleted lists over prose in responses where it fits.
+- Plans/specs (`docs/superpowers/plans/*.md`, specs) are authored and committed on `master`; execution happens in an isolated worktree/branch.
+- Any task touching 5+ files must leave a handoff/log file under `docs/todo/` recording assumptions, so another agent/session can pick it up (matches the existing pattern, e.g. `docs/todo/gorefs-ingestion-swap-pre-merge-testing.md`).
 
 ### Development Phase: Rapid / Pre-Release
 
@@ -82,6 +90,9 @@ Operational runbooks:
 Trackers & Logs:
 → docs/issues.md
 → docs/costume-lookup-verification.md
+
+Decision rationale:
+→ docs/decisions.md
 
 Version history:
 → CHANGELOG.md
