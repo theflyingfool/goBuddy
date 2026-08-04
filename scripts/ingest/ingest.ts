@@ -243,7 +243,7 @@ async function buildFromGoRefs(): Promise<ReferenceData> {
   console.log("Fetching pokedex for sprite manifest...");
   await fetchToCache(PGAPI_FILES["pgapi/pokedex.json"], resolve(CACHE_V2_ROOT, "pgapi/pokedex.json"));
   const pokedex = createPokedexSource(loadJson<PokedexEntry[]>("pgapi/pokedex.json"));
-  const spriteManifest = buildSpriteManifest(pokedex);
+  const spriteManifest = buildSpriteManifest(pokedex, referenceData.forms);
 
   const missingSpriteSlugs = [...referenceData.species.map((s) => s.slug), ...referenceData.forms.map((f) => f.slug)].filter(
     (slug) => !(slug in spriteManifest),
