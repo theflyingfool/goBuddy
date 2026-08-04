@@ -30,7 +30,7 @@
 **Interfaces:**
 - Produces: a `_meta` table in `output/GoRefs_Master.duckdb` with columns `source VARCHAR, last_pulled_at VARCHAR` (one row per source, `source = '__build__'` reserved for the overall build timestamp) — later tasks in GoBuddy query this via `SELECT last_pulled_at FROM gorefs._meta WHERE source = '__build__'`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_meta_table.py
@@ -54,12 +54,12 @@ def test_meta_table_has_build_row_and_per_source_rows(tmp_path):
 
 Adjust the `GoRefsMasterEngine(...)`/`engine.build(...)` call shape to match `src/builder.py`'s actual constructor/method signatures (read the file first — the exact call in the existing test suite, e.g. `tests/test_species_claims.py`, shows the real pattern to copy).
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd vendor/reference/GoRefs && uv run pytest tests/test_meta_table.py -v`
 Expected: FAIL — no `_meta` table exists yet.
 
-- [ ] **Step 3: Implement the `_meta` table write**
+- [x] **Step 3: Implement the `_meta` table write**
 
 In `src/builder.py`, near the existing build-timestamp line (`src/builder.py:1380`):
 
@@ -88,17 +88,17 @@ def _write_meta_table(self, con: duckdb.DuckDBPyConnection, raw_dumps_dir: Path,
 
 Call `self._write_meta_table(con, self.raw_dumps_dir, build_timestamp)` at the point in the existing build flow where `build_timestamp` is already computed (line 1380's vicinity) and `con` (the output DuckDB connection) is available — read the surrounding ~30 lines of `src/builder.py` to find the exact insertion point matching the existing code's structure, and add `import json` at the top of the file if not already imported.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd vendor/reference/GoRefs && uv run pytest tests/test_meta_table.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Run the full GoRefs test suite to check for regressions**
+- [x] **Step 5: Run the full GoRefs test suite to check for regressions**
 
 Run: `cd vendor/reference/GoRefs && uv run pytest -v`
 Expected: all tests pass (141+ as of the last known-good count in `TODO.md`)
 
-- [ ] **Step 6: Update GoRefs' TODO.md to mark this done**
+- [x] **Step 6: Update GoRefs' TODO.md to mark this done**
 
 Remove (or mark done, matching the file's existing "DONE" convention seen at the top of `TODO.md`) the "Add a `_meta` table" entry, in the same working copy (`vendor/reference/GoRefs/TODO.md`).
 
