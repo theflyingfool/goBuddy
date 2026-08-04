@@ -237,7 +237,7 @@ Stop the `--serve` process in the other terminal (Ctrl+C).
   - `attachGoRefs(port: number): Promise<GoRefsConnection>` where `GoRefsConnection = { queryTable<T>(tableName: string): Promise<T[]>; close(): Promise<void> }`
 - Consumes: whichever DuckDB client package Task 2's spike settled on, and the access pattern (A or B) it determined.
 
-- [ ] **Step 1: Write the failing test for the probe/spawn logic**
+- [x] **Step 1: Write the failing test for the probe/spawn logic**
 
 ```typescript
 // test/gorefs-server.test.ts
@@ -268,12 +268,12 @@ test("probeOrSpawnServer detects an already-running GoRefs server and does not s
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx tsx --test test/gorefs-server.test.ts`
 Expected: FAIL — `probeOrSpawnServer` not defined yet.
 
-- [ ] **Step 3: Implement `scripts/ingest/gorefs/server.ts`**
+- [x] **Step 3: Implement `scripts/ingest/gorefs/server.ts`**
 
 ```typescript
 // Verifies whether a GoRefs `--serve` instance is already reachable on the
@@ -343,12 +343,12 @@ export async function stopServerIfOwned(handle: ServerHandle): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx tsx --test test/gorefs-server.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Write the failing test for the query layer**
+- [x] **Step 5: Write the failing test for the query layer**
 
 ```typescript
 // test/gorefs-query.test.ts
@@ -380,12 +380,12 @@ test("attachGoRefs can query a real refjson_* table and returns plain JS values,
 });
 ```
 
-- [ ] **Step 6: Run test to verify it fails**
+- [x] **Step 6: Run test to verify it fails**
 
 Run: `GOREFS_INTEGRATION_TEST=1 npx tsx --test test/gorefs-query.test.ts`
 Expected: FAIL — `attachGoRefs` not defined yet.
 
-- [ ] **Step 7: Implement `scripts/ingest/gorefs/query.ts`**
+- [x] **Step 7: Implement `scripts/ingest/gorefs/query.ts`**
 
 Write this using whichever pattern (A: `httpfs` ATTACH over HTTP, or B: `fetchToCache` + local `ATTACH`) Task 2's spike determined. Pattern A shown; if Task 2 determined pattern B, replace the `ATTACH` call accordingly (see Task 2 Step 4's fallback code).
 
@@ -435,7 +435,7 @@ export async function attachGoRefs(port: number): Promise<GoRefsConnection> {
 }
 ```
 
-- [ ] **Step 8: Build GoRefs and run the integration test**
+- [x] **Step 8: Build GoRefs and run the integration test**
 
 ```bash
 cd vendor/reference/GoRefs && uv run go_refs.py --build && cd ../../..
@@ -444,12 +444,12 @@ GOREFS_INTEGRATION_TEST=1 npx tsx --test test/gorefs-query.test.ts
 
 Expected: PASS. If it fails, this is exactly the spike's risk materializing late — stop and revisit Task 2's chosen pattern before continuing.
 
-- [ ] **Step 9: Run the full test suite to check for regressions**
+- [x] **Step 9: Run the full test suite to check for regressions**
 
 Run: `npm run test`
 Expected: all existing tests still pass (this task added new files, didn't touch existing ones).
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add package.json package-lock.json scripts/ingest/gorefs/server.ts scripts/ingest/gorefs/query.ts test/gorefs-server.test.ts test/gorefs-query.test.ts
